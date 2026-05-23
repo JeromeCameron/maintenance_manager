@@ -11,7 +11,7 @@ def get_invoices(session: Session) -> Sequence[Invoice]:
     return results
 
 
-def get_invoice(session: Session, id: str) -> Optional[Invoice]:
+def get_invoice(session: Session, id: int) -> Optional[Invoice]:
     invoice = session.get(Invoice, id)
     return invoice
 
@@ -23,7 +23,7 @@ def add_invoice(session: Session, invoice: Invoice) -> Invoice:
     return invoice
 
 
-def update_invoice(session: Session, id: str, data: Invoice) -> Optional[Invoice]:
+def update_invoice(session: Session, id: int, data: Invoice) -> Optional[Invoice]:
     db_invoice: Optional[Invoice] = session.get(Invoice, id)
 
     if db_invoice is None:
@@ -39,7 +39,7 @@ def update_invoice(session: Session, id: str, data: Invoice) -> Optional[Invoice
     return db_invoice
 
 
-def delete_invoice(session: Session, id: str) -> bool:
+def delete_invoice(session: Session, id: int) -> bool:
     invoice = session.get(Invoice, id)
     if invoice is None:
         return False

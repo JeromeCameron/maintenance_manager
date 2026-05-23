@@ -11,7 +11,7 @@ def get_suppliers(session: Session) -> Sequence[Supplier]:
     return results
 
 
-def get_supplier(session: Session, supplier_id: str) -> Optional[Supplier]:
+def get_supplier(session: Session, supplier_id: int) -> Optional[Supplier]:
     supplier = session.get(Supplier, supplier_id)
     return supplier
 
@@ -24,7 +24,7 @@ def add_supplier(session: Session, supplier: Supplier) -> Supplier:
 
 
 def update_supplier(
-    session: Session, supplier_id: str, data: Supplier
+    session: Session, supplier_id: int, data: Supplier
 ) -> Optional[Supplier]:
     db_spplier: Optional[Supplier] = session.get(Supplier, supplier_id)
 
@@ -41,7 +41,7 @@ def update_supplier(
     return db_spplier
 
 
-def delete_supplier(session: Session, supplier_id: str) -> bool:
+def delete_supplier(session: Session, supplier_id: int) -> bool:
     supplier = session.get(Supplier, supplier_id)
     if supplier is None:
         return False

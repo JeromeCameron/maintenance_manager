@@ -210,7 +210,6 @@ class Asset(SQLModel, table=True):
     downtimes: List["Downtime"] = Relationship(back_populates="asset")
     work_orders: List["WorkOrder"] = Relationship(back_populates="asset")
     scores: Optional["AssetScores"] = Relationship(back_populates="asset")
-    equipment_parts: List["EquipmentPart"] = Relationship(back_populates="asset")
     asset_pms: List["AssetPM"] = Relationship(back_populates="asset")
     model: Optional["AssetModel"] = Relationship(back_populates="assets")
     inspections: List["Inspection"] = Relationship(back_populates="asset")
@@ -613,7 +612,7 @@ class InspectionTemplateItem(SQLModel, table=True):
     order: Optional[int] = Field(default=None)  # display order on the form
 
     template: Optional["InspectionTemplate"] = Relationship(back_populates="items")
-    results: List["InspectionItemResult"] = Relationship(back_populates="template_item")
+    results: List["InspectionResult"] = Relationship(back_populates="template_item")
 
 
 class Inspection(SQLModel, table=True):

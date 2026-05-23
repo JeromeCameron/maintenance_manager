@@ -11,7 +11,7 @@ def get_users(session: Session) -> Sequence[User]:
     return results
 
 
-def get_user(session: Session, id: str) -> Optional[User]:
+def get_user(session: Session, id: int) -> Optional[User]:
     user = session.get(User, id)
     return user
 
