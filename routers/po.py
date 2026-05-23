@@ -13,6 +13,11 @@ async def get_purchase_orders(session: Session = Depends(get_session)):
     return purchase_orders.get_purchase_orders(session)
 
 
+@router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[PurchaseOrder])
+async def get_purchase_orders_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return purchase_orders.get_purchase_orders_by_asset(session, asset_id)
+
+
 @router.get("/{po_no}", status_code=status.HTTP_200_OK, response_model=PurchaseOrder)
 async def get_purchase_order(po_no: str, session: Session = Depends(get_session)):
     po = purchase_orders.get_purchase_order(session, po_no)

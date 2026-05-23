@@ -11,7 +11,7 @@ def get_depots(session: Session) -> Sequence[Location]:
     return results
 
 
-def get_depot(session: Session, location_id: str) -> Optional[Location]:
+def get_depot(session: Session, location_id: int) -> Optional[Location]:
     depot = session.get(Location, location_id)
     return depot
 
@@ -24,7 +24,7 @@ def add_depot(session: Session, location: Location) -> Location:
 
 
 def update_depot(
-    session: Session, location_id: str, data: Location
+    session: Session, location_id: int, data: Location
 ) -> Optional[Location]:
     db_location: Optional[Location] = session.get(Location, location_id)
 
@@ -41,7 +41,7 @@ def update_depot(
     return db_location
 
 
-def delete_depot(session: Session, location_id: str) -> bool:
+def delete_depot(session: Session, location_id: int) -> bool:
     location = session.get(Location, location_id)
     if location is None:
         return False

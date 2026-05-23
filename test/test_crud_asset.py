@@ -1,22 +1,7 @@
-import pytest
-from sqlmodel import Session, SQLModel, create_engine
-from sqlalchemy.pool import StaticPool
+from sqlmodel import Session
 
 import crud.asset as asset_crud
 from schema.models import Asset, AssetCategory, AssetModel, AssetOwnership, AssetScores, AssetStatus, Baler, BalerSize, BalerType
-
-
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    SQLModel.metadata.drop_all(engine)
 
 
 # ------------------------------------------------------------------ #

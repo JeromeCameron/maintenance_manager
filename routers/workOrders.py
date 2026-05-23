@@ -18,6 +18,11 @@ async def get_work_orders(session: Session = Depends(get_session)):
     return work_orders.get_work_orders(session)
 
 
+@router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[WorkOrder])
+async def get_work_orders_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return work_orders.get_work_orders_by_asset(session, asset_id)
+
+
 @router.get("/{work_order_id}", status_code=status.HTTP_200_OK, response_model=WorkOrder)
 async def get_work_order(work_order_id: int, session: Session = Depends(get_session)):
     wo = work_orders.get_work_order(session, work_order_id)

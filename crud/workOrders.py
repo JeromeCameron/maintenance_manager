@@ -13,6 +13,10 @@ def get_work_orders(session: Session) -> Sequence[WorkOrder]:
     return session.exec(select(WorkOrder)).all()
 
 
+def get_work_orders_by_asset(session: Session, asset_id: str) -> Sequence[WorkOrder]:
+    return session.exec(select(WorkOrder).where(WorkOrder.asset_id == asset_id)).all()
+
+
 def get_work_order(session: Session, work_order_id: int) -> Optional[WorkOrder]:
     return session.get(WorkOrder, work_order_id)
 

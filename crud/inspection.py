@@ -103,6 +103,10 @@ def get_inspections(session: Session) -> Sequence[Inspection]:
     return session.exec(select(Inspection)).all()
 
 
+def get_inspections_by_asset(session: Session, asset_id: str) -> Sequence[Inspection]:
+    return session.exec(select(Inspection).where(Inspection.asset_id == asset_id)).all()
+
+
 def get_inspection(session: Session, inspection_id: int) -> Optional[Inspection]:
     return session.get(Inspection, inspection_id)
 

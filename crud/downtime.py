@@ -55,6 +55,10 @@ def get_downtimes(session: Session) -> Sequence[Downtime]:
     return session.exec(select(Downtime)).all()
 
 
+def get_downtimes_by_asset(session: Session, asset_id: str) -> Sequence[Downtime]:
+    return session.exec(select(Downtime).where(Downtime.asset_id == asset_id)).all()
+
+
 def get_downtime(session: Session, downtime_id: int) -> Optional[Downtime]:
     return session.get(Downtime, downtime_id)
 

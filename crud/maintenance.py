@@ -53,6 +53,10 @@ def get_asset_pms(session: Session) -> Sequence[AssetPM]:
     return session.exec(select(AssetPM)).all()
 
 
+def get_asset_pms_by_asset(session: Session, asset_id: str) -> Sequence[AssetPM]:
+    return session.exec(select(AssetPM).where(AssetPM.asset_id == asset_id)).all()
+
+
 def get_asset_pm(session: Session, asset_pm_id: int) -> Optional[AssetPM]:
     return session.get(AssetPM, asset_pm_id)
 

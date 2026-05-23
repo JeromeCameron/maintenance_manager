@@ -57,6 +57,11 @@ async def get_downtimes(session: Session = Depends(get_session)):
     return downtimes.get_downtimes(session)
 
 
+@router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[Downtime])
+async def get_downtimes_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return downtimes.get_downtimes_by_asset(session, asset_id)
+
+
 @router.get("/{downtime_id}", status_code=status.HTTP_200_OK, response_model=Downtime)
 async def get_downtime(downtime_id: int, session: Session = Depends(get_session)):
     downtime = downtimes.get_downtime(session, downtime_id)

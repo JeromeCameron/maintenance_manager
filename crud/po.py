@@ -6,9 +6,11 @@ from schema.models import PurchaseOrder
 
 
 def get_purchase_orders(session: Session) -> Sequence[PurchaseOrder]:
-    statement = select(PurchaseOrder)
-    results = session.exec(statement).all()
-    return results
+    return session.exec(select(PurchaseOrder)).all()
+
+
+def get_purchase_orders_by_asset(session: Session, asset_id: str) -> Sequence[PurchaseOrder]:
+    return session.exec(select(PurchaseOrder).where(PurchaseOrder.asset_id == asset_id)).all()
 
 
 def get_purchase_order(session: Session, po_no: str) -> Optional[PurchaseOrder]:

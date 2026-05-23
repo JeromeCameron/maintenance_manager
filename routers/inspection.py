@@ -98,6 +98,11 @@ async def get_inspections(session: Session = Depends(get_session)):
     return inspections.get_inspections(session)
 
 
+@inspection_router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[Inspection])
+async def get_inspections_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return inspections.get_inspections_by_asset(session, asset_id)
+
+
 @inspection_router.get("/{inspection_id}", status_code=status.HTTP_200_OK, response_model=Inspection)
 async def get_inspection(inspection_id: int, session: Session = Depends(get_session)):
     inspection = inspections.get_inspection(session, inspection_id)

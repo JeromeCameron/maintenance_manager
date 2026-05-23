@@ -55,6 +55,11 @@ async def get_asset_pms(session: Session = Depends(get_session)):
     return maintenance.get_asset_pms(session)
 
 
+@asset_pm_router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[AssetPM])
+async def get_asset_pms_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return maintenance.get_asset_pms_by_asset(session, asset_id)
+
+
 @asset_pm_router.get("/{asset_pm_id}", status_code=status.HTTP_200_OK, response_model=AssetPM)
 async def get_asset_pm(asset_pm_id: int, session: Session = Depends(get_session)):
     apm = maintenance.get_asset_pm(session, asset_pm_id)
