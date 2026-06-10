@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from auth.dependencies import require_admin, require_write
 from sqlmodel import Session
 
 import crud.depot as depots

@@ -82,59 +82,56 @@ const woColumns = [
 
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
 
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <UCard v-for="card in kpiCards" :key="card.label">
-        <div class="flex items-center gap-4">
-          <div class="rounded-xl bg-gray-100 p-3 dark:bg-gray-800">
-            <UIcon :name="card.icon" class="h-6 w-6" :class="card.color" />
-          </div>
+      <div
+        v-for="card in kpiCards"
+        :key="card.label"
+        class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+      >
+        <div class="flex items-start justify-between">
           <div>
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ card.label }}</p>
-            <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">{{ card.label }}</p>
+            <p class="mt-2 text-3xl font-bold text-slate-900">{{ card.value }}</p>
+          </div>
+          <div class="rounded-lg bg-white p-2.5">
+            <UIcon :name="card.icon" class="h-5 w-5" :class="card.color" />
           </div>
         </div>
-      </UCard>
+      </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <!-- Assets by Status -->
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold text-gray-900 dark:text-white">Assets by Status</h2>
-        </template>
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 class="mb-4 text-sm font-semibold text-slate-700">Assets by Status</h2>
         <div class="space-y-3">
           <div
             v-for="(count, status) in assetsByStatus"
             :key="status"
             class="flex items-center justify-between"
           >
-            <div class="flex items-center gap-2">
-              <UBadge :color="statusColors[status] ?? 'neutral'" variant="soft">
-                {{ status.replace(/_/g, " ") }}
-              </UBadge>
-            </div>
+            <UBadge :color="statusColors[status] ?? 'neutral'" variant="soft">
+              {{ status.replace(/_/g, " ") }}
+            </UBadge>
             <div class="flex items-center gap-3">
-              <div class="h-2 w-32 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+              <div class="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  class="h-full rounded-full bg-primary-500"
+                  class="h-full rounded-full bg-blue-500"
                   :style="{ width: `${(count / (assets?.length ?? 1)) * 100}%` }"
                 />
               </div>
-              <span class="w-6 text-right text-sm font-medium text-gray-700 dark:text-gray-300">{{ count }}</span>
+              <span class="w-5 text-right text-sm font-semibold text-slate-600">{{ count }}</span>
             </div>
           </div>
-          <p v-if="!assets?.length" class="text-sm text-gray-400">No assets found.</p>
+          <p v-if="!assets?.length" class="text-sm text-slate-400">No assets found.</p>
         </div>
-      </UCard>
+      </div>
 
       <!-- Open Work Orders by Status -->
-      <UCard>
-        <template #header>
-          <h2 class="font-semibold text-gray-900 dark:text-white">Open Work Orders by Status</h2>
-        </template>
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h2 class="mb-4 text-sm font-semibold text-slate-700">Open Work Orders by Status</h2>
         <div class="space-y-3">
           <div
             v-for="(count, status) in workOrdersByStatus"
@@ -144,42 +141,41 @@ const woColumns = [
             <UBadge :color="woStatusColors[status] ?? 'neutral'" variant="soft">
               {{ status.replace(/_/g, " ") }}
             </UBadge>
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ count }}</span>
+            <span class="text-sm font-semibold text-slate-600">{{ count }}</span>
           </div>
-          <p v-if="!openWorkOrders.length" class="text-sm text-gray-400">No open work orders.</p>
+          <p v-if="!openWorkOrders.length" class="text-sm text-slate-400">No open work orders.</p>
         </div>
-      </UCard>
+      </div>
     </div>
 
     <!-- Recent Open Work Orders -->
-    <UCard>
-      <template #header>
-        <div class="flex items-center justify-between">
-          <h2 class="font-semibold text-gray-900 dark:text-white">Open Work Orders</h2>
-          <UButton to="/work-orders" variant="ghost" size="sm" trailing-icon="i-heroicons-arrow-right">
-            View all
-          </UButton>
-        </div>
-      </template>
+    <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <h2 class="text-sm font-semibold text-slate-700">Open Work Orders</h2>
+        <UButton to="/work-orders" variant="ghost" size="sm" trailing-icon="i-heroicons-arrow-right" color="neutral">
+          View all
+        </UButton>
+      </div>
       <UTable :data="recentWorkOrders" :columns="woColumns">
-        <template #status-cell="{ row }">
+        <template #status-cell="{ row: { original: row } }">
           <UBadge :color="woStatusColors[row.status] ?? 'neutral'" variant="soft">
             {{ row.status.replace(/_/g, " ") }}
           </UBadge>
         </template>
-        <template #priority-cell="{ row }">
+        <template #priority-cell="{ row: { original: row } }">
           <UBadge :color="row.priority === 'High' ? 'error' : row.priority === 'Medium' ? 'warning' : 'neutral'" variant="soft">
             {{ row.priority }}
           </UBadge>
         </template>
       </UTable>
-    </UCard>
+    </div>
 
     <!-- PMs Due Soon -->
-    <UCard v-if="pmsDueSoon.length">
-      <template #header>
-        <h2 class="font-semibold text-gray-900 dark:text-white">Preventative Maintenance Due (Next 30 Days)</h2>
-      </template>
+    <div v-if="pmsDueSoon.length" class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+      <div class="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
+        <UIcon name="i-heroicons-clock" class="h-4 w-4 text-amber-500" />
+        <h2 class="text-sm font-semibold text-slate-700">Preventative Maintenance Due (Next 30 Days)</h2>
+      </div>
       <UTable
         :data="pmsDueSoon"
         :columns="[
@@ -189,6 +185,6 @@ const woColumns = [
           { accessorKey: 'next_service', header: 'Due Date' },
         ]"
       />
-    </UCard>
+    </div>
   </div>
 </template>

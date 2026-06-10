@@ -88,7 +88,7 @@ const partColumns = [
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/work-orders" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <h1 class="text-2xl font-bold text-slate-900">
         {{ isNew ? "New Work Order" : `Work Order #${woId}` }}
       </h1>
     </div>
@@ -170,7 +170,7 @@ const partColumns = [
           <template #header><h2 class="font-semibold">Parts Used</h2></template>
 
           <UTable :data="parts" :columns="partColumns">
-            <template #actions-cell="{ row }">
+            <template #actions-cell="{ row: { original: row } }">
               <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePart(row.id)" />
             </template>
           </UTable>

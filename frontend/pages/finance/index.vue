@@ -88,7 +88,7 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Finance</h1>
+      <h1 class="text-2xl font-bold text-slate-900">Finance</h1>
       <div class="flex gap-2">
         <UButton v-if="activeTab === 'pos'" to="/finance/po/new" leading-icon="i-heroicons-plus">New PO</UButton>
         <UButton v-if="activeTab === 'invoices'" to="/finance/invoice/new" leading-icon="i-heroicons-plus">New Invoice</UButton>
@@ -153,10 +153,10 @@ async function confirmDelete() {
 
       <!-- POs -->
       <UTable v-if="activeTab === 'pos'" :data="filteredPOs" :columns="poColumns">
-        <template #subtotal-cell="{ row }">
+        <template #subtotal-cell="{ row: { original: row } }">
           ${{ row.subtotal.toLocaleString() }}
         </template>
-        <template #actions-cell="{ row }">
+        <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton :to="`/finance/po/${row.po_no}`" variant="ghost" size="xs" icon="i-heroicons-pencil" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = { type: 'po', id: row.po_no }" />
@@ -166,15 +166,15 @@ async function confirmDelete() {
 
       <!-- Invoices -->
       <UTable v-else-if="activeTab === 'invoices'" :data="filteredInvoices" :columns="invoiceColumns">
-        <template #status-cell="{ row }">
+        <template #status-cell="{ row: { original: row } }">
           <UBadge :color="invoiceStatusColors[row.status] ?? 'neutral'" variant="soft">
             {{ row.status }}
           </UBadge>
         </template>
-        <template #subtotal-cell="{ row }">
+        <template #subtotal-cell="{ row: { original: row } }">
           ${{ row.subtotal.toLocaleString() }}
         </template>
-        <template #actions-cell="{ row }">
+        <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton :to="`/finance/invoice/${row.id}`" variant="ghost" size="xs" icon="i-heroicons-pencil" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = { type: 'invoice', id: row.id }" />
@@ -184,7 +184,7 @@ async function confirmDelete() {
 
       <!-- Budgets -->
       <UTable v-else :data="budgets ?? []" :columns="budgetColumns">
-        <template #amount-cell="{ row }">
+        <template #amount-cell="{ row: { original: row } }">
           ${{ row.amount.toLocaleString() }}
         </template>
       </UTable>

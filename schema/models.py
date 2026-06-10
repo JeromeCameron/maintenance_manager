@@ -1,9 +1,10 @@
-from sqlmodel import Field, SQLModel, Relationship
-from typing import Optional, ClassVar, List
-from datetime import datetime, date, time
+from datetime import date, datetime, time
 from enum import Enum
+from typing import ClassVar, List, Optional
+
 from pydantic import model_validator
 from sqlalchemy import CheckConstraint, Text
+from sqlmodel import Field, Relationship, SQLModel
 
 
 class UserRole(str, Enum):
@@ -191,6 +192,7 @@ class AssetModel(SQLModel, table=True):
     equipment_parts: List["EquipmentPart"] = Relationship(back_populates="model")
 
 
+# add nickname field
 class Asset(SQLModel, table=True):
     asset_id: Optional[str] = Field(primary_key=True, nullable=False)
     manufacturer: str
@@ -309,6 +311,7 @@ class DowntimeCause(SQLModel, table=True):
     downtimes: List["Downtime"] = Relationship(back_populates="cause")
 
 
+# Add shift_asset - if asset runs across multiple shifts
 class Downtime(SQLModel, table=True):
     downtime_id: Optional[int] = Field(primary_key=True, default=None)
     log_date: Optional[datetime] = Field(default_factory=datetime.now)

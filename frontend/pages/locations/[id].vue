@@ -45,7 +45,7 @@ async function save() {
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/locations" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <h1 class="text-2xl font-bold text-slate-900">
         {{ isNew ? "New Location" : `Location: ${form.name}` }}
       </h1>
     </div>

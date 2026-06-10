@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import type { Inspection } from "~/types"
 
-const { getAll, remove } = useInspections()
+const { getAll, getOne, create, update, remove, getTemplates } = useInspections()
+const { getAll: getAssets } = useAssets()
 
 const { data: inspections, refresh } = await useAsyncData("inspections", () => getAll())
+const { data: templates } = await useAsyncData("insp-templates", () => getTemplates())
+const { data: assets } = await useAsyncData("assets-select", () => getAssets())
 
 const resultColors: Record<string, string> = { pass: "success", fail: "error", na: "neutral" }
+
+const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const templateOptions = computed(() => (templates.value ?? []).map((t) => ({ label: t.name, value: t.id })))
+const resultOptions = ["pass", "fail", "na"]
 
 const columns = [
   { accessorKey: "id", header: "ID" },
@@ -19,13 +26,7 @@ const columns = [
 
 const search = ref("")
 const resultFilter = ref<string | null>(null)
-
-const resultOptions = [
-  { label: "All", value: null },
-  { label: "Pass", value: "pass" },
-  { label: "Fail", value: "fail" },
-  { label: "N/A", value: "na" },
-]
+const resultOptions2 = [{ label: "All", value: null }, ...resultOptions.map((r) => ({ label: r, value: r }))]
 
 const filtered = computed(() =>
   (inspections.value ?? []).filter((i) => {
@@ -36,6 +37,55 @@ const filtered = computed(() =>
   })
 )
 
+// ── Form modal ───────────────────────────────────────────────
+const showModal = ref(false)
+const isEditing = ref(false)
+const editId = ref<number | null>(null)
+const saving = ref(false)
+const formError = ref<string | null>(null)
+
+const defaultForm = (): Partial<Inspection> => ({
+  overall_result: "pass",
+  submitted: false,
+  inspection_date: new Date().toISOString().slice(0, 10),
+})
+const form = ref<Partial<Inspection>>(defaultForm())
+
+function openCreate() {
+  form.value = defaultForm()
+  isEditing.value = false
+  editId.value = null
+  formError.value = null
+  showModal.value = true
+}
+
+async function openEdit(id: number) {
+  form.value = { ...await getOne(id) }
+  isEditing.value = true
+  editId.value = id
+  formError.value = null
+  showModal.value = true
+}
+
+async function save() {
+  saving.value = true
+  formError.value = null
+  try {
+    if (isEditing.value && editId.value) {
+      await update(editId.value, form.value as Inspection)
+    } else {
+      await create(form.value as Inspection)
+    }
+    await refresh()
+    showModal.value = false
+  } catch (e: unknown) {
+    formError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    saving.value = false
+  }
+}
+
+// ── Delete modal ─────────────────────────────────────────────
 const deleteTarget = ref<Inspection | null>(null)
 const deleting = ref(false)
 const showDeleteModal = computed({ get: () => !!deleteTarget.value, set: (v) => { if (!v) deleteTarget.value = null } })
@@ -56,60 +106,85 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Inspections</h1>
-      <UButton to="/inspections/new" leading-icon="i-heroicons-plus">New Inspection</UButton>
+      <h1 class="text-2xl font-bold text-slate-900">Inspections</h1>
+      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Inspection</UButton>
     </div>
 
     <UCard>
       <template #header>
-        <div class="flex flex-wrap items-center gap-3">
-          <UInput
-            v-model="search"
-            placeholder="Search by asset or inspection no..."
-            leading-icon="i-heroicons-magnifying-glass"
-            class="max-w-xs"
-          />
-          <USelect
-            v-model="resultFilter"
-            :items="resultOptions"
-            placeholder="Filter by result"
-            class="w-40"
-          />
+        <div class="flex flex-wrap gap-3">
+          <UInput v-model="search" placeholder="Search by asset or inspection no..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
+          <USelect v-model="resultFilter" :items="resultOptions2" placeholder="Filter by result" class="w-40" />
         </div>
       </template>
-
       <UTable :data="filtered" :columns="columns">
-        <template #overall_result-cell="{ row }">
-          <UBadge :color="resultColors[row.overall_result] ?? 'neutral'" variant="soft">
-            {{ row.overall_result }}
-          </UBadge>
+        <template #overall_result-cell="{ row: { original: row } }">
+          <UBadge :color="resultColors[row.overall_result] ?? 'neutral'" variant="soft">{{ row.overall_result }}</UBadge>
         </template>
-        <template #submitted-cell="{ row }">
-          <UBadge :color="row.submitted ? 'success' : 'neutral'" variant="soft" size="sm">
-            {{ row.submitted ? "Submitted" : "Draft" }}
-          </UBadge>
+        <template #submitted-cell="{ row: { original: row } }">
+          <UBadge :color="row.submitted ? 'success' : 'neutral'" variant="soft" size="sm">{{ row.submitted ? "Submitted" : "Draft" }}</UBadge>
         </template>
-        <template #asset_id-cell="{ row }">
-          <NuxtLink :to="`/assets/${row.asset_id}`" class="text-primary-600 hover:underline dark:text-primary-400">
-            {{ row.asset_id }}
-          </NuxtLink>
-        </template>
-        <template #actions-cell="{ row }">
+        <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton :to="`/inspections/${row.id}`" variant="ghost" size="xs" icon="i-heroicons-pencil" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.id)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>
     </UCard>
 
+    <!-- Create / Edit Modal -->
+    <UModal v-model:open="showModal">
+      <template #content>
+        <div class="w-full max-w-xl rounded-xl bg-white shadow-xl">
+          <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
+              <UIcon name="i-heroicons-magnifying-glass" class="h-5 w-5 text-blue-600" />
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit Inspection" : "New Inspection" }}</h3>
+              <p class="text-sm text-slate-500">{{ isEditing ? "Update inspection details" : "Record a new inspection" }}</p>
+            </div>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
+          </div>
+          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
+            <UFormField label="Inspection No" required class="col-span-2">
+              <UInput v-model="form.inspection_no" placeholder="e.g. INS-2024-001" class="w-full" />
+            </UFormField>
+            <UFormField label="Asset">
+              <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
+            </UFormField>
+            <UFormField label="Template">
+              <USelect v-model="form.template_id" :items="templateOptions" placeholder="Select template" class="w-full" />
+            </UFormField>
+            <UFormField label="Inspection Date" required>
+              <UInput v-model="form.inspection_date" type="date" class="w-full" />
+            </UFormField>
+            <UFormField label="Overall Result">
+              <USelect v-model="form.overall_result" :items="resultOptions" class="w-full" />
+            </UFormField>
+            <UFormField label="Submitted" class="col-span-2">
+              <UCheckbox v-model="form.submitted" label="Mark as submitted" />
+            </UFormField>
+            <UFormField label="Notes" class="col-span-2">
+              <UTextarea v-model="form.notes" :rows="3" class="w-full" />
+            </UFormField>
+          </div>
+          <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
+            <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Create Inspection" }}</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Delete Modal -->
     <UModal v-model:open="showDeleteModal">
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Inspection</h3></template>
-          <p class="text-sm text-gray-600 dark:text-gray-400">
-            Delete inspection <strong>{{ deleteTarget?.inspection_no }}</strong>? This cannot be undone.
-          </p>
+          <p class="text-sm text-slate-500">Delete inspection <strong>{{ deleteTarget?.inspection_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

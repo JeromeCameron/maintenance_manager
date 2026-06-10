@@ -1,7 +1,9 @@
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from auth.dependencies import admin_on_write, write_on_write, get_current_user
 from routers.asset import router as asset_router, asset_model_router, baler_router, asset_scores_router
+from routers.auth import router as auth_router
 from routers.depot import router as depot_router
 from routers.downtime import router as downtime_router, downtime_cause_router
 from routers.expense import budget_router, cost_centre_router
@@ -37,50 +39,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Assets
-app.include_router(asset_router)
-app.include_router(asset_model_router)
-app.include_router(baler_router)
-app.include_router(asset_scores_router)
+# Public
+app.include_router(auth_router)
 
-# Locations / Depots
-app.include_router(depot_router)
+# Admin writes: assets, locations, suppliers, budgets, users
+app.include_router(asset_router,               dependencies=[Depends(admin_on_write)])
+app.include_router(asset_model_router,         dependencies=[Depends(admin_on_write)])
+app.include_router(baler_router,               dependencies=[Depends(admin_on_write)])
+app.include_router(asset_scores_router,        dependencies=[Depends(admin_on_write)])
+app.include_router(depot_router,               dependencies=[Depends(admin_on_write)])
+app.include_router(supplier_router,            dependencies=[Depends(admin_on_write)])
+app.include_router(budget_router,              dependencies=[Depends(admin_on_write)])
+app.include_router(cost_centre_router,         dependencies=[Depends(admin_on_write)])
+app.include_router(user_router,               dependencies=[Depends(admin_on_write)])
 
-# Work Orders
-app.include_router(work_order_router)
-app.include_router(work_order_part_router)
+# User + admin writes: work orders, downtime, inspections, inventory, finance
+app.include_router(work_order_router,          dependencies=[Depends(write_on_write)])
+app.include_router(work_order_part_router,     dependencies=[Depends(write_on_write)])
+app.include_router(downtime_cause_router,      dependencies=[Depends(write_on_write)])
+app.include_router(downtime_router,            dependencies=[Depends(write_on_write)])
+app.include_router(pm_plan_router,             dependencies=[Depends(write_on_write)])
+app.include_router(asset_pm_router,            dependencies=[Depends(write_on_write)])
+app.include_router(inspection_template_router, dependencies=[Depends(write_on_write)])
+app.include_router(inspection_template_item_router, dependencies=[Depends(write_on_write)])
+app.include_router(inspection_router,          dependencies=[Depends(write_on_write)])
+app.include_router(inspection_result_router,   dependencies=[Depends(write_on_write)])
+app.include_router(part_category_router,       dependencies=[Depends(write_on_write)])
+app.include_router(part_router,                dependencies=[Depends(write_on_write)])
+app.include_router(equipment_part_router,      dependencies=[Depends(write_on_write)])
+app.include_router(part_supplier_router,       dependencies=[Depends(write_on_write)])
+app.include_router(stock_level_router,         dependencies=[Depends(write_on_write)])
+app.include_router(stock_transaction_router,   dependencies=[Depends(write_on_write)])
+app.include_router(po_router,                  dependencies=[Depends(write_on_write)])
+app.include_router(invoice_router,             dependencies=[Depends(write_on_write)])
 
-# Downtime
-app.include_router(downtime_cause_router)
-app.include_router(downtime_router)
-
-# Maintenance
-app.include_router(pm_plan_router)
-app.include_router(asset_pm_router)
-
-# Inspections
-app.include_router(inspection_template_router)
-app.include_router(inspection_template_item_router)
-app.include_router(inspection_router)
-app.include_router(inspection_result_router)
-
-# Inventory
-app.include_router(part_category_router)
-app.include_router(part_router)
-app.include_router(equipment_part_router)
-app.include_router(part_supplier_router)
-app.include_router(stock_level_router)
-app.include_router(stock_transaction_router)
-
-# Finance
-app.include_router(po_router)
-app.include_router(invoice_router)
-app.include_router(budget_router)
-app.include_router(cost_centre_router)
-
-# People / Orgs
-app.include_router(supplier_router)
-app.include_router(user_router)
-
-# Utility
-app.include_router(utility_router)
+# Utility — any authenticated
+app.include_router(utility_router,             dependencies=[Depends(get_current_user)])
