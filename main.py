@@ -27,6 +27,7 @@ from routers.po import router as po_router
 from routers.supplier import router as supplier_router
 from routers.user import router as user_router
 from routers.utility import router as utility_router
+from routers.issues import router as issue_router
 from routers.workOrders import router as work_order_router, work_order_part_router
 
 app = FastAPI(title="Maintenance Manager API", version="1.0.0")
@@ -55,6 +56,7 @@ app.include_router(user_router,               dependencies=[Depends(admin_on_wri
 
 # User + admin writes: work orders, downtime, inspections, inventory, finance
 app.include_router(work_order_router,          dependencies=[Depends(write_on_write)])
+app.include_router(issue_router,               dependencies=[Depends(write_on_write)])
 app.include_router(work_order_part_router,     dependencies=[Depends(write_on_write)])
 app.include_router(downtime_cause_router,      dependencies=[Depends(write_on_write)])
 app.include_router(downtime_router,            dependencies=[Depends(write_on_write)])

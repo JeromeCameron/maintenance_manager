@@ -153,6 +153,20 @@ class InspectionItemResult(str, Enum):
     na = "na"
 
 
+class IssueSeverity(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+
+class IssueStatus(str, Enum):
+    open = "open"
+    in_review = "in_review"
+    converted = "converted"
+    dismissed = "dismissed"
+
+
 # ----------------------------------------------------------------------------- #
 
 
@@ -172,6 +186,7 @@ class User(SQLModel, table=True):
         back_populates="entered_by_user"
     )
     inspections: List["Inspection"] = Relationship(back_populates="inspector")
+    issues: List["Issue"] = Relationship(back_populates="reporter")
 
 
 # ------------- Utility Tables ----------------------- #
@@ -201,6 +216,7 @@ class Asset(SQLModel, table=True):
     serial_no: Optional[str] = Field(default=None)
     category: AssetCategory = Field(default=None)
     owned: AssetOwnership = Field(default=AssetOwnership.owned)
+    alias: Optional[str] = Field(default=None)  # New
     date_in_service: Optional[date] = Field(default=None)
     status: AssetStatus = Field(default=AssetStatus.operational)
     sub_status: Optional[AssetSubStatus] = Field(default=None)
@@ -215,6 +231,7 @@ class Asset(SQLModel, table=True):
     asset_pms: List["AssetPM"] = Relationship(back_populates="asset")
     model: Optional["AssetModel"] = Relationship(back_populates="assets")
     inspections: List["Inspection"] = Relationship(back_populates="asset")
+    issues: List["Issue"] = Relationship(back_populates="asset")
 
     VALID_SUB_STATUSES: ClassVar[dict] = {
         AssetStatus.maintenance: [
@@ -316,6 +333,7 @@ class Downtime(SQLModel, table=True):
     downtime_id: Optional[int] = Field(primary_key=True, default=None)
     log_date: Optional[datetime] = Field(default_factory=datetime.now)
     asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
+    shift_asset: bool  # New
     cause_id: Optional[int] = Field(default=None, foreign_key="downtimecause.cause_id")
     start_date: Optional[date] = Field(default=None)
     start_time: Optional[time] = Field(default=None)
@@ -342,6 +360,7 @@ class WorkOrder(SQLModel, table=True):
     priority: str
     typ: str
     asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
+    asset_pm_id: Optional[int] = Field(default=None, foreign_key="assetpm.id")  # New
     description: Optional[str] = Field(default=None, sa_type=Text)
     supplier_id: Optional[int] = Field(default=None, foreign_key="supplier.supplier_id")
     expected_date: Optional[date] = Field(default=None)
@@ -356,6 +375,7 @@ class WorkOrder(SQLModel, table=True):
     actual_hours: Optional[float] = Field(default=None)
 
     asset: Optional["Asset"] = Relationship(back_populates="work_orders")
+    asset_pm: Optional["AssetPM"] = Relationship(back_populates="work_orders")
     supplier: Optional["Supplier"] = Relationship(back_populates="work_orders")
     invoices: List["Invoice"] = Relationship(back_populates="work_order")
     stock_transactions: List["StockTransaction"] = Relationship(
@@ -365,6 +385,7 @@ class WorkOrder(SQLModel, table=True):
         back_populates="work_order"
     )
     parts_used: List["WorkOrderPart"] = Relationship(back_populates="work_order")
+    issues: List["Issue"] = Relationship(back_populates="work_order")
 
 
 class WorkOrderPart(SQLModel, table=True):
@@ -385,6 +406,22 @@ class WorkOrderPart(SQLModel, table=True):
         if self.quantity_used is not None and self.unit_cost is not None:
             self.total_cost = round(self.quantity_used * self.unit_cost, 2)
         return self
+
+
+# ------------- Issues ----------------------- #
+class Issue(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
+    reported_by: Optional[int] = Field(default=None, foreign_key="user.id")
+    reported_at: Optional[datetime] = Field(default_factory=datetime.now)
+    description: str = Field(sa_type=Text)
+    severity: IssueSeverity
+    status: IssueStatus = Field(default=IssueStatus.open)
+    work_order_id: Optional[int] = Field(default=None, foreign_key="workorder.work_order_id")
+
+    asset: Optional["Asset"] = Relationship(back_populates="issues")
+    reporter: Optional["User"] = Relationship(back_populates="issues")
+    work_order: Optional["WorkOrder"] = Relationship(back_populates="issues")
 
 
 # ------------- Supplier Managment ----------------------- #
@@ -585,6 +622,7 @@ class AssetPM(SQLModel, table=True):
 
     asset: Optional["Asset"] = Relationship(back_populates="asset_pms")
     pm_plan: Optional["PmPlans"] = Relationship(back_populates="asset_pms")
+    work_orders: List["WorkOrder"] = Relationship(back_populates="asset_pm")
 
 
 # ------------- Inspections ----------------------- #

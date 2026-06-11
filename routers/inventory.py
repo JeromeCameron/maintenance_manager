@@ -98,6 +98,11 @@ async def get_equipment_parts(session: Session = Depends(get_session)):
     return inventory.get_equipment_parts(session)
 
 
+@equipment_part_router.get("/part/{part_no}", status_code=status.HTTP_200_OK, response_model=list[EquipmentPart])
+async def get_equipment_parts_by_part(part_no: str, session: Session = Depends(get_session)):
+    return inventory.get_equipment_parts_by_part(session, part_no)
+
+
 @equipment_part_router.get("/{equipment_part_id}", status_code=status.HTTP_200_OK, response_model=EquipmentPart)
 async def get_equipment_part(equipment_part_id: int, session: Session = Depends(get_session)):
     ep = inventory.get_equipment_part(session, equipment_part_id)
@@ -135,6 +140,11 @@ async def delete_equipment_part(equipment_part_id: int, session: Session = Depen
 @part_supplier_router.get("", status_code=status.HTTP_200_OK, response_model=list[PartSupplier])
 async def get_part_suppliers(session: Session = Depends(get_session)):
     return inventory.get_part_suppliers(session)
+
+
+@part_supplier_router.get("/part/{part_no}", status_code=status.HTTP_200_OK, response_model=list[PartSupplier])
+async def get_part_suppliers_by_part(part_no: str, session: Session = Depends(get_session)):
+    return inventory.get_part_suppliers_by_part(session, part_no)
 
 
 @part_supplier_router.get("/{part_supplier_id}", status_code=status.HTTP_200_OK, response_model=PartSupplier)

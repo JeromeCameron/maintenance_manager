@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from auth.dependencies import require_admin, require_write
 from sqlmodel import Session
@@ -117,6 +119,11 @@ async def get_balers(session: Session = Depends(get_session)):
     return assets.get_balers(session)
 
 
+@baler_router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=Optional[Baler])
+async def get_baler_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return assets.get_baler_by_asset(session, asset_id)
+
+
 @baler_router.get("/{baler_id}", status_code=status.HTTP_200_OK, response_model=Baler)
 async def get_baler(baler_id: int, session: Session = Depends(get_session)):
     baler = assets.get_baler(session, baler_id)
@@ -152,6 +159,11 @@ async def delete_baler(baler_id: int, session: Session = Depends(get_session)):
 @asset_scores_router.get("", status_code=status.HTTP_200_OK, response_model=list[AssetScores])
 async def get_asset_scores(session: Session = Depends(get_session)):
     return assets.get_asset_scores(session)
+
+
+@asset_scores_router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=Optional[AssetScores])
+async def get_asset_score_by_asset(asset_id: str, session: Session = Depends(get_session)):
+    return assets.get_asset_score_by_asset(session, asset_id)
 
 
 @asset_scores_router.get("/{score_id}", status_code=status.HTTP_200_OK, response_model=AssetScores)

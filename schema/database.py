@@ -7,7 +7,7 @@ from sqlmodel import Session, SQLModel, create_engine
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Models must be imported before create_all so SQLModel's metadata is populated
-import schema.models  # noqa: F401, E402
+import models  # noqa: F401, E402
 
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")

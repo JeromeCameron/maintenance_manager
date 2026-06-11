@@ -44,7 +44,7 @@ const editId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
 
-const defaultForm = (): Partial<Downtime> => ({ planned: false })
+const defaultForm = (): Partial<Downtime> => ({ planned: false, shift_asset: false })
 const form = ref<Partial<Downtime>>(defaultForm())
 
 function openCreate() {
@@ -136,8 +136,8 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 px-6 py-5">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50">
               <UIcon name="i-heroicons-exclamation-triangle" class="h-5 w-5 text-red-500" />
             </div>
@@ -147,49 +147,54 @@ async function confirmDelete() {
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
-          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
-            <UFormField label="Asset">
-              <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
-            </UFormField>
-            <UFormField label="Cause">
-              <USelect v-model="form.cause_id" :items="causeOptions" placeholder="Select cause" class="w-full" />
-            </UFormField>
-            <UFormField label="Start Date">
-              <UInput v-model="form.start_date" type="date" class="w-full" />
-            </UFormField>
-            <UFormField label="Start Time">
-              <UInput v-model="form.start_time" type="time" class="w-full" />
-            </UFormField>
-            <UFormField label="End Date">
-              <UInput v-model="form.end_date" type="date" class="w-full" />
-            </UFormField>
-            <UFormField label="End Time">
-              <UInput v-model="form.end_time" type="time" class="w-full" />
-            </UFormField>
-            <UFormField label="Downtime Hours">
-              <UInput v-model.number="form.downtime_hours" type="number" step="0.25" class="w-full" />
-            </UFormField>
-            <UFormField label="Work Order">
-              <UInput v-model="form.work_order" placeholder="WO reference" class="w-full" />
-            </UFormField>
-            <UFormField label="Component Affected" class="col-span-2">
-              <UInput v-model="form.component_affected" class="w-full" />
-            </UFormField>
-            <UFormField label="Planned">
-              <UCheckbox v-model="form.planned" label="Planned downtime" />
-            </UFormField>
-            <UFormField label="Repeat Failure">
-              <UCheckbox v-model="form.repeat_failure" label="Repeat failure" />
-            </UFormField>
-            <UFormField label="Root Cause" class="col-span-2">
-              <UTextarea v-model="form.root_cause" :rows="2" class="w-full" />
-            </UFormField>
-            <UFormField label="Corrective Action" class="col-span-2">
-              <UTextarea v-model="form.corrective_action" :rows="2" class="w-full" />
-            </UFormField>
+          <div class="flex-1 overflow-y-auto px-6 py-5">
+            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+              <UFormField label="Asset">
+                <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
+              </UFormField>
+              <UFormField label="Cause">
+                <USelect v-model="form.cause_id" :items="causeOptions" placeholder="Select cause" class="w-full" />
+              </UFormField>
+              <UFormField label="Start Date">
+                <UInput v-model="form.start_date" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="Start Time">
+                <UInput v-model="form.start_time" type="time" class="w-full" />
+              </UFormField>
+              <UFormField label="End Date">
+                <UInput v-model="form.end_date" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="End Time">
+                <UInput v-model="form.end_time" type="time" class="w-full" />
+              </UFormField>
+              <UFormField label="Downtime Hours">
+                <UInput v-model.number="form.downtime_hours" type="number" step="0.25" class="w-full" />
+              </UFormField>
+              <UFormField label="Work Order">
+                <UInput v-model="form.work_order" placeholder="WO reference" class="w-full" />
+              </UFormField>
+              <UFormField label="Component Affected" class="col-span-2">
+                <UInput v-model="form.component_affected" class="w-full" />
+              </UFormField>
+              <UFormField label="Planned">
+                <UCheckbox v-model="form.planned" label="Planned downtime" />
+              </UFormField>
+              <UFormField label="Shift Asset">
+                <UCheckbox v-model="form.shift_asset" label="Asset runs across multiple shifts" />
+              </UFormField>
+              <UFormField label="Repeat Failure">
+                <UCheckbox v-model="form.repeat_failure" label="Repeat failure" />
+              </UFormField>
+              <UFormField label="Root Cause" class="col-span-2">
+                <UTextarea v-model="form.root_cause" :rows="2" class="w-full" />
+              </UFormField>
+              <UFormField label="Corrective Action" class="col-span-2">
+                <UTextarea v-model="form.corrective_action" :rows="2" class="w-full" />
+              </UFormField>
+            </div>
+            <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mt-4" />
           </div>
-          <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Log Downtime" }}</UButton>
           </div>

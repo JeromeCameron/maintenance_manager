@@ -9,6 +9,7 @@ const navGroups = [
       { label: "Dashboard", icon: "i-heroicons-squares-2x2", to: "/" },
       { label: "Assets", icon: "i-heroicons-wrench-screwdriver", to: "/assets" },
       { label: "Work Orders", icon: "i-heroicons-clipboard-document-list", to: "/work-orders" },
+      { label: "Issues", icon: "i-heroicons-flag", to: "/issues" },
       { label: "Downtime", icon: "i-heroicons-exclamation-triangle", to: "/downtime" },
     ],
   },
@@ -32,6 +33,7 @@ const navGroups = [
       { label: "Locations", icon: "i-heroicons-map-pin", to: "/locations" },
       { label: "Suppliers", icon: "i-heroicons-building-storefront", to: "/suppliers" },
       { label: "Users", icon: "i-heroicons-users", to: "/users" },
+      { label: "Settings", icon: "i-heroicons-cog-6-tooth", to: "/settings" },
     ],
   },
 ]

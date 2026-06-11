@@ -12,6 +12,8 @@ export function useDowntime() {
 
   const getCauses = () => get<DowntimeCause[]>("/downtime-causes")
   const createCause = (data: DowntimeCause) => post<DowntimeCause>("/downtime-causes", data)
+  const updateCause = (id: number, data: DowntimeCause) => put<DowntimeCause>(`/downtime-causes/${id}`, data)
+  const removeCause = (id: number) => del(`/downtime-causes/${id}`)
 
-  return { getAll, getOne, getByAsset, create, update, remove, getCauses, createCause }
+  return { getAll, getOne, getByAsset, create, update, remove, getCauses, createCause, updateCause, removeCause }
 }

@@ -63,6 +63,16 @@ def get_inspection_template_item(
     return session.get(InspectionTemplateItem, item_id)
 
 
+def get_template_items_by_template(
+    session: Session, template_id: int
+) -> Sequence[InspectionTemplateItem]:
+    return session.exec(
+        select(InspectionTemplateItem)
+        .where(InspectionTemplateItem.template_id == template_id)
+        .order_by(InspectionTemplateItem.order)
+    ).all()
+
+
 def add_inspection_template_item(
     session: Session, item: InspectionTemplateItem
 ) -> InspectionTemplateItem:
@@ -151,6 +161,14 @@ def get_inspection_results(session: Session) -> Sequence[InspectionResult]:
 
 def get_inspection_result(session: Session, result_id: int) -> Optional[InspectionResult]:
     return session.get(InspectionResult, result_id)
+
+
+def get_results_by_inspection(
+    session: Session, inspection_id: int
+) -> Sequence[InspectionResult]:
+    return session.exec(
+        select(InspectionResult).where(InspectionResult.inspection_id == inspection_id)
+    ).all()
 
 
 def add_inspection_result(session: Session, result: InspectionResult) -> InspectionResult:

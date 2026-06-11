@@ -59,6 +59,10 @@ def get_work_order_parts(session: Session) -> Sequence[WorkOrderPart]:
     return session.exec(select(WorkOrderPart)).all()
 
 
+def get_work_order_parts_by_work_order(session: Session, work_order_id: int) -> Sequence[WorkOrderPart]:
+    return session.exec(select(WorkOrderPart).where(WorkOrderPart.work_order_id == work_order_id)).all()
+
+
 def get_work_order_part(session: Session, work_order_part_id: int) -> Optional[WorkOrderPart]:
     return session.get(WorkOrderPart, work_order_part_id)
 

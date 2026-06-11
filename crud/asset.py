@@ -102,6 +102,10 @@ def get_baler(session: Session, baler_id: int) -> Optional[Baler]:
     return session.get(Baler, baler_id)
 
 
+def get_baler_by_asset(session: Session, asset_id: str) -> Optional[Baler]:
+    return session.exec(select(Baler).where(Baler.asset_id == asset_id)).first()
+
+
 def add_baler(session: Session, baler: Baler) -> Baler:
     session.add(baler)
     session.commit()
@@ -140,6 +144,10 @@ def get_asset_scores(session: Session) -> Sequence[AssetScores]:
 
 def get_asset_score(session: Session, score_id: int) -> Optional[AssetScores]:
     return session.get(AssetScores, score_id)
+
+
+def get_asset_score_by_asset(session: Session, asset_id: str) -> Optional[AssetScores]:
+    return session.exec(select(AssetScores).where(AssetScores.asset_id == asset_id)).first()
 
 
 def add_asset_score(session: Session, asset_score: AssetScores) -> AssetScores:

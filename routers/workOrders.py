@@ -62,6 +62,11 @@ async def get_work_order_parts(session: Session = Depends(get_session)):
     return work_orders.get_work_order_parts(session)
 
 
+@work_order_part_router.get("/work-order/{work_order_id}", status_code=status.HTTP_200_OK, response_model=list[WorkOrderPart])
+async def get_work_order_parts_by_work_order(work_order_id: int, session: Session = Depends(get_session)):
+    return work_orders.get_work_order_parts_by_work_order(session, work_order_id)
+
+
 @work_order_part_router.get("/{work_order_part_id}", status_code=status.HTTP_200_OK, response_model=WorkOrderPart)
 async def get_work_order_part(work_order_part_id: int, session: Session = Depends(get_session)):
     wop = work_orders.get_work_order_part(session, work_order_part_id)

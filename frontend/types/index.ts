@@ -14,9 +14,17 @@ export type InspectionFrequency = "daily" | "weekly" | "monthly"
 export type InspectionItemResult = "pass" | "fail" | "na"
 export type PmFrequency = "annually" | "biannually" | "quarterly" | "every_four_month" | "every_other_month" | "monthly" | "fortnightly" | "weekly" | "daily"
 export type PmTrigger = "operating_hours" | "calendar_based"
+export type IssueSeverity = "low" | "medium" | "high" | "critical"
+export type IssueStatus = "open" | "in_review" | "converted" | "dismissed"
 export type PmOwner = "operator" | "maintenance_team" | "coantactor"
 
 // Models
+export interface Holiday {
+  holiday_id?: number
+  name: string
+  holiday_date: string
+}
+
 export interface Asset {
   asset_id: string
   manufacturer: string
@@ -25,6 +33,7 @@ export interface Asset {
   serial_no?: string
   category: AssetCategory
   owned: AssetOwnership
+  alias?: string
   date_in_service?: string
   status: AssetStatus
   sub_status?: AssetSubStatus
@@ -77,6 +86,7 @@ export interface Downtime {
   downtime_id?: number
   log_date?: string
   asset_id?: string
+  shift_asset?: boolean
   cause_id?: number
   start_date?: string
   start_time?: string
@@ -106,6 +116,7 @@ export interface WorkOrder {
   priority: string
   typ: string
   asset_id?: string
+  asset_pm_id?: number
   description?: string
   supplier_id?: number
   expected_date?: string
@@ -202,6 +213,22 @@ export interface PartCategory {
   name: string
 }
 
+export interface EquipmentPart {
+  id?: number
+  model_no?: string
+  part_no?: string
+  is_critical?: boolean
+}
+
+export interface PartSupplier {
+  id?: number
+  part_no?: string
+  supplier_id?: number
+  supplier_part_no?: string
+  last_cost?: number
+  lead_time_days?: number
+}
+
 export interface StockLevel {
   id?: number
   part_no?: string
@@ -251,6 +278,24 @@ export interface InspectionTemplate {
   notes?: string
 }
 
+export interface InspectionTemplateItem {
+  id?: number
+  template_id?: number
+  question: string
+  category?: string
+  is_critical: boolean
+  order?: number
+}
+
+export interface InspectionResult {
+  id?: number
+  inspection_id?: number
+  template_item_id?: number
+  result: InspectionItemResult
+  notes?: string
+  work_order_id?: number
+}
+
 export interface Inspection {
   id?: number
   inspection_no: string
@@ -263,6 +308,17 @@ export interface Inspection {
   submitted: boolean
   submitted_date?: string
   notes?: string
+}
+
+export interface Issue {
+  id?: number
+  asset_id?: string
+  reported_by?: number
+  reported_at?: string
+  description: string
+  severity: IssueSeverity
+  status: IssueStatus
+  work_order_id?: number
 }
 
 export interface User {

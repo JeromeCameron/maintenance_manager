@@ -99,6 +99,10 @@ def get_equipment_part(session: Session, equipment_part_id: int) -> Optional[Equ
     return session.get(EquipmentPart, equipment_part_id)
 
 
+def get_equipment_parts_by_part(session: Session, part_no: str) -> Sequence[EquipmentPart]:
+    return session.exec(select(EquipmentPart).where(EquipmentPart.part_no == part_no)).all()
+
+
 def add_equipment_part(session: Session, equipment_part: EquipmentPart) -> EquipmentPart:
     session.add(equipment_part)
     session.commit()
@@ -139,6 +143,10 @@ def get_part_suppliers(session: Session) -> Sequence[PartSupplier]:
 
 def get_part_supplier(session: Session, part_supplier_id: int) -> Optional[PartSupplier]:
     return session.get(PartSupplier, part_supplier_id)
+
+
+def get_part_suppliers_by_part(session: Session, part_no: str) -> Sequence[PartSupplier]:
+    return session.exec(select(PartSupplier).where(PartSupplier.part_no == part_no)).all()
 
 
 def add_part_supplier(session: Session, part_supplier: PartSupplier) -> PartSupplier:

@@ -59,6 +59,11 @@ async def get_inspection_template_items(session: Session = Depends(get_session))
     return inspections.get_inspection_template_items(session)
 
 
+@inspection_template_item_router.get("/template/{template_id}", status_code=status.HTTP_200_OK, response_model=list[InspectionTemplateItem])
+async def get_template_items_by_template(template_id: int, session: Session = Depends(get_session)):
+    return inspections.get_template_items_by_template(session, template_id)
+
+
 @inspection_template_item_router.get("/{item_id}", status_code=status.HTTP_200_OK, response_model=InspectionTemplateItem)
 async def get_inspection_template_item(item_id: int, session: Session = Depends(get_session)):
     item = inspections.get_inspection_template_item(session, item_id)
@@ -140,6 +145,11 @@ async def delete_inspection(inspection_id: int, session: Session = Depends(get_s
 @inspection_result_router.get("", status_code=status.HTTP_200_OK, response_model=list[InspectionResult])
 async def get_inspection_results(session: Session = Depends(get_session)):
     return inspections.get_inspection_results(session)
+
+
+@inspection_result_router.get("/inspection/{inspection_id}", status_code=status.HTTP_200_OK, response_model=list[InspectionResult])
+async def get_results_by_inspection(inspection_id: int, session: Session = Depends(get_session)):
+    return inspections.get_results_by_inspection(session, inspection_id)
 
 
 @inspection_result_router.get("/{result_id}", status_code=status.HTTP_200_OK, response_model=InspectionResult)

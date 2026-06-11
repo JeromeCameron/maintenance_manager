@@ -3,6 +3,15 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import AssetPM, PmPlans
+from utils.pm_schedule import next_service_date
+
+
+def _recalc_next_service(session: Session, apm: AssetPM) -> None:
+    """Set next_service from last_service + plan frequency if both are available."""
+    if apm.last_service and apm.pm_plan_id:
+        plan = session.get(PmPlans, apm.pm_plan_id)
+        if plan and plan.frequency:
+            apm.next_service = next_service_date(apm.last_service, plan.frequency)
 
 
 # ------------------------------------------------------------------
@@ -62,6 +71,7 @@ def get_asset_pm(session: Session, asset_pm_id: int) -> Optional[AssetPM]:
 
 
 def add_asset_pm(session: Session, asset_pm: AssetPM) -> AssetPM:
+    _recalc_next_service(session, asset_pm)
     session.add(asset_pm)
     session.commit()
     session.refresh(asset_pm)
@@ -74,6 +84,7 @@ def update_asset_pm(session: Session, asset_pm_id: int, data: AssetPM) -> Option
         return None
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(db_apm, key, value)
+    _recalc_next_service(session, db_apm)
     session.add(db_apm)
     session.commit()
     session.refresh(db_apm)

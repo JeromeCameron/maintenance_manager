@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { Asset, WorkOrder, Downtime, Inspection } from "~/types"
+import type { Asset, Baler, AssetScores, WorkOrder, Downtime, Inspection } from "~/types"
 
 const route = useRoute()
 const router = useRouter()
-const { getOne, create, update, getWorkOrders, getDowntimes, getInspections } = useAssets()
+const { getOne, create, update, getWorkOrders, getDowntimes, getInspections,
+  getBalerByAsset, createBaler, updateBaler, removeBaler,
+  getScoreByAsset, createScore, updateScore, removeScore } = useAssets()
 
 const isNew = route.params.id === "new"
 const assetId = isNew ? null : (route.params.id as string)
@@ -33,6 +35,86 @@ const { data: downtimes } = !isNew && assetId
 const { data: inspections } = !isNew && assetId
   ? await useAsyncData(`ins-${assetId}`, () => getInspections(assetId))
   : { data: ref([]) }
+
+// ── Baler ────────────────────────────────────────────────────
+const baler = ref<Baler | null>(null)
+const showBalerModal = ref(false)
+const balerForm = ref<Partial<Baler>>({})
+const savingBaler = ref(false)
+const balerError = ref<string | null>(null)
+
+if (!isNew && assetId) {
+  baler.value = await getBalerByAsset(assetId)
+}
+
+function openBalerEdit() {
+  balerForm.value = baler.value ? { ...baler.value } : { asset_id: assetId ?? undefined }
+  balerError.value = null
+  showBalerModal.value = true
+}
+
+async function saveBaler() {
+  savingBaler.value = true
+  balerError.value = null
+  try {
+    if (baler.value?.baler_id) {
+      baler.value = await updateBaler(baler.value.baler_id, balerForm.value as Baler)
+    } else {
+      baler.value = await createBaler({ ...balerForm.value, asset_id: assetId ?? undefined } as Baler)
+    }
+    showBalerModal.value = false
+  } catch (e: unknown) {
+    balerError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingBaler.value = false
+  }
+}
+
+async function deleteBaler() {
+  if (!baler.value?.baler_id) return
+  await removeBaler(baler.value.baler_id)
+  baler.value = null
+}
+
+// ── Asset Scores ─────────────────────────────────────────────
+const scores = ref<AssetScores | null>(null)
+const showScoresModal = ref(false)
+const scoresForm = ref<Partial<AssetScores>>({})
+const savingScores = ref(false)
+const scoresError = ref<string | null>(null)
+
+if (!isNew && assetId) {
+  scores.value = await getScoreByAsset(assetId)
+}
+
+function openScoresEdit() {
+  scoresForm.value = scores.value ? { ...scores.value } : { asset_id: assetId ?? undefined }
+  scoresError.value = null
+  showScoresModal.value = true
+}
+
+async function saveScores() {
+  savingScores.value = true
+  scoresError.value = null
+  try {
+    if (scores.value?.score_id) {
+      scores.value = await updateScore(scores.value.score_id, scoresForm.value as AssetScores)
+    } else {
+      scores.value = await createScore({ ...scoresForm.value, asset_id: assetId ?? undefined } as AssetScores)
+    }
+    showScoresModal.value = false
+  } catch (e: unknown) {
+    scoresError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingScores.value = false
+  }
+}
+
+async function deleteScores() {
+  if (!scores.value?.score_id) return
+  await removeScore(scores.value.score_id)
+  scores.value = null
+}
 
 async function save() {
   saving.value = true
@@ -132,6 +214,52 @@ const woStatusColors: Record<string, string> = {
         </UCard>
       </div>
 
+      <!-- Baler & Scores -->
+      <div v-if="!isNew" class="lg:col-span-2 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <!-- Baler Details -->
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h2 class="font-semibold">Baler Details</h2>
+              <div class="flex gap-1">
+                <UButton size="xs" variant="ghost" icon="i-heroicons-pencil" @click="openBalerEdit" />
+                <UButton v-if="baler" size="xs" variant="ghost" icon="i-heroicons-trash" color="error" @click="deleteBaler" />
+              </div>
+            </div>
+          </template>
+          <div v-if="baler" class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="capitalize">{{ baler.baler_type ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Size</span><span class="capitalize">{{ baler.baler_size ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Weight</span><span>{{ baler.bale_weight != null ? `${baler.bale_weight} kg` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Time</span><span>{{ baler.bale_time != null ? `${baler.bale_time} min` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Ram Force</span><span>{{ baler.ram_force != null ? `${baler.ram_force} kN` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Size</span><span>{{ baler.bale_size ?? "—" }}</span></div>
+          </div>
+          <p v-else class="text-sm text-slate-400">No baler details. <UButton variant="link" size="xs" @click="openBalerEdit">Add now</UButton></p>
+        </UCard>
+
+        <!-- Asset Scores -->
+        <UCard>
+          <template #header>
+            <div class="flex items-center justify-between">
+              <h2 class="font-semibold">Asset Scores</h2>
+              <div class="flex gap-1">
+                <UButton size="xs" variant="ghost" icon="i-heroicons-pencil" @click="openScoresEdit" />
+                <UButton v-if="scores" size="xs" variant="ghost" icon="i-heroicons-trash" color="error" @click="deleteScores" />
+              </div>
+            </div>
+          </template>
+          <div v-if="scores" class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-slate-500">Operational</span><span>{{ scores.operational_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Safety</span><span>{{ scores.safety_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Backup</span><span>{{ scores.backup_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Repair</span><span>{{ scores.repair_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Usage</span><span>{{ scores.usage_score ?? "—" }}</span></div>
+          </div>
+          <p v-else class="text-sm text-slate-400">No scores recorded. <UButton variant="link" size="xs" @click="openScoresEdit">Add now</UButton></p>
+        </UCard>
+      </div>
+
       <!-- Stats sidebar -->
       <div v-if="!isNew" class="space-y-4">
         <UCard>
@@ -177,5 +305,75 @@ const woStatusColors: Record<string, string> = {
         </UCard>
       </div>
     </div>
+    <!-- Baler Modal -->
+    <UModal v-model:open="showBalerModal">
+      <template #content>
+        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900">{{ baler ? "Edit Baler Details" : "Add Baler Details" }}</h3>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showBalerModal = false" />
+          </div>
+          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
+            <UFormField label="Type">
+              <USelect v-model="balerForm.baler_type" :items="['vertical', 'horizontal']" placeholder="Select type" class="w-full" />
+            </UFormField>
+            <UFormField label="Size">
+              <USelect v-model="balerForm.baler_size" :items="['small', 'medium', 'large']" placeholder="Select size" class="w-full" />
+            </UFormField>
+            <UFormField label="Bale Weight (kg)">
+              <UInput v-model.number="balerForm.bale_weight" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Bale Time (min)">
+              <UInput v-model.number="balerForm.bale_time" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Ram Force (kN)">
+              <UInput v-model.number="balerForm.ram_force" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Bale Size">
+              <UInput v-model="balerForm.bale_size" placeholder="e.g. 1200x800" class="w-full" />
+            </UFormField>
+          </div>
+          <UAlert v-if="balerError" color="error" variant="soft" :description="balerError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showBalerModal = false">Cancel</UButton>
+            <UButton :loading="savingBaler" @click="saveBaler">Save</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Asset Scores Modal -->
+    <UModal v-model:open="showScoresModal">
+      <template #content>
+        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900">{{ scores ? "Edit Asset Scores" : "Add Asset Scores" }}</h3>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showScoresModal = false" />
+          </div>
+          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
+            <UFormField label="Operational Score">
+              <UInput v-model.number="scoresForm.operational_score" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Safety Score">
+              <UInput v-model.number="scoresForm.safety_score" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Backup Score">
+              <UInput v-model.number="scoresForm.backup_score" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Repair Score">
+              <UInput v-model.number="scoresForm.repair_score" type="number" class="w-full" />
+            </UFormField>
+            <UFormField label="Usage Score">
+              <UInput v-model.number="scoresForm.usage_score" type="number" class="w-full" />
+            </UFormField>
+          </div>
+          <UAlert v-if="scoresError" color="error" variant="soft" :description="scoresError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showScoresModal = false">Cancel</UButton>
+            <UButton :loading="savingScores" @click="saveScores">Save</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

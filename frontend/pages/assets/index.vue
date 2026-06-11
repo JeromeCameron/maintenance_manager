@@ -157,6 +157,9 @@ async function confirmDelete() {
             <UFormField label="Manufacturer" required>
               <UInput v-model="form.manufacturer" placeholder="e.g. Caterpillar" class="w-full" />
             </UFormField>
+            <UFormField label="Alias">
+              <UInput v-model="form.alias" placeholder="e.g. Big Blue Baler" class="w-full" />
+            </UFormField>
             <UFormField label="Category">
               <USelect v-model="form.category" :items="categoryOptions" class="w-full" />
             </UFormField>
