@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Issue, WorkOrder } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getAll, create, update, remove } = useIssues()
 const { getAll: getAssets } = useAssets()
 const { getAll: getUsers } = useUsers()
@@ -184,7 +185,6 @@ function formatDate(val: string | undefined) {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Issues</h1>
       <UButton leading-icon="i-heroicons-plus" @click="openCreate">Report Issue</UButton>
     </div>
 
@@ -237,7 +237,7 @@ function formatDate(val: string | undefined) {
               @click="openConvert(row)"
             />
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>

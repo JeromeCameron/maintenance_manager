@@ -6,11 +6,10 @@ from sqlmodel import Session
 
 import crud.asset as assets
 from schema.database import get_session
-from schema.models import Asset, AssetModel, AssetScores, Baler
+from schema.models import Asset, AssetModel, AssetScores
 
 router = APIRouter(prefix="/api/assets", tags=["Asset"])
 asset_model_router = APIRouter(prefix="/api/asset-models", tags=["AssetModel"])
-baler_router = APIRouter(prefix="/api/balers", tags=["Baler"])
 asset_scores_router = APIRouter(prefix="/api/asset-scores", tags=["AssetScores"])
 
 
@@ -108,48 +107,6 @@ async def delete_asset_model(model_no: str, session: Session = Depends(get_sessi
     deleted = assets.delete_asset_model(session, model_no)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset model not found")
-
-
-# ------------------------------------------------------------------
-# Baler endpoints
-
-
-@baler_router.get("", status_code=status.HTTP_200_OK, response_model=list[Baler])
-async def get_balers(session: Session = Depends(get_session)):
-    return assets.get_balers(session)
-
-
-@baler_router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=Optional[Baler])
-async def get_baler_by_asset(asset_id: str, session: Session = Depends(get_session)):
-    return assets.get_baler_by_asset(session, asset_id)
-
-
-@baler_router.get("/{baler_id}", status_code=status.HTTP_200_OK, response_model=Baler)
-async def get_baler(baler_id: int, session: Session = Depends(get_session)):
-    baler = assets.get_baler(session, baler_id)
-    if not baler:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baler not found")
-    return baler
-
-
-@baler_router.post("", status_code=status.HTTP_201_CREATED, response_model=Baler)
-async def add_baler(baler: Baler, session: Session = Depends(get_session)):
-    return assets.add_baler(session, baler)
-
-
-@baler_router.put("/{baler_id}", status_code=status.HTTP_200_OK, response_model=Baler)
-async def update_baler(baler_id: int, data: Baler, session: Session = Depends(get_session)):
-    baler = assets.update_baler(session, baler_id, data)
-    if baler is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baler not found")
-    return baler
-
-
-@baler_router.delete("/{baler_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_baler(baler_id: int, session: Session = Depends(get_session)):
-    deleted = assets.delete_baler(session, baler_id)
-    if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Baler not found")
 
 
 # ------------------------------------------------------------------

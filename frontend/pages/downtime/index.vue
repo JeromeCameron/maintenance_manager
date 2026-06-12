@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Downtime } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getAll, getOne, create, update, remove, getCauses } = useDowntime()
 const { getAll: getAssets } = useAssets()
 
@@ -102,7 +103,6 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Downtime</h1>
       <div class="flex items-center gap-3">
         <div class="rounded-lg bg-red-50 px-4 py-2 text-sm">
           <span class="text-red-600">Total: </span>
@@ -126,8 +126,9 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/downtime/${row.downtime_id}`)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.downtime_id)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>

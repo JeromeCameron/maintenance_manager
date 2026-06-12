@@ -46,11 +46,6 @@ export interface AssetModel {
   manufacturer: string
   category?: AssetCategory
   description?: string
-}
-
-export interface Baler {
-  baler_id?: number
-  asset_id?: string
   bale_weight?: number
   bale_time?: number
   ram_force?: number

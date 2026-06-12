@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Part } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getParts, getPart, createPart, updatePart, removePart, getCategories, getStockLevels } = useInventory()
 
 const { data: parts, refresh } = await useAsyncData("parts", () => getParts())
@@ -112,7 +113,6 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Inventory</h1>
       <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Part</UButton>
     </div>
 
@@ -136,8 +136,9 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/inventory/${row.part_no}`)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.part_no)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>

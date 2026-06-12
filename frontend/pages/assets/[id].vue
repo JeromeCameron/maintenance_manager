@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { Asset, Baler, AssetScores, WorkOrder, Downtime, Inspection } from "~/types"
+import type { Asset, AssetModel, AssetScores, WorkOrder, Downtime, Inspection } from "~/types"
 
 const route = useRoute()
 const router = useRouter()
 const { getOne, create, update, getWorkOrders, getDowntimes, getInspections,
-  getBalerByAsset, createBaler, updateBaler, removeBaler,
   getScoreByAsset, createScore, updateScore, removeScore } = useAssets()
+const { getOne: getModelOne } = useAssetModels()
 
 const isNew = route.params.id === "new"
 const assetId = isNew ? null : (route.params.id as string)
@@ -36,44 +36,10 @@ const { data: inspections } = !isNew && assetId
   ? await useAsyncData(`ins-${assetId}`, () => getInspections(assetId))
   : { data: ref([]) }
 
-// ── Baler ────────────────────────────────────────────────────
-const baler = ref<Baler | null>(null)
-const showBalerModal = ref(false)
-const balerForm = ref<Partial<Baler>>({})
-const savingBaler = ref(false)
-const balerError = ref<string | null>(null)
-
-if (!isNew && assetId) {
-  baler.value = await getBalerByAsset(assetId)
-}
-
-function openBalerEdit() {
-  balerForm.value = baler.value ? { ...baler.value } : { asset_id: assetId ?? undefined }
-  balerError.value = null
-  showBalerModal.value = true
-}
-
-async function saveBaler() {
-  savingBaler.value = true
-  balerError.value = null
-  try {
-    if (baler.value?.baler_id) {
-      baler.value = await updateBaler(baler.value.baler_id, balerForm.value as Baler)
-    } else {
-      baler.value = await createBaler({ ...balerForm.value, asset_id: assetId ?? undefined } as Baler)
-    }
-    showBalerModal.value = false
-  } catch (e: unknown) {
-    balerError.value = (e as { message?: string }).message ?? "Save failed"
-  } finally {
-    savingBaler.value = false
-  }
-}
-
-async function deleteBaler() {
-  if (!baler.value?.baler_id) return
-  await removeBaler(baler.value.baler_id)
-  baler.value = null
+// ── Baler model specs (read-only) ─────────────────────────────
+const modelData = ref<AssetModel | null>(null)
+if (!isNew && assetId && form.value.category === "baler" && form.value.model_no) {
+  modelData.value = await getModelOne(form.value.model_no).catch(() => null)
 }
 
 // ── Asset Scores ─────────────────────────────────────────────
@@ -216,26 +182,23 @@ const woStatusColors: Record<string, string> = {
 
       <!-- Baler & Scores -->
       <div v-if="!isNew" class="lg:col-span-2 grid grid-cols-1 gap-6 sm:grid-cols-2">
-        <!-- Baler Details -->
-        <UCard>
+        <!-- Baler Specs (read-only from model) -->
+        <UCard v-if="form.category === 'baler'">
           <template #header>
             <div class="flex items-center justify-between">
-              <h2 class="font-semibold">Baler Details</h2>
-              <div class="flex gap-1">
-                <UButton size="xs" variant="ghost" icon="i-heroicons-pencil" @click="openBalerEdit" />
-                <UButton v-if="baler" size="xs" variant="ghost" icon="i-heroicons-trash" color="error" @click="deleteBaler" />
-              </div>
+              <h2 class="font-semibold">Baler Specs</h2>
+              <p class="text-xs text-slate-400">Edit in Settings → Asset Models</p>
             </div>
           </template>
-          <div v-if="baler" class="space-y-2 text-sm">
-            <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="capitalize">{{ baler.baler_type ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Size</span><span class="capitalize">{{ baler.baler_size ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Weight</span><span>{{ baler.bale_weight != null ? `${baler.bale_weight} kg` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Time</span><span>{{ baler.bale_time != null ? `${baler.bale_time} min` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Ram Force</span><span>{{ baler.ram_force != null ? `${baler.ram_force} kN` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Size</span><span>{{ baler.bale_size ?? "—" }}</span></div>
+          <div v-if="modelData" class="space-y-2 text-sm">
+            <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="capitalize">{{ modelData.baler_type ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Size</span><span class="capitalize">{{ modelData.baler_size ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Weight</span><span>{{ modelData.bale_weight != null ? `${modelData.bale_weight} kg` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Time</span><span>{{ modelData.bale_time != null ? `${modelData.bale_time} min` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Ram Force</span><span>{{ modelData.ram_force != null ? `${modelData.ram_force} kN` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500">Bale Size</span><span>{{ modelData.bale_size ?? "—" }}</span></div>
           </div>
-          <p v-else class="text-sm text-slate-400">No baler details. <UButton variant="link" size="xs" @click="openBalerEdit">Add now</UButton></p>
+          <p v-else class="text-sm text-slate-400">No model assigned or specs not set.</p>
         </UCard>
 
         <!-- Asset Scores -->
@@ -305,42 +268,6 @@ const woStatusColors: Record<string, string> = {
         </UCard>
       </div>
     </div>
-    <!-- Baler Modal -->
-    <UModal v-model:open="showBalerModal">
-      <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ baler ? "Edit Baler Details" : "Add Baler Details" }}</h3>
-            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showBalerModal = false" />
-          </div>
-          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
-            <UFormField label="Type">
-              <USelect v-model="balerForm.baler_type" :items="['vertical', 'horizontal']" placeholder="Select type" class="w-full" />
-            </UFormField>
-            <UFormField label="Size">
-              <USelect v-model="balerForm.baler_size" :items="['small', 'medium', 'large']" placeholder="Select size" class="w-full" />
-            </UFormField>
-            <UFormField label="Bale Weight (kg)">
-              <UInput v-model.number="balerForm.bale_weight" type="number" class="w-full" />
-            </UFormField>
-            <UFormField label="Bale Time (min)">
-              <UInput v-model.number="balerForm.bale_time" type="number" class="w-full" />
-            </UFormField>
-            <UFormField label="Ram Force (kN)">
-              <UInput v-model.number="balerForm.ram_force" type="number" class="w-full" />
-            </UFormField>
-            <UFormField label="Bale Size">
-              <UInput v-model="balerForm.bale_size" placeholder="e.g. 1200x800" class="w-full" />
-            </UFormField>
-          </div>
-          <UAlert v-if="balerError" color="error" variant="soft" :description="balerError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-            <UButton variant="ghost" color="neutral" @click="showBalerModal = false">Cancel</UButton>
-            <UButton :loading="savingBaler" @click="saveBaler">Save</UButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
 
     <!-- Asset Scores Modal -->
     <UModal v-model:open="showScoresModal">

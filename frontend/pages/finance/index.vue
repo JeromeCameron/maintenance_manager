@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PurchaseOrder, Invoice, Budget } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getPOs, getPO, createPO, updatePO, removePO, getInvoices, getInvoice, createInvoice, updateInvoice, removeInvoice, getBudgets, createBudget, updateBudget, removeBudget, getCostCentres } = useFinance()
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
@@ -57,6 +58,43 @@ const filteredInvoices = computed(() =>
 )
 const totalPOValue = computed(() => (pos.value ?? []).reduce((s, p) => s + p.subtotal, 0))
 const totalInvoiceValue = computed(() => (invoices.value ?? []).reduce((s, i) => s + i.subtotal, 0))
+
+// ── Budget vs Actual chart (last 12 months) ───────────────────
+const chartMonths = (() => {
+  const now = new Date()
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
+    return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString("default", { month: "short", year: "2-digit" }) }
+  })
+})()
+
+const spendSeries = computed(() => [
+  {
+    name: "Budget",
+    data: chartMonths.map(({ year, month }) =>
+      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, b) => s + b.amount, 0)
+    ),
+  },
+  {
+    name: "Actual Spend",
+    data: chartMonths.map(({ year, month }) =>
+      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
+    ),
+  },
+])
+
+const spendChartOptions = {
+  chart: { type: "line", height: 200, toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  stroke: { width: [2, 2], curve: "smooth", dashArray: [6, 0] },
+  markers: { size: 3, strokeWidth: 0 },
+  xaxis: { categories: chartMonths.map((m) => m.label), labels: { style: { fontSize: "10px", colors: "#94a3b8" } }, axisBorder: { show: false }, axisTicks: { show: false } },
+  yaxis: { labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => `$${(v / 1000).toFixed(1)}k` }, min: 0 },
+  grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 2, right: 2 } },
+  colors: ["#94a3b8", "#3b82f6"],
+  legend: { show: false },
+  dataLabels: { enabled: false },
+  tooltip: { y: { formatter: (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2 })}` } },
+}
 
 // ── Shared options ────────────────────────────────────────────
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
@@ -223,7 +261,6 @@ async function confirmDeleteBudget() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Finance</h1>
       <div class="flex gap-2">
         <UButton v-if="activeTab === 'pos'" leading-icon="i-heroicons-plus" @click="openCreatePO">New PO</UButton>
         <UButton v-if="activeTab === 'invoices'" leading-icon="i-heroicons-plus" @click="openCreateInvoice">New Invoice</UButton>
@@ -231,26 +268,51 @@ async function confirmDeleteBudget() {
       </div>
     </div>
 
-    <!-- KPIs -->
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <UCard>
-        <div class="flex items-center gap-3">
-          <UIcon name="i-heroicons-document-text" class="h-8 w-8 text-blue-500" />
-          <div><p class="text-xs text-gray-500">Total PO Value</p><p class="text-xl font-bold">${{ totalPOValue.toLocaleString() }}</p></div>
-        </div>
-      </UCard>
-      <UCard>
-        <div class="flex items-center gap-3">
-          <UIcon name="i-heroicons-banknotes" class="h-8 w-8 text-green-500" />
-          <div><p class="text-xs text-gray-500">Total Invoice Value</p><p class="text-xl font-bold">${{ totalInvoiceValue.toLocaleString() }}</p></div>
-        </div>
-      </UCard>
-      <UCard>
-        <div class="flex items-center gap-3">
-          <UIcon name="i-heroicons-calculator" class="h-8 w-8 text-purple-500" />
-          <div><p class="text-xs text-gray-500">Budget Entries</p><p class="text-xl font-bold">{{ budgets?.length ?? 0 }}</p></div>
-        </div>
-      </UCard>
+    <!-- KPIs + Chart -->
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <!-- Stacked badges -->
+      <div class="flex flex-col gap-4">
+        <UCard>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-heroicons-document-text" class="h-8 w-8 text-blue-500" />
+            <div>
+              <p class="text-xs text-gray-500">Total PO Value</p>
+              <p class="text-xl font-bold">${{ totalPOValue.toLocaleString() }}</p>
+            </div>
+          </div>
+        </UCard>
+        <UCard>
+          <div class="flex items-center gap-3">
+            <UIcon name="i-heroicons-banknotes" class="h-8 w-8 text-green-500" />
+            <div>
+              <p class="text-xs text-gray-500">Total Invoice Value</p>
+              <p class="text-xl font-bold">${{ totalInvoiceValue.toLocaleString() }}</p>
+            </div>
+          </div>
+        </UCard>
+      </div>
+
+      <!-- Budget vs Actual chart -->
+      <div class="lg:col-span-2">
+        <UCard class="h-full">
+          <div class="mb-2 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-semibold text-slate-700">Budget vs Actual Spend</p>
+              <p class="text-xs text-slate-400">Last 12 months</p>
+            </div>
+            <div class="flex items-center gap-4 text-xs text-slate-500">
+              <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300" />Budget</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 bg-blue-500" />Actual</span>
+            </div>
+          </div>
+          <ClientOnly>
+            <apexchart type="line" height="100" :options="spendChartOptions" :series="spendSeries" />
+            <template #fallback>
+              <div class="flex h-[100px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+            </template>
+          </ClientOnly>
+        </UCard>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -273,7 +335,7 @@ async function confirmDeleteBudget() {
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditPO(row)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePOTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePOTarget = row" />
           </div>
         </template>
       </UTable>
@@ -286,7 +348,7 @@ async function confirmDeleteBudget() {
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditInvoice(row)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteInvoiceTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteInvoiceTarget = row" />
           </div>
         </template>
       </UTable>
@@ -297,7 +359,7 @@ async function confirmDeleteBudget() {
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditBudget(row)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteBudgetTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteBudgetTarget = row" />
           </div>
         </template>
       </UTable>

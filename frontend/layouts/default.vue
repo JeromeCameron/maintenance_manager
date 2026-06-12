@@ -25,6 +25,7 @@ const navGroups = [
     items: [
       { label: "Inventory", icon: "i-heroicons-archive-box", to: "/inventory" },
       { label: "Finance", icon: "i-heroicons-banknotes", to: "/finance" },
+      { label: "Reports", icon: "i-heroicons-document-chart-bar", to: "/reports" },
     ],
   },
   {
@@ -40,6 +41,31 @@ const navGroups = [
 
 const isActive = (to: string) =>
   to === "/" ? route.path === "/" : route.path.startsWith(to)
+
+const pageMap: Record<string, { title: string; caption: string }> = {
+  "/assets":      { title: "Assets",      caption: "Manage and monitor your equipment fleet." },
+  "/work-orders": { title: "Work Orders", caption: "Track and manage maintenance work orders." },
+  "/issues":      { title: "Issues",      caption: "Log and resolve reported equipment issues." },
+  "/downtime":    { title: "Downtime",    caption: "Record and analyse equipment downtime events." },
+  "/maintenance": { title: "PM Schedule", caption: "Plan and track preventative maintenance." },
+  "/inspections": { title: "Inspections", caption: "Conduct and review equipment inspections." },
+  "/inventory":   { title: "Inventory",   caption: "Manage parts, stock levels and transactions." },
+  "/finance":     { title: "Finance",     caption: "Purchase orders, invoices and budget tracking." },
+  "/reports":     { title: "Reports",     caption: "Generate and download operational reports." },
+  "/locations":   { title: "Locations",   caption: "Manage depots and redemption centres." },
+  "/suppliers":   { title: "Suppliers",   caption: "Manage supplier contacts and details." },
+  "/users":       { title: "Users",       caption: "Manage user accounts and permissions." },
+  "/settings":    { title: "Settings",    caption: "Configure holidays, models and system settings." },
+}
+
+const pageInfo = computed(() => {
+  if (route.path === "/") return {
+    title: `Welcome back, ${user.value?.firstname ?? "there"}.`,
+    caption: "Here's a quick snapshot of what's happening.",
+  }
+  const key = "/" + route.path.split("/")[1]
+  return pageMap[key] ?? { title: key.replace("/", "").replace(/-/g, " "), caption: "" }
+})
 </script>
 
 <template>
@@ -114,10 +140,11 @@ const isActive = (to: string) =>
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 
       <!-- Top bar -->
-      <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
-        <p class="text-sm font-semibold text-slate-700 capitalize">
-          {{ route.path === '/' ? 'Dashboard' : route.path.split('/')[1].replace(/-/g, ' ') }}
-        </p>
+      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+        <div>
+          <p class="text-base font-bold text-slate-900">{{ pageInfo.title }}</p>
+          <p v-if="pageInfo.caption" class="text-xs text-slate-400">{{ pageInfo.caption }}</p>
+        </div>
         <div class="flex items-center gap-2">
           <UButton variant="ghost" size="sm" icon="i-heroicons-bell" color="neutral" />
           <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600">

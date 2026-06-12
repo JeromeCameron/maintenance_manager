@@ -2,7 +2,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from auth.dependencies import admin_on_write, write_on_write, get_current_user
-from routers.asset import router as asset_router, asset_model_router, baler_router, asset_scores_router
+from routers.asset import router as asset_router, asset_model_router, asset_scores_router
 from routers.auth import router as auth_router
 from routers.depot import router as depot_router
 from routers.downtime import router as downtime_router, downtime_cause_router
@@ -46,7 +46,6 @@ app.include_router(auth_router)
 # Admin writes: assets, locations, suppliers, budgets, users
 app.include_router(asset_router,               dependencies=[Depends(admin_on_write)])
 app.include_router(asset_model_router,         dependencies=[Depends(admin_on_write)])
-app.include_router(baler_router,               dependencies=[Depends(admin_on_write)])
 app.include_router(asset_scores_router,        dependencies=[Depends(admin_on_write)])
 app.include_router(depot_router,               dependencies=[Depends(admin_on_write)])
 app.include_router(supplier_router,            dependencies=[Depends(admin_on_write)])

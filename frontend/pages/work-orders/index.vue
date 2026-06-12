@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { WorkOrder, WorkOrderPart, AssetPM } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getAll, getOne, create, update, remove, getPartsByWorkOrder, addPart, updatePart, removePart } = useWorkOrders()
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
@@ -235,7 +236,6 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Work Orders</h1>
       <UModal v-model:open="showCreateModal" :ui="{ content: 'max-w-2xl' }" @update:open="onCreateOpen">
         <UButton leading-icon="i-heroicons-plus">New Work Order</UButton>
         <template #content>
@@ -324,8 +324,9 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/work-orders/${row.work_order_id}`)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>
@@ -407,7 +408,7 @@ async function confirmDelete() {
                 <template #part-actions-cell="{ row: { original: row } }">
                   <div class="flex items-center gap-1">
                     <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="startEditPart(row)" />
-                    <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePart(row.id)" />
+                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePart(row.id)" />
                   </div>
                 </template>
               </UTable>

@@ -500,7 +500,6 @@ async function confirmDeletePmPlan() {
 
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold text-slate-900">Settings</h1>
 
     <UTabs v-model="activeTab" :items="tabs">
       <template #leading="{ item }">

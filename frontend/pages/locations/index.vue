@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Location } from "~/types"
 
+const { isAdmin } = useAuth()
 const { getAll, getOne, create, update, remove } = useLocations()
 
 const { data: locations, refresh } = await useAsyncData("locations", () => getAll())
@@ -91,7 +92,6 @@ async function confirmDelete() {
 <template>
   <div class="space-y-4">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold text-slate-900">Locations</h1>
       <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Location</UButton>
     </div>
 
@@ -109,8 +109,9 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/locations/${row.location_id}`)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.location_id)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
       </UTable>

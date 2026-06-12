@@ -32,6 +32,7 @@ class AssetStatus(str, Enum):
     maintenance = "maintenance"
     disposed = "disposed"
     out_of_service = "out_of_service"
+    retired = "retired"
 
 
 class AssetSubStatus(str, Enum):
@@ -202,6 +203,13 @@ class AssetModel(SQLModel, table=True):
     manufacturer: str
     category: AssetCategory = Field(default=None)
     description: Optional[str] = Field(default=None, sa_type=Text)
+    # Baler specs (populated when category = baler)
+    bale_weight: Optional[int] = Field(default=None)
+    bale_time: Optional[int] = Field(default=None)
+    ram_force: Optional[int] = Field(default=None)
+    bale_size: Optional[str] = Field(default=None)
+    baler_type: Optional[BalerType] = Field(default=None)
+    baler_size: Optional[BalerSize] = Field(default=None)
 
     assets: List["Asset"] = Relationship(back_populates="model")
     equipment_parts: List["EquipmentPart"] = Relationship(back_populates="model")
@@ -223,7 +231,6 @@ class Asset(SQLModel, table=True):
     notes: Optional[str] = Field(default=None, sa_type=Text)
     location_id: Optional[int] = Field(default=None, foreign_key="location.location_id")
 
-    baler: Optional["Baler"] = Relationship(back_populates="asset")
     location: Optional["Location"] = Relationship(back_populates="assets")
     downtimes: List["Downtime"] = Relationship(back_populates="asset")
     work_orders: List["WorkOrder"] = Relationship(back_populates="asset")
@@ -242,8 +249,11 @@ class Asset(SQLModel, table=True):
         AssetStatus.operational: [
             AssetSubStatus.watch_list,
             AssetSubStatus.limited_duty,
+            AssetSubStatus.pending_inspection,
         ],
         AssetStatus.out_of_service: [
+            AssetSubStatus.in_repair,
+            AssetSubStatus.awaiting_parts,
             AssetSubStatus.pending_inspection,
         ],
     }
@@ -259,19 +269,6 @@ class Asset(SQLModel, table=True):
                 f"Allowed: {[s.value for s in allowed]}"
             )
         return self
-
-
-class Baler(SQLModel, table=True):
-    baler_id: Optional[int] = Field(primary_key=True, default=None)
-    asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
-    bale_weight: Optional[int] = Field(default=None)
-    bale_time: Optional[int] = Field(default=None)
-    ram_force: Optional[int] = Field(default=None)
-    bale_size: Optional[str] = Field(default=None)
-    baler_type: BalerType = Field(default=None)
-    baler_size: BalerSize = Field(default=None)
-
-    asset: Optional["Asset"] = Relationship(back_populates="baler")
 
 
 class AssetScores(SQLModel, table=True):
@@ -417,7 +414,9 @@ class Issue(SQLModel, table=True):
     description: str = Field(sa_type=Text)
     severity: IssueSeverity
     status: IssueStatus = Field(default=IssueStatus.open)
-    work_order_id: Optional[int] = Field(default=None, foreign_key="workorder.work_order_id")
+    work_order_id: Optional[int] = Field(
+        default=None, foreign_key="workorder.work_order_id"
+    )
 
     asset: Optional["Asset"] = Relationship(back_populates="issues")
     reporter: Optional["User"] = Relationship(back_populates="issues")

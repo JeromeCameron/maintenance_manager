@@ -1,4 +1,4 @@
-import type { Asset, AssetScores, Baler, Downtime, Inspection, AssetPM, PurchaseOrder, WorkOrder } from "~/types"
+import type { Asset, AssetScores, Downtime, Inspection, AssetPM, PurchaseOrder, WorkOrder } from "~/types"
 
 export function useAssets() {
   const { get, post, put, del } = useApi()
@@ -15,12 +15,6 @@ export function useAssets() {
   const getPurchaseOrders = (assetId: string) => get<PurchaseOrder[]>(`/purchase-orders/asset/${assetId}`)
   const getAssetPMs = (assetId: string) => get<AssetPM[]>(`/maintenance/asset-pms/asset/${assetId}`)
 
-  // Baler
-  const getBalerByAsset = (assetId: string) => get<Baler | null>(`/balers/asset/${assetId}`)
-  const createBaler = (data: Baler) => post<Baler>("/balers", data)
-  const updateBaler = (balerId: number, data: Baler) => put<Baler>(`/balers/${balerId}`, data)
-  const removeBaler = (balerId: number) => del(`/balers/${balerId}`)
-
   // Asset Scores
   const getScoreByAsset = (assetId: string) => get<AssetScores | null>(`/asset-scores/asset/${assetId}`)
   const createScore = (data: AssetScores) => post<AssetScores>("/asset-scores", data)
@@ -30,7 +24,6 @@ export function useAssets() {
   return {
     getAll, getOne, create, update, remove,
     getDowntimes, getWorkOrders, getInspections, getPurchaseOrders, getAssetPMs,
-    getBalerByAsset, createBaler, updateBaler, removeBaler,
     getScoreByAsset, createScore, updateScore, removeScore,
   }
 }

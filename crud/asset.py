@@ -2,7 +2,7 @@ from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from schema.models import Asset, AssetModel, AssetScores, Baler
+from schema.models import Asset, AssetModel, AssetScores
 
 
 def get_assets(session: Session) -> Sequence[Asset]:
@@ -86,50 +86,6 @@ def delete_asset_model(session: Session, model_no: str) -> bool:
     if asset_model is None:
         return False
     session.delete(asset_model)
-    session.commit()
-    return True
-
-
-# ------------------------------------------------------------------
-# Baler
-
-
-def get_balers(session: Session) -> Sequence[Baler]:
-    return session.exec(select(Baler)).all()
-
-
-def get_baler(session: Session, baler_id: int) -> Optional[Baler]:
-    return session.get(Baler, baler_id)
-
-
-def get_baler_by_asset(session: Session, asset_id: str) -> Optional[Baler]:
-    return session.exec(select(Baler).where(Baler.asset_id == asset_id)).first()
-
-
-def add_baler(session: Session, baler: Baler) -> Baler:
-    session.add(baler)
-    session.commit()
-    session.refresh(baler)
-    return baler
-
-
-def update_baler(session: Session, baler_id: int, data: Baler) -> Optional[Baler]:
-    db_baler: Optional[Baler] = session.get(Baler, baler_id)
-    if db_baler is None:
-        return None
-    for key, value in data.model_dump(exclude_unset=True).items():
-        setattr(db_baler, key, value)
-    session.add(db_baler)
-    session.commit()
-    session.refresh(db_baler)
-    return db_baler
-
-
-def delete_baler(session: Session, baler_id: int) -> bool:
-    baler = session.get(Baler, baler_id)
-    if baler is None:
-        return False
-    session.delete(baler)
     session.commit()
     return True
 
