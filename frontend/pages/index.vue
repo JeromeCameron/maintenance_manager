@@ -181,7 +181,16 @@ const woColumns = [
   { accessorKey: "priority", header: "Priority" },
   { accessorKey: "typ", header: "Type" },
   { accessorKey: "status", header: "Status" },
+  { id: "actions", header: "" },
 ]
+
+const selectedWoId = ref<number | null>(null)
+const showWoModal = ref(false)
+
+function openWorkOrder(id: number) {
+  selectedWoId.value = id
+  showWoModal.value = true
+}
 </script>
 
 <template>
@@ -290,7 +299,12 @@ const woColumns = [
         <template #priority-cell="{ row: { original: row } }">
           <UBadge :color="row.priority === 'High' ? 'error' : row.priority === 'Medium' ? 'warning' : 'neutral'" variant="soft">{{ row.priority }}</UBadge>
         </template>
+        <template #actions-cell="{ row: { original: row } }">
+          <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openWorkOrder(row.work_order_id)" />
+        </template>
       </UTable>
+
+      <WorkOrderModal v-model:open="showWoModal" :work-order-id="selectedWoId" />
     </div>
 
     <!-- PMs Due Soon -->

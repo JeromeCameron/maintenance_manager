@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { WorkOrder, WorkOrderPart, AssetPM } from "~/types"
+import type { WorkOrder, AssetPM } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAll, getOne, create, update, remove, getPartsByWorkOrder, addPart, updatePart, removePart } = useWorkOrders()
+const { getAll, create, remove } = useWorkOrders()
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
 const { getPMsByAsset } = useMaintenance()
@@ -23,9 +23,10 @@ const columns = [
   { accessorKey: "asset_id", header: "Asset" },
   { accessorKey: "priority", header: "Priority" },
   { accessorKey: "typ", header: "Type" },
+  { accessorKey: "planned", header: "Planned" },
   { accessorKey: "status", header: "Status" },
   { accessorKey: "issue_date", header: "Issued" },
-  { accessorKey: "expected_date", header: "Expected" },
+  { accessorKey: "date_completed", header: "Completed" },
   { id: "actions", header: "" },
 ]
 
@@ -47,19 +48,33 @@ const filterPriorityOptions = [
 ]
 
 const filtered = computed(() =>
-  (workOrders.value ?? []).filter((w) => {
-    const matchSearch =
-      !search.value ||
-      String(w.work_order_id).includes(search.value) ||
-      (w.asset_id ?? "").toLowerCase().includes(search.value.toLowerCase())
-    const matchStatus = !statusFilter.value || w.status === statusFilter.value
-    const matchPriority = !priorityFilter.value || w.priority === priorityFilter.value
-    return matchSearch && matchStatus && matchPriority
-  })
+  (workOrders.value ?? [])
+    .filter((w) => {
+      const matchSearch =
+        !search.value ||
+        String(w.work_order_id).includes(search.value) ||
+        (w.asset_id ?? "").toLowerCase().includes(search.value.toLowerCase())
+      const matchStatus = !statusFilter.value || w.status === statusFilter.value
+      const matchPriority = !priorityFilter.value || w.priority === priorityFilter.value
+      return matchSearch && matchStatus && matchPriority
+    })
+    .sort((a, b) => (b.issue_date ?? "").localeCompare(a.issue_date ?? ""))
 )
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return '—'
+  return `${String(d.getDate()).padStart(2,'0')}-${MONTHS[d.getMonth()]}-${String(d.getFullYear()).slice(-2)}`
+}
 
 const priorityOptions = ["Low", "Medium", "High"]
 const typeOptions = ["corrective", "predictive", "preventative", "inspection", "project"]
+const plannedOptions = [
+  { label: "Planned", value: true },
+  { label: "Unplanned", value: false },
+]
 const woStatusOptions = ["requested", "scheduled", "awaiting_parts", "awaiting_po", "in_progress", "on_hold", "cancelled", "completed", "closed"]
 
 const assetOptions = computed(() =>
@@ -69,21 +84,15 @@ const supplierOptions = computed(() =>
   [{ label: "None", value: undefined }, ...(suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id }))]
 )
 
-// ── Shared PM logic ───────────────────────────────────────────
+// ── PM logic (create only) ────────────────────────────────────
 const createAssetPMs = ref<AssetPM[]>([])
-const editAssetPMs = ref<AssetPM[]>([])
 
-async function loadPMsForAsset(assetId: string | undefined, target: "create" | "edit") {
-  const list = assetId ? (await getPMsByAsset(assetId) ?? []) : []
-  if (target === "create") createAssetPMs.value = list
-  else editAssetPMs.value = list
+async function loadPMsForAsset(assetId: string | undefined) {
+  createAssetPMs.value = assetId ? (await getPMsByAsset(assetId) ?? []) : []
 }
 
 const createPMOptions = computed(() =>
   [{ label: "None", value: undefined }, ...createAssetPMs.value.map((p) => ({ label: `${p.pm_plan_id} — next: ${p.next_service ?? "—"}`, value: p.id }))]
-)
-const editPMOptions = computed(() =>
-  [{ label: "None", value: undefined }, ...editAssetPMs.value.map((p) => ({ label: `${p.pm_plan_id} — next: ${p.next_service ?? "—"}`, value: p.id }))]
 )
 
 // ── Create modal ──────────────────────────────────────────────
@@ -100,7 +109,7 @@ const createError = ref<string | null>(null)
 
 watch(() => createForm.value.asset_id, (id) => {
   createForm.value.asset_pm_id = undefined
-  loadPMsForAsset(id, "create")
+  loadPMsForAsset(id)
 })
 
 function onCreateOpen(isOpen: boolean) {
@@ -127,92 +136,11 @@ async function submitCreate() {
 
 // ── Edit modal ────────────────────────────────────────────────
 const showEditModal = ref(false)
-const editForm = ref<Partial<WorkOrder>>({})
 const editingId = ref<number | null>(null)
-const savingEdit = ref(false)
-const editError = ref<string | null>(null)
-const loadingEdit = ref(false)
 
-watch(() => editForm.value.asset_id, (id) => {
-  editForm.value.asset_pm_id = undefined
-  loadPMsForAsset(id, "edit")
-})
-
-async function openEdit(wo: WorkOrder) {
-  loadingEdit.value = true
-  showEditModal.value = true
+function openEdit(wo: WorkOrder) {
   editingId.value = wo.work_order_id!
-  const full = await getOne(wo.work_order_id!)
-  editForm.value = { ...full }
-  if (full?.asset_id) await loadPMsForAsset(full.asset_id, "edit")
-  parts.value = await getPartsByWorkOrder(wo.work_order_id!) ?? []
-  loadingEdit.value = false
-}
-
-async function submitEdit() {
-  savingEdit.value = true
-  editError.value = null
-  try {
-    await update(editingId.value!, editForm.value as WorkOrder)
-    await refresh()
-    showEditModal.value = false
-  } catch (e: unknown) {
-    editError.value = (e as { message?: string }).message ?? "Save failed"
-  } finally {
-    savingEdit.value = false
-  }
-}
-
-// ── Parts (edit modal) ────────────────────────────────────────
-const parts = ref<WorkOrderPart[]>([])
-const newPart = ref<Partial<WorkOrderPart>>({ quantity_used: 1 })
-const addingPart = ref(false)
-const editingPart = ref<WorkOrderPart | null>(null)
-const editPartDraft = ref<Partial<WorkOrderPart>>({})
-const savingPart = ref(false)
-
-const partColumns = [
-  { accessorKey: "part_no", header: "Part No" },
-  { accessorKey: "quantity_used", header: "Qty" },
-  { accessorKey: "unit_cost", header: "Unit Cost" },
-  { accessorKey: "total_cost", header: "Total" },
-  { id: "part-actions", header: "" },
-]
-
-async function submitPart() {
-  if (!editingId.value || !newPart.value.part_no) return
-  addingPart.value = true
-  try {
-    const created = await addPart({ ...newPart.value, work_order_id: editingId.value } as WorkOrderPart)
-    parts.value = [...parts.value, created]
-    newPart.value = { quantity_used: 1 }
-  } finally {
-    addingPart.value = false
-  }
-}
-
-function startEditPart(part: WorkOrderPart) {
-  editingPart.value = part
-  editPartDraft.value = { ...part }
-}
-function cancelEditPart() { editingPart.value = null; editPartDraft.value = {} }
-
-async function saveEditPart() {
-  if (!editingPart.value?.id) return
-  savingPart.value = true
-  try {
-    const updated = await updatePart(editingPart.value.id, editPartDraft.value as WorkOrderPart)
-    parts.value = parts.value.map((p) => p.id === updated.id ? updated : p)
-    cancelEditPart()
-  } finally {
-    savingPart.value = false
-  }
-}
-
-async function deletePart(id: number) {
-  await removePart(id)
-  parts.value = parts.value.filter((p) => p.id !== id)
-  if (editingPart.value?.id === id) cancelEditPart()
+  showEditModal.value = true
 }
 
 // ── Delete modal ──────────────────────────────────────────────
@@ -270,6 +198,9 @@ async function confirmDelete() {
                 <UFormField label="Type">
                   <USelect v-model="createForm.typ" :items="typeOptions" class="w-full" />
                 </UFormField>
+                <UFormField label="Planned / Unplanned">
+                  <USelect v-model="createForm.planned" :items="plannedOptions" placeholder="Select…" class="w-full" />
+                </UFormField>
                 <UFormField label="Status">
                   <USelect v-model="createForm.status" :items="woStatusOptions" class="w-full" />
                 </UFormField>
@@ -316,16 +247,27 @@ async function confirmDelete() {
       </template>
 
       <UTable :data="filtered" :columns="columns">
+        <template #planned-cell="{ row: { original: row } }">
+          <UBadge v-if="row.planned != null" :color="row.planned ? 'primary' : 'neutral'" variant="soft">
+            {{ row.planned ? "Planned" : "Unplanned" }}
+          </UBadge>
+          <span v-else class="text-gray-400">—</span>
+        </template>
         <template #status-cell="{ row: { original: row } }">
           <UBadge :color="statusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status.replace(/_/g, " ") }}</UBadge>
         </template>
         <template #priority-cell="{ row: { original: row } }">
           <UBadge :color="row.priority === 'High' ? 'error' : row.priority === 'Medium' ? 'warning' : 'neutral'" variant="soft">{{ row.priority }}</UBadge>
         </template>
+        <template #issue_date-cell="{ row: { original: row } }">
+          {{ formatDate(row.issue_date) }}
+        </template>
+        <template #date_completed-cell="{ row: { original: row } }">
+          {{ formatDate(row.date_completed) }}
+        </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/work-orders/${row.work_order_id}`)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
@@ -333,131 +275,7 @@ async function confirmDelete() {
     </UCard>
 
     <!-- Edit Modal -->
-    <UModal v-model:open="showEditModal" :ui="{ content: 'max-w-3xl' }">
-      <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl">
-          <!-- Header -->
-          <div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">Edit Work Order #{{ editingId }}</h3>
-            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showEditModal = false" />
-          </div>
-
-          <div v-if="loadingEdit" class="flex flex-1 items-center justify-center py-16">
-            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-gray-400" />
-          </div>
-
-          <!-- Scrollable body -->
-          <div v-else class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-            <!-- Details section -->
-            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
-              <UFormField label="Asset" class="col-span-2">
-                <USelect v-model="editForm.asset_id" :items="assetOptions" placeholder="Select asset…" class="w-full" />
-              </UFormField>
-              <UFormField label="Supplier">
-                <USelect v-model="editForm.supplier_id" :items="supplierOptions" placeholder="Select supplier…" class="w-full" />
-              </UFormField>
-              <UFormField label="PM Plan">
-                <USelect v-model="editForm.asset_pm_id" :items="editPMOptions" placeholder="Link to PM (optional)" class="w-full" />
-              </UFormField>
-              <UFormField label="Priority">
-                <USelect v-model="editForm.priority" :items="priorityOptions" class="w-full" />
-              </UFormField>
-              <UFormField label="Type">
-                <USelect v-model="editForm.typ" :items="typeOptions" class="w-full" />
-              </UFormField>
-              <UFormField label="Status">
-                <USelect v-model="editForm.status" :items="woStatusOptions" class="w-full" />
-              </UFormField>
-              <UFormField label="Issue Date">
-                <UInput v-model="editForm.issue_date" type="date" class="w-full" />
-              </UFormField>
-              <UFormField label="Expected Date">
-                <UInput v-model="editForm.expected_date" type="date" class="w-full" />
-              </UFormField>
-              <UFormField label="Date Completed">
-                <UInput v-model="editForm.date_completed" type="date" class="w-full" />
-              </UFormField>
-              <UFormField label="Estimated Hours">
-                <UInput v-model.number="editForm.estimated_hours" type="number" step="0.5" class="w-full" />
-              </UFormField>
-              <UFormField label="Actual Hours">
-                <UInput v-model.number="editForm.actual_hours" type="number" step="0.5" class="w-full" />
-              </UFormField>
-              <UFormField label="Estimated Cost ($)">
-                <UInput v-model.number="editForm.estimated_cost" type="number" step="0.01" class="w-full" />
-              </UFormField>
-              <UFormField label="Actual Cost ($)">
-                <UInput v-model.number="editForm.actual_cost" type="number" step="0.01" class="w-full" />
-              </UFormField>
-              <UFormField label="Description" class="col-span-2">
-                <UTextarea v-model="editForm.description" :rows="3" class="w-full" />
-              </UFormField>
-              <UFormField label="Notes" class="col-span-2">
-                <UTextarea v-model="editForm.notes" :rows="2" class="w-full" />
-              </UFormField>
-            </div>
-
-            <!-- Parts section -->
-            <div>
-              <div class="mb-3 flex items-center gap-3">
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Parts Used</span>
-                <div class="flex-1 border-t border-gray-100" />
-              </div>
-
-              <UTable :data="parts" :columns="partColumns">
-                <template #part-actions-cell="{ row: { original: row } }">
-                  <div class="flex items-center gap-1">
-                    <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="startEditPart(row)" />
-                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePart(row.id)" />
-                  </div>
-                </template>
-              </UTable>
-
-              <!-- Edit part form -->
-              <div v-if="editingPart" class="mt-3 grid grid-cols-4 gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
-                <UFormField label="Part No">
-                  <UInput v-model="editPartDraft.part_no" class="w-full" />
-                </UFormField>
-                <UFormField label="Qty">
-                  <UInput v-model.number="editPartDraft.quantity_used" type="number" min="1" class="w-full" />
-                </UFormField>
-                <UFormField label="Unit Cost">
-                  <UInput v-model.number="editPartDraft.unit_cost" type="number" step="0.01" class="w-full" />
-                </UFormField>
-                <div class="flex items-end gap-2">
-                  <UButton size="sm" :loading="savingPart" @click="saveEditPart">Update</UButton>
-                  <UButton size="sm" variant="ghost" color="neutral" @click="cancelEditPart">Cancel</UButton>
-                </div>
-              </div>
-
-              <!-- Add part form -->
-              <div v-else class="mt-3 grid grid-cols-4 gap-3 border-t pt-3">
-                <UFormField label="Part No">
-                  <UInput v-model="newPart.part_no" placeholder="e.g. BLT-001" class="w-full" />
-                </UFormField>
-                <UFormField label="Qty">
-                  <UInput v-model.number="newPart.quantity_used" type="number" min="1" class="w-full" />
-                </UFormField>
-                <UFormField label="Unit Cost">
-                  <UInput v-model.number="newPart.unit_cost" type="number" step="0.01" class="w-full" />
-                </UFormField>
-                <div class="flex items-end">
-                  <UButton size="sm" :loading="addingPart" @click="submitPart">Add Part</UButton>
-                </div>
-              </div>
-            </div>
-
-            <UAlert v-if="editError" color="error" variant="soft" :description="editError" />
-          </div>
-
-          <!-- Footer -->
-          <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
-            <UButton variant="ghost" color="neutral" @click="showEditModal = false">Cancel</UButton>
-            <UButton :loading="savingEdit" @click="submitEdit">Save Changes</UButton>
-          </div>
-        </div>
-      </template>
-    </UModal>
+    <WorkOrderModal v-model:open="showEditModal" :work-order-id="editingId" @saved="refresh" />
 
     <!-- Delete modal -->
     <UModal v-model:open="showDeleteModal">

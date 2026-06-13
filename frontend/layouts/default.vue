@@ -86,9 +86,9 @@ const pageInfo = computed(() => {
       </div>
 
       <!-- Nav groups -->
-      <nav class="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav class="flex-1 space-y-3 px-3 py-3">
         <div v-for="group in navGroups" :key="group.label">
-          <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          <p class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
             {{ group.label }}
           </p>
           <div class="space-y-0.5">
@@ -96,7 +96,7 @@ const pageInfo = computed(() => {
               v-for="item in group.items"
               :key="item.to"
               :to="item.to"
-              class="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150"
+              class="group flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150"
               :class="isActive(item.to)
                 ? 'bg-blue-600 text-white'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-white'"

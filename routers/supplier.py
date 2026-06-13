@@ -4,17 +4,17 @@ from sqlmodel import Session
 
 import crud.supplier as suppliers
 from schema.database import get_session
-from schema.models import Supplier
+from schema.models import SupplierInput, SupplierRead
 
 router = APIRouter(prefix="/api/suppliers", tags=["Supplier"])
 
 
-@router.get("", status_code=status.HTTP_200_OK, response_model=list[Supplier])
+@router.get("", status_code=status.HTTP_200_OK, response_model=list[SupplierRead])
 async def get_suppliers(session: Session = Depends(get_session)):
     return suppliers.get_suppliers(session)
 
 
-@router.get("/{supplier_id}", status_code=status.HTTP_200_OK, response_model=Supplier)
+@router.get("/{supplier_id}", status_code=status.HTTP_200_OK, response_model=SupplierRead)
 async def get_supplier(supplier_id: int, session: Session = Depends(get_session)):
     supplier = suppliers.get_supplier(session, supplier_id)
     if not supplier:
@@ -22,14 +22,14 @@ async def get_supplier(supplier_id: int, session: Session = Depends(get_session)
     return supplier
 
 
-@router.post("", status_code=status.HTTP_201_CREATED, response_model=Supplier)
-async def add_supplier(supplier: Supplier, session: Session = Depends(get_session)):
+@router.post("", status_code=status.HTTP_201_CREATED, response_model=SupplierRead)
+async def add_supplier(supplier: SupplierInput, session: Session = Depends(get_session)):
     return suppliers.add_supplier(session, supplier)
 
 
-@router.put("/{supplier_id}", status_code=status.HTTP_200_OK, response_model=Supplier)
+@router.put("/{supplier_id}", status_code=status.HTTP_200_OK, response_model=SupplierRead)
 async def update_supplier(
-    supplier_id: int, data: Supplier, session: Session = Depends(get_session)
+    supplier_id: int, data: SupplierInput, session: Session = Depends(get_session)
 ):
     supplier = suppliers.update_supplier(session, supplier_id, data)
     if supplier is None:

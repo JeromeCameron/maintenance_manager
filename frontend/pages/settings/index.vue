@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans } from "~/types"
+import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, CostCentre } from "~/types"
 
 const { getAll: getHolidays, create: createHoliday, update: updateHoliday, remove: removeHoliday } = useHolidays()
 const { getAll: getModels, getOne: getModel, create: createModel, update: updateModel, remove: removeModel } = useAssetModels()
@@ -7,6 +7,7 @@ const { getCauses, createCause, updateCause, removeCause } = useDowntime()
 const { getCategories, createCategory, updateCategory, removeCategory } = useInventory()
 const { getTemplates, createTemplate, updateTemplate, removeTemplate, getItemsByTemplate, createItem, updateItem, removeItem } = useInspections()
 const { getPlans, createPlan, updatePlan, removePlan } = useMaintenance()
+const { getCostCentres, createCostCentre, updateCostCentre, removeCostCentre } = useFinance()
 
 const activeTab = ref("holidays")
 const tabs = [
@@ -16,6 +17,7 @@ const tabs = [
   { value: "part-categories", slot: "part-categories", label: "Part Categories", icon: "i-heroicons-tag" },
   { value: "inspection-templates", slot: "inspection-templates", label: "Inspection Templates", icon: "i-heroicons-clipboard-document-check" },
   { value: "pm-plans", slot: "pm-plans", label: "PM Plans", icon: "i-heroicons-wrench-screwdriver" },
+  { value: "cost-centres", slot: "cost-centres", label: "Cost Centres", icon: "i-heroicons-building-office" },
 ]
 
 // ── Holidays ─────────────────────────────────────────────────
@@ -496,6 +498,72 @@ async function confirmDeletePmPlan() {
     deletingPmPlan.value = false
   }
 }
+
+// ── Cost Centres ──────────────────────────────────────────────
+const { data: costCentres, refresh: refreshCostCentres } = await useAsyncData("settings-cost-centres", () => getCostCentres())
+
+const costCentreColumns = [
+  { accessorKey: "gl_code", header: "GL Code" },
+  { accessorKey: "description", header: "Description" },
+  { id: "actions", header: "" },
+]
+
+const showCostCentreModal = ref(false)
+const costCentreEditing = ref<CostCentre | null>(null)
+const costCentreForm = ref<Partial<CostCentre>>({})
+const savingCostCentre = ref(false)
+const costCentreError = ref<string | null>(null)
+
+function openCreateCostCentre() {
+  costCentreEditing.value = null
+  costCentreForm.value = {}
+  costCentreError.value = null
+  showCostCentreModal.value = true
+}
+
+function openEditCostCentre(row: CostCentre) {
+  costCentreEditing.value = row
+  costCentreForm.value = { ...row }
+  costCentreError.value = null
+  showCostCentreModal.value = true
+}
+
+async function saveCostCentre() {
+  savingCostCentre.value = true
+  costCentreError.value = null
+  try {
+    if (costCentreEditing.value) {
+      await updateCostCentre(costCentreEditing.value.gl_code, costCentreForm.value as CostCentre)
+    } else {
+      await createCostCentre(costCentreForm.value as CostCentre)
+    }
+    await refreshCostCentres()
+    showCostCentreModal.value = false
+  } catch (e: unknown) {
+    costCentreError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingCostCentre.value = false
+  }
+}
+
+const deleteCostCentreTarget = ref<CostCentre | null>(null)
+const deletingCostCentre = ref(false)
+const showDeleteCostCentreModal = computed({
+  get: () => !!deleteCostCentreTarget.value,
+  set: (v) => { if (!v) deleteCostCentreTarget.value = null },
+})
+
+async function confirmDeleteCostCentre() {
+  if (!deleteCostCentreTarget.value) return
+  deletingCostCentre.value = true
+  try {
+    await removeCostCentre(deleteCostCentreTarget.value.gl_code)
+    await refreshCostCentres()
+    deleteCostCentreTarget.value = null
+  } finally {
+    deletingCostCentre.value = false
+  }
+}
 </script>
 
 <template>
@@ -649,6 +717,27 @@ async function confirmDeletePmPlan() {
                 <div class="flex items-center gap-1">
                   <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditPmPlan(row)" />
                   <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePmPlanTarget = row" />
+                </div>
+              </template>
+            </UTable>
+          </UCard>
+        </div>
+      </template>
+      <!-- ── Cost Centres ── -->
+      <template #cost-centres>
+        <div class="mt-4 space-y-4">
+          <div class="flex justify-end">
+            <UButton leading-icon="i-heroicons-plus" @click="openCreateCostCentre">Add Cost Centre</UButton>
+          </div>
+          <UCard>
+            <UTable :data="costCentres ?? []" :columns="costCentreColumns">
+              <template #description-cell="{ row: { original: row } }">
+                <span class="text-slate-500">{{ row.description ?? "—" }}</span>
+              </template>
+              <template #actions-cell="{ row: { original: row } }">
+                <div class="flex items-center gap-1">
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditCostCentre(row)" />
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteCostCentreTarget = row" />
                 </div>
               </template>
             </UTable>
@@ -986,6 +1075,47 @@ async function confirmDeletePmPlan() {
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deletePmPlanTarget = null">Cancel</UButton>
               <UButton color="error" :loading="deletingPmPlan" @click="confirmDeletePmPlan">Delete</UButton>
+            </div>
+          </template>
+        </UCard>
+      </template>
+    </UModal>
+
+    <!-- Cost Centre Modal -->
+    <UModal v-model:open="showCostCentreModal">
+      <template #content>
+        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900">{{ costCentreEditing ? "Edit Cost Centre" : "Add Cost Centre" }}</h3>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showCostCentreModal = false" />
+          </div>
+          <div class="space-y-4 px-6 py-5">
+            <UFormField label="GL Code" required>
+              <UInput v-model="costCentreForm.gl_code" placeholder="e.g. 5001" :disabled="!!costCentreEditing" class="w-full" />
+            </UFormField>
+            <UFormField label="Description">
+              <UInput v-model="costCentreForm.description" placeholder="e.g. Maintenance & Repairs" class="w-full" />
+            </UFormField>
+          </div>
+          <UAlert v-if="costCentreError" color="error" variant="soft" :description="costCentreError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showCostCentreModal = false">Cancel</UButton>
+            <UButton :loading="savingCostCentre" @click="saveCostCentre">{{ costCentreEditing ? "Save Changes" : "Create" }}</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Cost Centre Delete Modal -->
+    <UModal v-model:open="showDeleteCostCentreModal">
+      <template #content>
+        <UCard>
+          <template #header><h3 class="font-semibold">Delete Cost Centre</h3></template>
+          <p class="text-sm text-slate-500">Delete <strong>{{ deleteCostCentreTarget?.gl_code }}</strong>? This cannot be undone.</p>
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton variant="ghost" @click="deleteCostCentreTarget = null">Cancel</UButton>
+              <UButton color="error" :loading="deletingCostCentre" @click="confirmDeleteCostCentre">Delete</UButton>
             </div>
           </template>
         </UCard>

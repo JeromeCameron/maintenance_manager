@@ -426,6 +426,9 @@ async function confirmDeleteBudget() {
               <UFormField label="Invoice No" required>
                 <UInput v-model="invoiceForm.invoice_no" placeholder="e.g. INV-2025-001" class="w-full" />
               </UFormField>
+              <UFormField label="Invoice Date">
+                <UInput v-model="invoiceForm.invoice_date" type="date" class="w-full" />
+              </UFormField>
               <UFormField label="Job Date">
                 <UInput v-model="invoiceForm.job_date" type="date" class="w-full" />
               </UFormField>

@@ -22,11 +22,13 @@ export function useFinance() {
 
   const getCostCentres = () => get<CostCentre[]>("/cost-centres")
   const createCostCentre = (data: CostCentre) => post<CostCentre>("/cost-centres", data)
+  const updateCostCentre = (glCode: string, data: CostCentre) => put<CostCentre>(`/cost-centres/${glCode}`, data)
+  const removeCostCentre = (glCode: string) => del(`/cost-centres/${glCode}`)
 
   return {
     getPOs, getPO, createPO, updatePO, removePO,
     getInvoices, getInvoice, createInvoice, updateInvoice, removeInvoice,
     getBudgets, createBudget, updateBudget, removeBudget,
-    getCostCentres, createCostCentre,
+    getCostCentres, createCostCentre, updateCostCentre, removeCostCentre,
   }
 }

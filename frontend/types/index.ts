@@ -124,6 +124,7 @@ export interface WorkOrder {
   estimated_hours?: number
   actual_cost?: number
   actual_hours?: number
+  planned?: boolean
 }
 
 export interface WorkOrderPart {
@@ -141,11 +142,16 @@ export interface Supplier {
   address: string
   primary_contact: string
   email: string
+  contact_number?: string
+  contact_title?: string
+  notes?: string
+  categories?: string[]
 }
 
 export interface Invoice {
   id?: number
   invoice_no: string
+  invoice_date?: string
   job_date?: string
   rec_date?: string
   supplier_id?: number

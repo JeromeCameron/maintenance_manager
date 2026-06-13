@@ -102,8 +102,14 @@ const issuesData = ref<Issue[]>([])
 
 const isBaler = computed(() => form.value.category === "baler")
 
-const openWorkOrders = computed(() => workOrdersData.value.filter((w) => !["completed", "cancelled"].includes(w.status)))
-const recentWorkOrders = computed(() => workOrdersData.value.filter((w) => ["completed", "cancelled"].includes(w.status)).slice(0, 10))
+const closedStatuses = ["completed", "cancelled", "closed"]
+const openWorkOrders = computed(() => workOrdersData.value.filter((w) => !closedStatuses.includes(w.status)))
+const recentWorkOrders = computed(() =>
+  workOrdersData.value
+    .filter((w) => closedStatuses.includes(w.status))
+    .sort((a, b) => (b.issue_date ?? "").localeCompare(a.issue_date ?? ""))
+    .slice(0, 10)
+)
 
 const tabs = computed(() => {
   const t: { label: string; value: string }[] = [{ label: "Details", value: "details" }]

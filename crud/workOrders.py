@@ -1,8 +1,14 @@
 from typing import Optional, Sequence
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
 from schema.models import WorkOrder, WorkOrderPart
+
+
+def _next_work_order_id(session: Session) -> int:
+    max_id = session.exec(select(func.max(WorkOrder.work_order_id))).first()
+    return max(max_id or 0, 999) + 1
 
 
 # ------------------------------------------------------------------
@@ -22,6 +28,7 @@ def get_work_order(session: Session, work_order_id: int) -> Optional[WorkOrder]:
 
 
 def add_work_order(session: Session, work_order: WorkOrder) -> WorkOrder:
+    work_order.work_order_id = _next_work_order_id(session)
     session.add(work_order)
     session.commit()
     session.refresh(work_order)

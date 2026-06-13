@@ -10,6 +10,7 @@ if (isAuthenticated.value) {
 const form = ref({ username: "", password: "" })
 const loading = ref(false)
 const error = ref<string | null>(null)
+const showPassword = ref(false)
 
 async function submit() {
   error.value = null
@@ -56,12 +57,22 @@ async function submit() {
           <UFormField label="Password">
             <UInput
               v-model="form.password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               placeholder="Enter your password"
               leading-icon="i-heroicons-lock-closed"
               autocomplete="current-password"
               class="w-full"
-            />
+            >
+              <template #trailing>
+                <UButton
+                  variant="ghost"
+                  size="xs"
+                  color="neutral"
+                  :icon="showPassword ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </UInput>
           </UFormField>
 
           <UAlert

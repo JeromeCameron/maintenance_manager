@@ -98,6 +98,7 @@ class PurchaseOrderType(str, Enum):
     preventative = "preventative"
     consumables = "consumables"
     rental = "rental"
+    purchase = "purchase"
 
 
 class TransactionType(str, Enum):
@@ -370,6 +371,7 @@ class WorkOrder(SQLModel, table=True):
     estimated_hours: Optional[float] = Field(default=None)
     actual_cost: Optional[float] = Field(default=None)
     actual_hours: Optional[float] = Field(default=None)
+    planned: Optional[bool] = Field(default=None)
 
     asset: Optional["Asset"] = Relationship(back_populates="work_orders")
     asset_pm: Optional["AssetPM"] = Relationship(back_populates="work_orders")
@@ -437,6 +439,9 @@ class Supplier(SQLModel, table=True):
     address: str
     primary_contact: str
     email: str
+    contact_number: Optional[str] = Field(default=None)
+    contact_title: Optional[str] = Field(default=None)
+    notes: Optional[str] = Field(default=None, sa_type=Text)
 
     categories: List["SupplierCategoryLink"] = Relationship()
     work_orders: List["WorkOrder"] = Relationship(back_populates="supplier")
@@ -445,10 +450,34 @@ class Supplier(SQLModel, table=True):
     parts: List["PartSupplier"] = Relationship(back_populates="supplier")
 
 
+class SupplierInput(SQLModel):
+    name: str
+    address: str
+    primary_contact: str
+    email: str
+    contact_number: Optional[str] = None
+    contact_title: Optional[str] = None
+    notes: Optional[str] = None
+    categories: List[str] = []
+
+
+class SupplierRead(SQLModel):
+    supplier_id: Optional[int] = None
+    name: str
+    address: str
+    primary_contact: str
+    email: str
+    contact_number: Optional[str] = None
+    contact_title: Optional[str] = None
+    notes: Optional[str] = None
+    categories: List[str] = []
+
+
 # ------------- Budget ----------------------- #
 class Invoice(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     invoice_no: str
+    invoice_date: Optional[date] = Field(default=None)
     job_date: Optional[date] = Field(default=None)
     rec_date: Optional[date] = Field(default=None)
     supplier_id: Optional[int] = Field(default=None, foreign_key="supplier.supplier_id")
