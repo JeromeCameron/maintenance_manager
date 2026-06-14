@@ -374,7 +374,7 @@ function deletePart(part: Part) {
       <template #header>
         <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
         <template #category_id-cell="{ row: { original: row } }">{{ catMap[row.category_id] ?? "—" }}</template>
         <template #stock-cell="{ row: { original: row } }">
           <span :class="(stockMap[row.part_no] ?? 0) <= row.reorder_level ? 'font-semibold text-amber-600' : 'font-medium'">

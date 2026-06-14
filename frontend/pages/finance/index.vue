@@ -22,7 +22,7 @@ const activeTab = ref("pos")
 const poColumns = [
   { accessorKey: "po_no", header: "PO No" },
   { accessorKey: "po_date", header: "Date" },
-  { accessorKey: "asset_id", header: "Asset" },
+  { accessorKey: "description", header: "Description" },
   { accessorKey: "po_type", header: "Type" },
   { accessorKey: "subtotal", header: "Subtotal" },
   { id: "actions", header: "" },
@@ -30,8 +30,8 @@ const poColumns = [
 
 const invoiceColumns = [
   { accessorKey: "invoice_no", header: "Invoice No" },
-  { accessorKey: "job_date", header: "Job Date" },
-  { accessorKey: "asset_id", header: "Asset" },
+  { accessorKey: "invoice_date", header: "Date" },
+  { accessorKey: "description", header: "Description" },
   { accessorKey: "invoice_type", header: "Type" },
   { accessorKey: "status", header: "Status" },
   { accessorKey: "subtotal", header: "Subtotal" },
@@ -49,12 +49,25 @@ const budgetColumns = [
 
 const invoiceStatusColors: Record<string, string> = { processing: "info", submitted: "success", on_hold: "warning" }
 
+const _MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+
+function fmtDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—"
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return "—"
+  return `${String(d.getUTCDate()).padStart(2,"0")}-${_MONTHS[d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(-2)}`
+}
+
 const search = ref("")
 const filteredPOs = computed(() =>
-  (pos.value ?? []).filter((p) => !search.value || p.po_no.toLowerCase().includes(search.value.toLowerCase()) || (p.asset_id ?? "").toLowerCase().includes(search.value.toLowerCase()))
+  (pos.value ?? [])
+    .filter((p) => !search.value || p.po_no.toLowerCase().includes(search.value.toLowerCase()) || (p.description ?? "").toLowerCase().includes(search.value.toLowerCase()))
+    .sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? ""))
 )
 const filteredInvoices = computed(() =>
-  (invoices.value ?? []).filter((i) => !search.value || i.invoice_no.toLowerCase().includes(search.value.toLowerCase()) || (i.asset_id ?? "").toLowerCase().includes(search.value.toLowerCase()))
+  (invoices.value ?? [])
+    .filter((i) => !search.value || i.invoice_no.toLowerCase().includes(search.value.toLowerCase()) || (i.description ?? "").toLowerCase().includes(search.value.toLowerCase()))
+    .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""))
 )
 // ── Month helpers ─────────────────────────────────────────────
 const _now = new Date()
@@ -84,11 +97,13 @@ const prevMonthInvValue  = computed(() => (invoices.value ?? []).filter((i) => i
 const poMoMPct  = computed(() => prevMonthPOValue.value  ? ((thisMonthPOValue.value  - prevMonthPOValue.value)  / prevMonthPOValue.value)  * 100 : null)
 const invMoMPct = computed(() => prevMonthInvValue.value ? ((thisMonthInvValue.value - prevMonthInvValue.value) / prevMonthInvValue.value) * 100 : null)
 
-// ── Budget vs Actual chart (last 12 months) ───────────────────
+// ── Budget vs Actual chart (current financial year Apr–Mar) ───
 const chartMonths = (() => {
   const now = new Date()
+  // FY starts in April (month index 3); if we're before April, the FY started last year
+  const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
   return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (11 - i), 1)
+    const d = new Date(fyStartYear, 3 + i, 1)
     return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString("default", { month: "short", year: "2-digit" }) }
   })
 })()
@@ -347,7 +362,7 @@ async function confirmDeleteBudget() {
           <div class="mb-2 flex items-center justify-between">
             <div>
               <p class="text-sm font-semibold text-slate-700">Budget vs Actual Spend</p>
-              <p class="text-xs text-slate-400">Last 12 months</p>
+              <p class="text-xs text-slate-400">{{ chartMonths[0].label }} – {{ chartMonths[11].label }}</p>
             </div>
             <div class="flex items-center gap-4 text-xs text-slate-500">
               <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300" />Budget</span>
@@ -380,7 +395,11 @@ async function confirmDeleteBudget() {
       </template>
 
       <UTable v-if="activeTab === 'pos'" :data="filteredPOs" :columns="poColumns">
-        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString() }}</template>
+        <template #po_date-cell="{ row: { original: row } }">{{ fmtDate(row.po_date) }}</template>
+        <template #description-cell="{ row: { original: row } }">
+          <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
+        </template>
+        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditPO(row)" />
@@ -390,10 +409,14 @@ async function confirmDeleteBudget() {
       </UTable>
 
       <UTable v-else-if="activeTab === 'invoices'" :data="filteredInvoices" :columns="invoiceColumns">
+        <template #invoice_date-cell="{ row: { original: row } }">{{ fmtDate(row.invoice_date) }}</template>
+        <template #description-cell="{ row: { original: row } }">
+          <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
+        </template>
         <template #status-cell="{ row: { original: row } }">
           <UBadge :color="invoiceStatusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status }}</UBadge>
         </template>
-        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString() }}</template>
+        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditInvoice(row)" />
@@ -403,7 +426,8 @@ async function confirmDeleteBudget() {
       </UTable>
 
       <UTable v-else :data="budgets ?? []" :columns="budgetColumns">
-        <template #amount-cell="{ row: { original: row } }">${{ row.amount.toLocaleString() }}</template>
+        <template #month-cell="{ row: { original: row } }">{{ fmtDate(row.month) }}</template>
+        <template #amount-cell="{ row: { original: row } }">${{ row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
         <template #notes-cell="{ row: { original: row } }"><span class="text-slate-500">{{ row.notes ?? "—" }}</span></template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
@@ -445,8 +469,10 @@ async function confirmDeleteBudget() {
               <UFormField label="Cost Centre">
                 <USelect v-model="poForm.cost_centre_id" :items="costCentreOptions" placeholder="Select cost centre" class="w-full" />
               </UFormField>
-              <UFormField label="Subtotal ($)" required>
-                <UInput v-model.number="poForm.subtotal" type="number" step="0.01" class="w-full" />
+              <UFormField label="Subtotal" required>
+                <UInput v-model.number="poForm.subtotal" type="number" step="0.01" class="w-full">
+                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                </UInput>
               </UFormField>
               <UFormField label="Description" class="col-span-2">
                 <UTextarea v-model="poForm.description" :rows="3" class="w-full" />
@@ -505,8 +531,10 @@ async function confirmDeleteBudget() {
               <UFormField label="Status">
                 <USelect v-model="invoiceForm.status" :items="invoiceStatusOptions" class="w-full" />
               </UFormField>
-              <UFormField label="Subtotal ($)" required>
-                <UInput v-model.number="invoiceForm.subtotal" type="number" step="0.01" class="w-full" />
+              <UFormField label="Subtotal" required>
+                <UInput v-model.number="invoiceForm.subtotal" type="number" step="0.01" class="w-full">
+                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                </UInput>
               </UFormField>
               <UFormField label="Tax Certificate">
                 <UCheckbox v-model="invoiceForm.tax_cert" label="Tax certificate available" />
@@ -544,8 +572,10 @@ async function confirmDeleteBudget() {
               <UFormField label="Month" required>
                 <USelect v-model="budgetForm.month" :items="monthOptions" placeholder="Select month" class="w-full" />
               </UFormField>
-              <UFormField label="Amount ($)" required>
-                <UInput v-model.number="budgetForm.amount" type="number" step="0.01" class="w-full" />
+              <UFormField label="Amount" required>
+                <UInput v-model.number="budgetForm.amount" type="number" step="0.01" class="w-full">
+                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                </UInput>
               </UFormField>
               <UFormField label="Notes" class="col-span-2">
                 <UTextarea v-model="budgetForm.notes" :rows="2" class="w-full" />

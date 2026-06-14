@@ -309,7 +309,7 @@ function fmtDateShort(v?: string | null) {
       <template #header>
         <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
         <template #status-cell="{ row: { original: row } }">
           <UBadge :color="statusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status.replace(/_/g, " ") }}</UBadge>
         </template>

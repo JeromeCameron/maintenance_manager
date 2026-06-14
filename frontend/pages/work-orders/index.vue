@@ -246,7 +246,7 @@ async function confirmDelete() {
         </div>
       </template>
 
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
         <template #planned-cell="{ row: { original: row } }">
           <UBadge v-if="row.planned != null" :color="row.planned ? 'primary' : 'neutral'" variant="soft">
             {{ row.planned ? "Planned" : "Unplanned" }}

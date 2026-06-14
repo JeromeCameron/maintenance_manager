@@ -12,7 +12,7 @@ from pathlib import Path
 import openpyxl
 
 from schema.database import engine
-from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, AssetScores, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType, Downtime
+from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, AssetScores, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType, Downtime, Part, PartCategory, UnitMeasure, StockTransaction, StockLevel, TransactionType, EquipmentPart, Budget
 from sqlmodel import Session, text
 
 
@@ -431,6 +431,304 @@ def import_downtimes(session: Session) -> None:
     print(f"Downtimes — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
 
 
+def import_parts(session: Session) -> None:
+    path = DATA_DIR / "tbl_parts.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    # Cache existing categories and create missing ones
+    category_map: dict[str, int] = {}
+    for row in session.exec(text("SELECT id, name FROM partcategory")).all():  # type: ignore
+        category_map[row[1]] = row[0]
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        part_no = str(data.get("part_no") or "").strip()
+        if not part_no:
+            skipped += 1
+            continue
+
+        # Resolve or create category
+        category_name = str(data.get("category") or "").strip()
+        category_id: int | None = None
+        if category_name:
+            if category_name not in category_map:
+                cat = PartCategory(name=category_name)
+                session.add(cat)
+                session.flush()
+                category_map[category_name] = cat.id  # type: ignore
+            category_id = category_map[category_name]
+
+        unit_raw = str(data.get("unit_of_measure") or "").strip().lower()
+        unit = _to_enum(UnitMeasure, unit_raw)
+
+        part = Part(
+            part_no=part_no,
+            part_name=str(data["part_name"]).strip() if data.get("part_name") else "",
+            manufacturer=str(data["manufacturer"]).strip() if data.get("manufacturer") else None,
+            description=str(data["description"]).strip() if data.get("description") else None,
+            category_id=category_id,
+            unit_of_measure=unit,
+            min_level=_to_int(data.get("min_level")) or 0,
+            max_level=_to_int(data.get("max_level")) or 0,
+            reorder_level=_to_int(data.get("reorder_level")) or 0,
+            reorder_qty=_to_int(data.get("reorder_qty")) or 0,
+            last_cost=_to_float(data.get("last_cost")),
+            is_critical=bool(data.get("is_critical")),
+            is_active=bool(data.get("active")) if data.get("active") is not None else True,
+        )
+
+        existing = session.get(Part, part_no)
+        session.merge(part)
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    session.commit()
+    print(f"Parts — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
+def import_stock_transactions(session: Session) -> None:
+    path = DATA_DIR / "tbl_StockTransactions.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    valid_parts = {row[0] for row in session.exec(text("SELECT part_no FROM part")).all()}  # type: ignore
+    valid_locations = {row[0] for row in session.exec(text("SELECT location_id FROM location")).all()}  # type: ignore
+    valid_work_orders = {row[0] for row in session.exec(text("SELECT work_order_id FROM workorder")).all()}  # type: ignore
+    valid_po = {row[0] for row in session.exec(text("SELECT po_no FROM purchaseorder")).all()}  # type: ignore
+
+    # Build name → user_id map
+    user_map: dict[str, int] = {}
+    for row in session.exec(text('SELECT id, firstname, lastname FROM "user"')).all():  # type: ignore
+        user_map[f"{row[1]} {row[2]}"] = row[0]
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        txn_id = _to_int(data.get("id"))
+        if txn_id is None:
+            skipped += 1
+            continue
+
+        part_no = str(data.get("part_id") or "").strip()
+        if part_no not in valid_parts:
+            part_no = None  # type: ignore
+
+        location_id = _to_int(data.get("location_id"))
+        if location_id and location_id not in valid_locations:
+            location_id = None
+
+        work_order_id = _to_int(data.get("work_order_id"))
+        if work_order_id and work_order_id not in valid_work_orders:
+            work_order_id = None
+
+        po_no = str(data.get("po_no") or "").strip() or None
+        if po_no and po_no not in valid_po:
+            po_no = None
+
+        entered_by_name = str(data.get("entered_by") or "").strip()
+        entered_by = user_map.get(entered_by_name)
+
+        txn_date = data.get("transaction_date")
+        if not isinstance(txn_date, datetime):
+            txn_date = None
+
+        txn = StockTransaction(
+            id=txn_id,
+            part_no=part_no,
+            location_id=location_id,
+            transaction_type=_to_enum(TransactionType, str(data.get("transaction_type") or "").lower()),
+            quantity=_to_int(data.get("quanity")) or 0,
+            transaction_date=txn_date or datetime.now(),
+            work_order_id=work_order_id,
+            po_no=po_no,
+            entered_by=entered_by,
+            notes=str(data["notes"]).strip() if data.get("notes") else None,
+        )
+
+        existing = session.get(StockTransaction, txn_id)
+        session.merge(txn)
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    session.commit()
+
+    max_id = session.exec(text("SELECT MAX(id) FROM stocktransaction")).first()[0]  # type: ignore
+    if max_id:
+        session.exec(text(f"ALTER SEQUENCE stocktransaction_id_seq RESTART WITH {max_id + 1}"))  # type: ignore
+        session.commit()
+
+    print(f"Stock Transactions — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
+def import_equipment_parts(session: Session) -> None:
+    path = DATA_DIR / "tbl_EquipmentParts.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    valid_models = {row[0] for row in session.exec(text("SELECT model_no FROM assetmodel")).all()}  # type: ignore
+    valid_parts = {row[0] for row in session.exec(text("SELECT part_no FROM part")).all()}  # type: ignore
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        ep_id = _to_int(data.get("ID"))
+        if ep_id is None:
+            skipped += 1
+            continue
+
+        model_no = str(data.get("model_no") or "").strip() or None
+        if model_no and model_no not in valid_models:
+            skipped += 1
+            continue
+
+        part_no = str(data.get("part_id") or "").strip() or None
+        if part_no and part_no not in valid_parts:
+            skipped += 1
+            continue
+
+        ep = EquipmentPart(
+            id=ep_id,
+            model_no=model_no,
+            part_no=part_no,
+            is_critical=bool(data.get("is_critical")),
+        )
+
+        existing = session.get(EquipmentPart, ep_id)
+        session.merge(ep)
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    session.commit()
+
+    max_id = session.exec(text("SELECT MAX(id) FROM equipmentpart")).first()[0]  # type: ignore
+    if max_id:
+        session.exec(text(f"ALTER SEQUENCE equipmentpart_id_seq RESTART WITH {max_id + 1}"))  # type: ignore
+        session.commit()
+
+    print(f"Equipment Parts — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
+def import_budget(session: Session) -> None:
+    path = DATA_DIR / "tbl_budget.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    valid_gl_codes = {row[0] for row in session.exec(text("SELECT gl_code FROM costcentre")).all()}  # type: ignore
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        budget_id = _to_int(data.get("ID"))
+        if budget_id is None:
+            skipped += 1
+            continue
+
+        gl_code = str(data.get("gl_code") or "").strip() or None
+        if gl_code and gl_code not in valid_gl_codes:
+            gl_code = None
+
+        mn_val = data.get("mn")
+        if isinstance(mn_val, datetime):
+            month = mn_val.date()
+        else:
+            month = _to_date(mn_val)
+
+        if month is None:
+            skipped += 1
+            continue
+
+        budget = Budget(
+            id=budget_id,
+            gl_code=gl_code,
+            financial_year=str(data.get("financial_year") or "").strip(),
+            month=month,
+            amount=_to_float(data.get("amount")) or 0.0,
+            notes=str(data["notes"]).strip() if data.get("notes") else None,
+        )
+
+        existing = session.get(Budget, budget_id)
+        session.merge(budget)
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    session.commit()
+
+    max_id = session.exec(text("SELECT MAX(id) FROM budget")).first()[0]  # type: ignore
+    if max_id:
+        session.exec(text(f"ALTER SEQUENCE budget_id_seq RESTART WITH {max_id + 1}"))  # type: ignore
+        session.commit()
+
+    print(f"Budget — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
+def rebuild_stock_levels(session: Session) -> None:
+    """Recalculate StockLevel for every (part_no, location_id) from all transactions."""
+    rows = session.exec(
+        text("""
+            SELECT part_no, location_id,
+                   SUM(CASE WHEN transaction_type = 'receive' THEN quantity
+                            WHEN transaction_type = 'issue'   THEN -quantity
+                            ELSE quantity END) AS net_qty
+            FROM stocktransaction
+            WHERE part_no IS NOT NULL
+            GROUP BY part_no, location_id
+        """)
+    ).all()  # type: ignore
+
+    upserted = 0
+    for part_no, location_id, net_qty in rows:
+        existing = session.exec(
+            text("SELECT id FROM stocklevel WHERE part_no = :p AND (location_id = :l OR (location_id IS NULL AND :l IS NULL))"),
+            params={"p": part_no, "l": location_id},  # type: ignore
+        ).first()
+
+        if existing:
+            level = session.get(StockLevel, existing[0])
+            level.quantity = int(net_qty or 0)  # type: ignore
+            level.last_updated = datetime.now()  # type: ignore
+        else:
+            session.add(StockLevel(
+                part_no=part_no,
+                location_id=location_id,
+                quantity=int(net_qty or 0),
+                last_updated=datetime.now(),
+            ))
+        upserted += 1
+
+    session.commit()
+    print(f"Stock Levels — upserted: {upserted}")
+
+
 def import_criticality_scores(session: Session) -> None:
     path = DATA_DIR / "qry_criticality_scores.xlsx"
     wb = openpyxl.load_workbook(path)
@@ -487,3 +785,8 @@ if __name__ == "__main__":
         import_invoices(session)
         import_downtimes(session)
         import_criticality_scores(session)
+        import_parts(session)
+        import_stock_transactions(session)
+        rebuild_stock_levels(session)
+        import_equipment_parts(session)
+        import_budget(session)
