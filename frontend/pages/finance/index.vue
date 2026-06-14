@@ -56,8 +56,33 @@ const filteredPOs = computed(() =>
 const filteredInvoices = computed(() =>
   (invoices.value ?? []).filter((i) => !search.value || i.invoice_no.toLowerCase().includes(search.value.toLowerCase()) || (i.asset_id ?? "").toLowerCase().includes(search.value.toLowerCase()))
 )
-const totalPOValue = computed(() => (pos.value ?? []).reduce((s, p) => s + p.subtotal, 0))
-const totalInvoiceValue = computed(() => (invoices.value ?? []).reduce((s, i) => s + i.subtotal, 0))
+// ── Month helpers ─────────────────────────────────────────────
+const _now = new Date()
+const _cy = _now.getFullYear(), _cm = _now.getMonth()
+const _py = _cm === 0 ? _cy - 1 : _cy, _pm = _cm === 0 ? 11 : _cm - 1
+
+function inMonth(dateStr: string | null | undefined, year: number, month: number) {
+  if (!dateStr) return false
+  const d = new Date(dateStr)
+  return d.getFullYear() === year && d.getMonth() === month
+}
+
+const currentMonthName = _now.toLocaleString("default", { month: "long" })
+const prevMonthName = new Date(_py, _pm, 1).toLocaleString("default", { month: "long" })
+
+function fmtMoney(n: number) {
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
+  return `$${n.toFixed(0)}`
+}
+
+const thisMonthPOValue   = computed(() => (pos.value ?? []).filter((p) => inMonth(p.po_date, _cy, _cm)).reduce((s, p) => s + p.subtotal, 0))
+const prevMonthPOValue   = computed(() => (pos.value ?? []).filter((p) => inMonth(p.po_date, _py, _pm)).reduce((s, p) => s + p.subtotal, 0))
+const thisMonthInvValue  = computed(() => (invoices.value ?? []).filter((i) => inMonth(i.rec_date ?? i.job_date, _cy, _cm)).reduce((s, i) => s + i.subtotal, 0))
+const prevMonthInvValue  = computed(() => (invoices.value ?? []).filter((i) => inMonth(i.rec_date ?? i.job_date, _py, _pm)).reduce((s, i) => s + i.subtotal, 0))
+
+const poMoMPct  = computed(() => prevMonthPOValue.value  ? ((thisMonthPOValue.value  - prevMonthPOValue.value)  / prevMonthPOValue.value)  * 100 : null)
+const invMoMPct = computed(() => prevMonthInvValue.value ? ((thisMonthInvValue.value - prevMonthInvValue.value) / prevMonthInvValue.value) * 100 : null)
 
 // ── Budget vs Actual chart (last 12 months) ───────────────────
 const chartMonths = (() => {
@@ -273,21 +298,45 @@ async function confirmDeleteBudget() {
       <!-- Stacked badges -->
       <div class="flex flex-col gap-4">
         <UCard>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-document-text" class="h-8 w-8 text-blue-500" />
+          <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="text-xs text-gray-500">Total PO Value</p>
-              <p class="text-xl font-bold">${{ totalPOValue.toLocaleString() }}</p>
+              <p class="text-xs text-gray-500">PO Value — {{ currentMonthName }}</p>
+              <p class="mt-1 text-xl font-bold">{{ fmtMoney(thisMonthPOValue) }}</p>
             </div>
+            <UIcon name="i-heroicons-document-text" class="h-7 w-7 shrink-0 text-blue-500" />
+          </div>
+          <div class="mt-2 flex items-center gap-1 text-xs">
+            <template v-if="poMoMPct !== null">
+              <UIcon
+                :name="poMoMPct >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
+                class="h-3.5 w-3.5"
+                :class="poMoMPct >= 0 ? 'text-red-500' : 'text-green-500'"
+              />
+              <span :class="poMoMPct >= 0 ? 'text-red-500' : 'text-green-500'">{{ Math.abs(poMoMPct).toFixed(1) }}%</span>
+              <span class="text-gray-400">vs {{ prevMonthName }} ({{ fmtMoney(prevMonthPOValue) }})</span>
+            </template>
+            <span v-else class="text-gray-400">No POs in {{ prevMonthName }}</span>
           </div>
         </UCard>
         <UCard>
-          <div class="flex items-center gap-3">
-            <UIcon name="i-heroicons-banknotes" class="h-8 w-8 text-green-500" />
+          <div class="flex items-start justify-between gap-2">
             <div>
-              <p class="text-xs text-gray-500">Total Invoice Value</p>
-              <p class="text-xl font-bold">${{ totalInvoiceValue.toLocaleString() }}</p>
+              <p class="text-xs text-gray-500">Invoice Value — {{ currentMonthName }}</p>
+              <p class="mt-1 text-xl font-bold">{{ fmtMoney(thisMonthInvValue) }}</p>
             </div>
+            <UIcon name="i-heroicons-banknotes" class="h-7 w-7 shrink-0 text-green-500" />
+          </div>
+          <div class="mt-2 flex items-center gap-1 text-xs">
+            <template v-if="invMoMPct !== null">
+              <UIcon
+                :name="invMoMPct >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
+                class="h-3.5 w-3.5"
+                :class="invMoMPct >= 0 ? 'text-red-500' : 'text-green-500'"
+              />
+              <span :class="invMoMPct >= 0 ? 'text-red-500' : 'text-green-500'">{{ Math.abs(invMoMPct).toFixed(1) }}%</span>
+              <span class="text-gray-400">vs {{ prevMonthName }} ({{ fmtMoney(prevMonthInvValue) }})</span>
+            </template>
+            <span v-else class="text-gray-400">No invoices in {{ prevMonthName }}</span>
           </div>
         </UCard>
       </div>
@@ -334,7 +383,7 @@ async function confirmDeleteBudget() {
         <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString() }}</template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditPO(row)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditPO(row)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePOTarget = row" />
           </div>
         </template>
@@ -347,7 +396,7 @@ async function confirmDeleteBudget() {
         <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString() }}</template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditInvoice(row)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditInvoice(row)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteInvoiceTarget = row" />
           </div>
         </template>
@@ -358,7 +407,7 @@ async function confirmDeleteBudget() {
         <template #notes-cell="{ row: { original: row } }"><span class="text-slate-500">{{ row.notes ?? "—" }}</span></template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditBudget(row)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditBudget(row)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteBudgetTarget = row" />
           </div>
         </template>
@@ -487,7 +536,7 @@ async function confirmDeleteBudget() {
           <div class="flex-1 overflow-y-auto px-6 py-5">
             <div class="grid grid-cols-2 gap-x-5 gap-y-4">
               <UFormField label="GL Code" required>
-                <UInput v-model="budgetForm.gl_code" placeholder="e.g. 5001" class="w-full" />
+                <USelect v-model="budgetForm.gl_code" :items="costCentreOptions" placeholder="Select GL code" class="w-full" />
               </UFormField>
               <UFormField label="Financial Year" required>
                 <UInput v-model="budgetForm.financial_year" placeholder="e.g. 2025/2026" class="w-full" />

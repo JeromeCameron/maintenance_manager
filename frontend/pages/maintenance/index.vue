@@ -130,7 +130,11 @@ async function confirmDelete() {
         <template #asset_id-cell="{ row: { original: row } }">
           <span class="font-medium text-slate-700">{{ row.asset_id }}</span>
         </template>
-        <template #pm_plan_id-cell="{ row: { original: row } }">{{ planMap[row.pm_plan_id] ?? row.pm_plan_id ?? "—" }}</template>
+        <template #pm_plan_id-cell="{ row: { original: row } }">
+          <span class="block max-w-[180px] truncate" :title="planMap[row.pm_plan_id] ?? row.pm_plan_id">
+            {{ planMap[row.pm_plan_id] ?? row.pm_plan_id ?? "—" }}
+          </span>
+        </template>
         <template #active-cell="{ row: { original: row } }">
           <UBadge :color="row.active ? 'success' : 'neutral'" variant="soft" size="sm">{{ row.active ? "Active" : "Inactive" }}</UBadge>
         </template>
@@ -141,8 +145,7 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/maintenance/${row.id}`)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.id)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.id)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>

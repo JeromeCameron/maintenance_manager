@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, CostCentre } from "~/types"
+import type { CommodityRate } from "~/composables/useCommodityRates"
 
 const { getAll: getHolidays, create: createHoliday, update: updateHoliday, remove: removeHoliday } = useHolidays()
 const { getAll: getModels, getOne: getModel, create: createModel, update: updateModel, remove: removeModel } = useAssetModels()
@@ -8,6 +9,8 @@ const { getCategories, createCategory, updateCategory, removeCategory } = useInv
 const { getTemplates, createTemplate, updateTemplate, removeTemplate, getItemsByTemplate, createItem, updateItem, removeItem } = useInspections()
 const { getPlans, createPlan, updatePlan, removePlan } = useMaintenance()
 const { getCostCentres, createCostCentre, updateCostCentre, removeCostCentre } = useFinance()
+const { getAll: getLocations } = useLocations()
+const { getAll: getRates, create: createRate, update: updateRate, remove: removeRate } = useCommodityRates()
 
 const activeTab = ref("holidays")
 const tabs = [
@@ -18,6 +21,7 @@ const tabs = [
   { value: "inspection-templates", slot: "inspection-templates", label: "Inspection Templates", icon: "i-heroicons-clipboard-document-check" },
   { value: "pm-plans", slot: "pm-plans", label: "PM Plans", icon: "i-heroicons-wrench-screwdriver" },
   { value: "cost-centres", slot: "cost-centres", label: "Cost Centres", icon: "i-heroicons-building-office" },
+  { value: "commodity-rates", slot: "commodity-rates", label: "Commodity Rates", icon: "i-heroicons-currency-dollar" },
 ]
 
 // ── Holidays ─────────────────────────────────────────────────
@@ -98,6 +102,9 @@ const modelColumns = [
 ]
 
 const categoryOptions = ["baler", "conveyor", "bobcat", "forklift", "scale"]
+const balerTypeOptions = ["vertical", "horizontal"]
+const balerSizeOptions = ["small", "medium", "large"]
+const isModelBaler = computed(() => modelForm.value.category === "baler")
 const showModelModal = ref(false)
 const modelEditing = ref<AssetModel | null>(null)
 const modelForm = ref<Partial<AssetModel>>({})
@@ -501,6 +508,8 @@ async function confirmDeletePmPlan() {
 
 // ── Cost Centres ──────────────────────────────────────────────
 const { data: costCentres, refresh: refreshCostCentres } = await useAsyncData("settings-cost-centres", () => getCostCentres())
+const { data: locations } = await useAsyncData("settings-locations", () => getLocations())
+const locationOptions = computed(() => (locations.value ?? []).map((l) => ({ label: l.name, value: l.location_id })))
 
 const costCentreColumns = [
   { accessorKey: "gl_code", header: "GL Code" },
@@ -564,6 +573,73 @@ async function confirmDeleteCostCentre() {
     deletingCostCentre.value = false
   }
 }
+
+// ── Commodity Rates ───────────────────────────────────────────
+const { data: commodityRates, refresh: refreshRates } = await useAsyncData("settings-commodity-rates", () => getRates())
+
+const commodityRateColumns = [
+  { accessorKey: "effective_date", header: "Effective Date" },
+  { accessorKey: "rate_per_lb", header: "Rate ($/lb)" },
+  { accessorKey: "notes", header: "Notes" },
+  { id: "actions", header: "" },
+]
+
+const showRateModal = ref(false)
+const rateEditing = ref<CommodityRate | null>(null)
+const rateForm = ref<Partial<CommodityRate>>({})
+const savingRate = ref(false)
+const rateError = ref<string | null>(null)
+
+function openCreateRate() {
+  rateEditing.value = null
+  rateForm.value = {}
+  rateError.value = null
+  showRateModal.value = true
+}
+
+function openEditRate(row: CommodityRate) {
+  rateEditing.value = row
+  rateForm.value = { ...row }
+  rateError.value = null
+  showRateModal.value = true
+}
+
+async function saveRate() {
+  savingRate.value = true
+  rateError.value = null
+  try {
+    if (rateEditing.value?.id) {
+      await updateRate(rateEditing.value.id, rateForm.value as CommodityRate)
+    } else {
+      await createRate(rateForm.value as CommodityRate)
+    }
+    await refreshRates()
+    showRateModal.value = false
+  } catch (e: unknown) {
+    rateError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingRate.value = false
+  }
+}
+
+const deleteRateTarget = ref<CommodityRate | null>(null)
+const deletingRate = ref(false)
+const showDeleteRateModal = computed({
+  get: () => !!deleteRateTarget.value,
+  set: (v) => { if (!v) deleteRateTarget.value = null },
+})
+
+async function confirmDeleteRate() {
+  if (!deleteRateTarget.value?.id) return
+  deletingRate.value = true
+  try {
+    await removeRate(deleteRateTarget.value.id)
+    await refreshRates()
+    deleteRateTarget.value = null
+  } finally {
+    deletingRate.value = false
+  }
+}
 </script>
 
 <template>
@@ -609,7 +685,7 @@ async function confirmDeleteCostCentre() {
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
-                  <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditModel(row)" />
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditModel(row)" />
                   <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteModelTarget = row" />
                 </div>
               </template>
@@ -744,6 +820,32 @@ async function confirmDeleteCostCentre() {
           </UCard>
         </div>
       </template>
+
+      <!-- ── Commodity Rates ── -->
+      <template #commodity-rates>
+        <div class="mt-4 space-y-4">
+          <div class="flex items-start justify-between">
+            <p class="text-sm text-slate-500 max-w-lg">Rates are stored as USD per pound. When calculating bale loss value for a downtime event, the rate in effect on that date (most recent rate with an effective date on or before the event) is used.</p>
+            <UButton leading-icon="i-heroicons-plus" @click="openCreateRate">Add Rate</UButton>
+          </div>
+          <UCard>
+            <UTable :data="commodityRates ?? []" :columns="commodityRateColumns">
+              <template #rate_per_lb-cell="{ row: { original: row } }">
+                ${{ row.rate_per_lb.toFixed(4) }}/lb
+              </template>
+              <template #notes-cell="{ row: { original: row } }">
+                <span class="text-slate-500">{{ row.notes ?? "—" }}</span>
+              </template>
+              <template #actions-cell="{ row: { original: row } }">
+                <div class="flex items-center gap-1">
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditRate(row)" />
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteRateTarget = row" />
+                </div>
+              </template>
+            </UTable>
+          </UCard>
+        </div>
+      </template>
     </UTabs>
 
     <!-- Holiday Modal -->
@@ -790,7 +892,7 @@ async function confirmDeleteCostCentre() {
     <!-- Asset Model Modal -->
     <UModal v-model:open="showModelModal">
       <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
           <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
             <h3 class="text-base font-semibold text-slate-900">{{ modelEditing ? `Edit Model: ${modelEditing.model_no}` : "Add Asset Model" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModelModal = false" />
@@ -808,6 +910,29 @@ async function confirmDeleteCostCentre() {
             <UFormField label="Description" class="col-span-2">
               <UTextarea v-model="modelForm.description" :rows="3" class="w-full" />
             </UFormField>
+            <div v-if="isModelBaler" class="col-span-2 border-t border-slate-100 pt-4">
+              <p class="mb-3 text-sm font-medium text-slate-700">Baler Specifications</p>
+              <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                <UFormField label="Baler Type">
+                  <USelect v-model="modelForm.baler_type" :items="balerTypeOptions" placeholder="Select type" class="w-full" />
+                </UFormField>
+                <UFormField label="Baler Size">
+                  <USelect v-model="modelForm.baler_size" :items="balerSizeOptions" placeholder="Select size" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Weight (kg)">
+                  <UInput v-model.number="modelForm.bale_weight" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Time (min)">
+                  <UInput v-model.number="modelForm.bale_time" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Ram Force (kN)">
+                  <UInput v-model.number="modelForm.ram_force" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Size">
+                  <UInput v-model="modelForm.bale_size" placeholder="e.g. 1200x800x700mm" class="w-full" />
+                </UFormField>
+              </div>
+            </div>
           </div>
           <UAlert v-if="modelError" color="error" variant="soft" :description="modelError" class="mx-6 mb-4" />
           <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -1096,6 +1221,9 @@ async function confirmDeleteCostCentre() {
             <UFormField label="Description">
               <UInput v-model="costCentreForm.description" placeholder="e.g. Maintenance & Repairs" class="w-full" />
             </UFormField>
+            <UFormField label="Location">
+              <USelect v-model="costCentreForm.location_id" :items="locationOptions" placeholder="Select location" class="w-full" />
+            </UFormField>
           </div>
           <UAlert v-if="costCentreError" color="error" variant="soft" :description="costCentreError" class="mx-6 mb-4" />
           <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -1116,6 +1244,50 @@ async function confirmDeleteCostCentre() {
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteCostCentreTarget = null">Cancel</UButton>
               <UButton color="error" :loading="deletingCostCentre" @click="confirmDeleteCostCentre">Delete</UButton>
+            </div>
+          </template>
+        </UCard>
+      </template>
+    </UModal>
+
+    <!-- Commodity Rate Modal -->
+    <UModal v-model:open="showRateModal">
+      <template #content>
+        <div class="w-full rounded-xl bg-white shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900">{{ rateEditing ? "Edit Commodity Rate" : "Add Commodity Rate" }}</h3>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showRateModal = false" />
+          </div>
+          <div class="space-y-4 px-6 py-5">
+            <UFormField label="Effective Date" required>
+              <UInput v-model="rateForm.effective_date" type="date" class="w-full" />
+            </UFormField>
+            <UFormField label="Rate (USD per pound)" required>
+              <UInput v-model.number="rateForm.rate_per_lb" type="number" step="0.0001" placeholder="e.g. 0.08" class="w-full" />
+            </UFormField>
+            <UFormField label="Notes">
+              <UTextarea v-model="rateForm.notes" :rows="2" placeholder="e.g. Rate increased per broker notice" class="w-full" />
+            </UFormField>
+          </div>
+          <UAlert v-if="rateError" color="error" variant="soft" :description="rateError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showRateModal = false">Cancel</UButton>
+            <UButton :loading="savingRate" @click="saveRate">{{ rateEditing ? "Save Changes" : "Add Rate" }}</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Commodity Rate Delete Modal -->
+    <UModal v-model:open="showDeleteRateModal">
+      <template #content>
+        <UCard>
+          <template #header><h3 class="font-semibold">Delete Commodity Rate</h3></template>
+          <p class="text-sm text-slate-500">Delete the rate effective <strong>{{ deleteRateTarget?.effective_date }}</strong>? This cannot be undone.</p>
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton variant="ghost" @click="deleteRateTarget = null">Cancel</UButton>
+              <UButton color="error" :loading="deletingRate" @click="confirmDeleteRate">Delete</UButton>
             </div>
           </template>
         </UCard>

@@ -12,7 +12,7 @@ from pathlib import Path
 import openpyxl
 
 from schema.database import engine
-from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType, Downtime
+from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, AssetScores, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType, Downtime
 from sqlmodel import Session, text
 
 
@@ -431,6 +431,54 @@ def import_downtimes(session: Session) -> None:
     print(f"Downtimes — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
 
 
+def import_criticality_scores(session: Session) -> None:
+    path = DATA_DIR / "qry_criticality_scores.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    valid_assets = {row[0] for row in session.exec(text("SELECT asset_id FROM asset")).all()}  # type: ignore
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        asset_id = str(data.get("asset_id") or "").strip()
+        if not asset_id or asset_id not in valid_assets:
+            skipped += 1
+            continue
+
+        existing = session.exec(
+            text("SELECT score_id FROM assetscores WHERE asset_id = :aid"),
+            params={"aid": asset_id},  # type: ignore
+        ).first()
+
+        if existing:
+            score_id = existing[0]
+            rec = session.get(AssetScores, score_id)
+            rec.operational_score = _to_int(data.get("operational_score"))  # type: ignore
+            rec.safety_score = _to_int(data.get("safety_score"))  # type: ignore
+            rec.backup_score = _to_int(data.get("backup_score"))  # type: ignore
+            rec.repair_score = _to_int(data.get("repair_score"))  # type: ignore
+            rec.usage_score = _to_int(data.get("usage_score"))  # type: ignore
+            updated += 1
+        else:
+            session.add(AssetScores(
+                asset_id=asset_id,
+                operational_score=_to_int(data.get("operational_score")),
+                safety_score=_to_int(data.get("safety_score")),
+                backup_score=_to_int(data.get("backup_score")),
+                repair_score=_to_int(data.get("repair_score")),
+                usage_score=_to_int(data.get("usage_score")),
+            ))
+            inserted += 1
+
+    session.commit()
+    print(f"Criticality Scores — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
 if __name__ == "__main__":
     with Session(engine) as session:
         import_assets(session)
@@ -438,3 +486,4 @@ if __name__ == "__main__":
         import_purchase_orders(session)
         import_invoices(session)
         import_downtimes(session)
+        import_criticality_scores(session)

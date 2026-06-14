@@ -34,6 +34,7 @@ export { useApi } from '../composables/useApi';
 export { useAssetModels } from '../composables/useAssetModels';
 export { useAssets } from '../composables/useAssets';
 export { useAuth } from '../composables/useAuth';
+export { useCommodityRates, CommodityRate } from '../composables/useCommodityRates';
 export { useDowntime } from '../composables/useDowntime';
 export { useFinance } from '../composables/useFinance';
 export { useHolidays } from '../composables/useHolidays';

@@ -120,6 +120,7 @@ declare global {
   const useAvatarGroup: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useAvatarGroup').useAvatarGroup
   const useButtonGroup: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useButtonGroup').useButtonGroup
   const useColorMode: typeof import('../../node_modules/@nuxtjs/color-mode/dist/runtime/composables').useColorMode
+  const useCommodityRates: typeof import('../../composables/useCommodityRates').useCommodityRates
   const useComponentIcons: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useComponentIcons').useComponentIcons
   const useCookie: typeof import('../../node_modules/nuxt/dist/app/composables/cookie').useCookie
   const useCssModule: typeof import('vue').useCssModule
@@ -235,6 +236,9 @@ declare global {
   // @ts-ignore
   export type { Component, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
+  // @ts-ignore
+  export type { CommodityRate } from '../../composables/useCommodityRates'
+  import('../../composables/useCommodityRates')
 }
 // for vue template auto import
 import { UnwrapRef } from 'vue'
@@ -359,6 +363,7 @@ declare module 'vue' {
     readonly useAvatarGroup: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useAvatarGroup')['useAvatarGroup']>
     readonly useButtonGroup: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useButtonGroup')['useButtonGroup']>
     readonly useColorMode: UnwrapRef<typeof import('../../node_modules/@nuxtjs/color-mode/dist/runtime/composables')['useColorMode']>
+    readonly useCommodityRates: UnwrapRef<typeof import('../../composables/useCommodityRates')['useCommodityRates']>
     readonly useComponentIcons: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useComponentIcons')['useComponentIcons']>
     readonly useCookie: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/cookie')['useCookie']>
     readonly useCssModule: UnwrapRef<typeof import('vue')['useCssModule']>

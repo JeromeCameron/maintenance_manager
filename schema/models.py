@@ -128,7 +128,7 @@ class PmTriggers(str, Enum):
 class PmOwner(str, Enum):
     operator = "operator"
     maintenance_team = "maintenance_team"
-    contractor = "coantactor"
+    contractor = "contractor"
 
 
 class PmFrequency(str, Enum):
@@ -730,3 +730,15 @@ class InspectionResult(SQLModel, table=True):
     work_order: Optional["WorkOrder"] = Relationship(
         back_populates="inspection_results"
     )
+
+
+class CommodityRate(SQLModel, table=True):
+    """Tracks the bale commodity price over time (USD per lb).
+    The rate in effect for a given date is the record with the highest
+    effective_date that is <= that date.
+    """
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    effective_date: date = Field(index=True)
+    rate_per_lb: float = Field(description="USD per pound")
+    notes: Optional[str] = Field(default=None, sa_type=Text)

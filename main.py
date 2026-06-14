@@ -29,6 +29,7 @@ from routers.user import router as user_router
 from routers.utility import router as utility_router
 from routers.issues import router as issue_router
 from routers.workOrders import router as work_order_router, work_order_part_router
+from routers.commodity_rates import router as commodity_rate_router
 
 app = FastAPI(title="Maintenance Manager API", version="1.0.0")
 
@@ -73,6 +74,8 @@ app.include_router(stock_level_router,         dependencies=[Depends(write_on_wr
 app.include_router(stock_transaction_router,   dependencies=[Depends(write_on_write)])
 app.include_router(po_router,                  dependencies=[Depends(write_on_write)])
 app.include_router(invoice_router,             dependencies=[Depends(write_on_write)])
+
+app.include_router(commodity_rate_router,      dependencies=[Depends(admin_on_write)])
 
 # Utility — any authenticated
 app.include_router(utility_router,             dependencies=[Depends(get_current_user)])

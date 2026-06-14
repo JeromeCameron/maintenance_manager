@@ -2,7 +2,7 @@
 import type { Asset, AssetModel, AssetScores, WorkOrder, Downtime, Inspection, Issue } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAll, getOne, create, update, remove, getScoreByAsset, getWorkOrders, getDowntimes, getInspections } = useAssets()
+const { getAll, getOne, create, update, remove, getScoreByAsset, createScore, updateScore, getWorkOrders, getDowntimes, getInspections } = useAssets()
 const { getOne: getModelOne } = useAssetModels()
 const { getByAsset: getIssuesByAsset } = useIssues()
 const { getAll: getLocations } = useLocations()
@@ -82,6 +82,82 @@ async function saveCreate() {
   }
 }
 
+// ── Criticality scoring reference ────────────────────────────
+const scoreFields = [
+  {
+    key: "safety_score" as const,
+    label: "Safety / Compliance",
+    question: "Could failure cause injury, environmental harm, or regulatory breach?",
+    max: 3,
+    levels: [
+      "No safety or compliance impact",
+      "Minor safety risk, manageable",
+      "Significant risk requiring controls",
+      "Severe safety, environmental, or regulatory risk",
+    ],
+  },
+  {
+    key: "operational_score" as const,
+    label: "Operational Impact",
+    question: "Does failure stop or severely limit operations?",
+    max: 3,
+    levels: [
+      "Minimal impact",
+      "Reduced efficiency",
+      "Partial operational stoppage",
+      "Full operational stoppage",
+    ],
+  },
+  {
+    key: "backup_score" as const,
+    label: "Backup Availability",
+    question: "Is there a spare or workaround available?",
+    max: 2,
+    levels: [
+      "Immediate backup available",
+      "Limited or shared backup",
+      "No backup available",
+    ],
+  },
+  {
+    key: "repair_score" as const,
+    label: "Repair Complexity",
+    question: "Is repair time long or requires specialised parts/skills?",
+    max: 2,
+    levels: [
+      "Quick repair (< 4 hours)",
+      "Moderate repair (same day)",
+      "Long repair (multi-day / specialist required)",
+    ],
+  },
+  {
+    key: "usage_score" as const,
+    label: "Equipment Usage",
+    question: "How hard and how often is the equipment used?",
+    max: 2,
+    levels: [
+      "Low — < 100 hrs/month",
+      "Medium — 100–200 hrs/month",
+      "High — > 200 hrs/month",
+    ],
+  },
+]
+
+function getCriticalityTier(total: number): { label: string; color: string } {
+  if (total >= 10) return { label: "Critical", color: "text-red-600" }
+  if (total >= 7)  return { label: "High",     color: "text-orange-500" }
+  if (total >= 4)  return { label: "Medium",   color: "text-amber-500" }
+  return              { label: "Low",      color: "text-green-600" }
+}
+
+function getRiskFlag(s: { usage_score?: number | null; operational_score?: number | null }): { label: string; color: string; bg: string } {
+  const u = s.usage_score ?? 0
+  const o = s.operational_score ?? 0
+  if (u === 2 && o >= 2) return { label: "High Risk",   color: "text-red-700",    bg: "bg-red-50 border-red-200" }
+  if (u >= 1 && o >= 1)  return { label: "Medium Risk", color: "text-amber-700",  bg: "bg-amber-50 border-amber-200" }
+  return                         { label: "Low Risk",    color: "text-green-700",  bg: "bg-green-50 border-green-200" }
+}
+
 // ── View / Edit tabbed modal ─────────────────────────────────
 const showViewModal = ref(false)
 const activeTab = ref("details")
@@ -95,6 +171,36 @@ const editError = ref<string | null>(null)
 // Related data
 const modelData = ref<AssetModel | null>(null)
 const scoresData = ref<AssetScores | null>(null)
+const editingScores = ref(false)
+const scoresForm = ref<Partial<AssetScores>>({})
+const savingScores = ref(false)
+const scoresError = ref<string | null>(null)
+
+function openScoresEdit() {
+  scoresForm.value = scoresData.value
+    ? { ...scoresData.value }
+    : { asset_id: editId.value ?? undefined }
+  scoresError.value = null
+  editingScores.value = true
+}
+
+async function saveScores() {
+  if (!editId.value) return
+  savingScores.value = true
+  scoresError.value = null
+  try {
+    if (scoresData.value?.score_id) {
+      scoresData.value = await updateScore(scoresData.value.score_id, scoresForm.value as AssetScores)
+    } else {
+      scoresData.value = await createScore({ ...scoresForm.value, asset_id: editId.value } as AssetScores)
+    }
+    editingScores.value = false
+  } catch (e: unknown) {
+    scoresError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingScores.value = false
+  }
+}
 const workOrdersData = ref<WorkOrder[]>([])
 const downtimeData = ref<Downtime[]>([])
 const inspectionsData = ref<Inspection[]>([])
@@ -130,6 +236,7 @@ async function openAsset(id: string) {
   activeTab.value = "details"
   editId.value = id
   editError.value = null
+  editingScores.value = false
   showViewModal.value = true
 
   const asset = await getOne(id)
@@ -186,6 +293,10 @@ async function confirmDelete() {
 }
 
 function fmtDate(v?: string | null) { return v ? new Date(v).toLocaleDateString() : "—" }
+function fmtDateShort(v?: string | null) {
+  if (!v) return "—"
+  return new Date(v).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })
+}
 </script>
 
 <template>
@@ -392,18 +503,107 @@ function fmtDate(v?: string | null) { return v ? new Date(v).toLocaleDateString(
 
               <!-- Scores -->
               <div v-else-if="activeTab === 'scores'" class="px-6 py-5">
-                <div v-if="scoresData" class="grid grid-cols-3 gap-4 sm:grid-cols-5">
-                  <div v-for="(label, key) in { operational_score: 'Operational', safety_score: 'Safety', backup_score: 'Backup', repair_score: 'Repair', usage_score: 'Usage' }" :key="key"
-                    class="flex flex-col items-center rounded-lg border border-slate-100 bg-slate-50 p-4">
-                    <span class="text-2xl font-bold" :class="(scoresData as any)[key] >= 7 ? 'text-green-600' : (scoresData as any)[key] >= 4 ? 'text-amber-500' : 'text-red-500'">
-                      {{ (scoresData as any)[key] ?? "—" }}
-                    </span>
-                    <span class="mt-1 text-xs text-slate-500">{{ label }}</span>
+
+                <!-- View mode -->
+                <template v-if="!editingScores">
+                  <div class="mb-5 flex items-start justify-between gap-4">
+                    <!-- Total + tier + risk flag -->
+                    <div v-if="scoresData">
+                      <div class="flex items-center gap-6">
+                        <!-- Criticality score -->
+                        <div>
+                          <p class="text-xs text-slate-400 mb-0.5">Criticality Score</p>
+                          <div class="flex items-baseline gap-2">
+                            <span class="text-3xl font-bold text-slate-900">
+                              {{ (scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0) }}
+                            </span>
+                            <span class="text-sm text-slate-400">/ 12</span>
+                            <span class="text-sm font-semibold" :class="getCriticalityTier((scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0)).color">
+                              {{ getCriticalityTier((scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0)).label }}
+                            </span>
+                          </div>
+                          <p class="mt-0.5 text-xs text-slate-400">10–12 Critical · 7–9 High · 4–6 Medium · 0–3 Low</p>
+                        </div>
+                        <!-- Risk flag -->
+                        <div>
+                          <p class="text-xs text-slate-400 mb-0.5">Risk Flag</p>
+                          <span class="inline-flex items-center rounded-md border px-3 py-1 text-sm font-semibold"
+                            :class="[getRiskFlag(scoresData).bg, getRiskFlag(scoresData).color]">
+                            {{ getRiskFlag(scoresData).label }}
+                          </span>
+                          <p class="mt-0.5 text-xs text-slate-400">Based on usage &amp; operational impact</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div v-else />
+                    <UButton size="xs" variant="soft" icon="i-heroicons-pencil-square" @click="openScoresEdit">
+                      {{ scoresData ? "Edit Scores" : "Add Scores" }}
+                    </UButton>
                   </div>
-                </div>
-                <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No scores recorded for this asset.</p>
-                </div>
+
+                  <div v-if="scoresData" class="space-y-3">
+                    <div v-for="f in scoreFields" :key="f.key"
+                      class="flex items-center gap-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                      <!-- Score badge -->
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200">
+                        <span class="text-lg font-bold text-slate-800">{{ scoresData[f.key] ?? "—" }}</span>
+                      </div>
+                      <!-- Label + description -->
+                      <div class="min-w-0 flex-1">
+                        <p class="text-sm font-medium text-slate-800">{{ f.label }} <span class="font-normal text-slate-400">(0–{{ f.max }})</span></p>
+                        <p class="text-xs text-slate-500">{{ f.question }}</p>
+                        <p v-if="scoresData[f.key] != null" class="mt-0.5 text-xs text-slate-400 italic">{{ f.levels[scoresData[f.key]!] }}</p>
+                      </div>
+                      <!-- Bar -->
+                      <div class="hidden sm:block w-24 shrink-0">
+                        <div class="h-2 w-full rounded-full bg-slate-200">
+                          <div class="h-2 rounded-full bg-primary-500 transition-all"
+                            :style="{ width: `${((scoresData[f.key] ?? 0) / f.max) * 100}%` }" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-else class="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-200">
+                    <p class="text-sm text-slate-400">No scores recorded yet. Click "Add Scores" to get started.</p>
+                  </div>
+                </template>
+
+                <!-- Edit mode -->
+                <template v-else>
+                  <div class="mb-1 flex items-center justify-between">
+                    <h4 class="text-sm font-semibold text-slate-700">Asset Criticality Scores</h4>
+                    <p class="text-xs text-slate-400">Maximum total: 12</p>
+                  </div>
+                  <p class="mb-4 text-xs text-slate-500">Rate each criterion using the guide below. Higher scores indicate greater criticality.</p>
+
+                  <div class="space-y-4">
+                    <div v-for="f in scoreFields" :key="f.key" class="rounded-lg border border-slate-200 p-4">
+                      <div class="flex items-start gap-4">
+                        <div class="flex-1 min-w-0">
+                          <p class="text-sm font-medium text-slate-800">{{ f.label }}</p>
+                          <p class="text-xs text-slate-500 mt-0.5">{{ f.question }}</p>
+                          <div class="mt-2 space-y-0.5">
+                            <p v-for="(desc, i) in f.levels" :key="i" class="text-xs text-slate-400">
+                              <span class="font-medium text-slate-500">{{ i }}</span> — {{ desc }}
+                            </p>
+                          </div>
+                        </div>
+                        <div class="shrink-0 w-24">
+                          <UFormField :label="`Score (0–${f.max})`">
+                            <UInput v-model.number="(scoresForm as any)[f.key]" type="number" min="0" :max="f.max" class="w-full" />
+                          </UFormField>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <UAlert v-if="scoresError" color="error" variant="soft" :description="scoresError" class="mt-4" />
+                  <div class="mt-5 flex justify-end gap-3">
+                    <UButton variant="ghost" color="neutral" @click="editingScores = false">Cancel</UButton>
+                    <UButton :loading="savingScores" @click="saveScores">Save Scores</UButton>
+                  </div>
+                </template>
               </div>
 
               <!-- Open Work Orders -->
@@ -442,15 +642,27 @@ function fmtDate(v?: string | null) { return v ? new Date(v).toLocaleDateString(
 
               <!-- Downtime -->
               <div v-else-if="activeTab === 'downtime'">
-                <div v-if="downtimeData.length" class="divide-y divide-slate-50 px-6 py-2">
-                  <div v-for="d in downtimeData.slice(0, 15)" :key="d.downtime_id" class="flex items-center justify-between py-3 text-sm">
-                    <div>
-                      <p class="font-medium text-slate-700">{{ fmtDate(d.start_date) }}</p>
-                      <p class="text-xs text-slate-400">{{ d.component_affected ?? "—" }}</p>
+                <div v-if="downtimeData.length" class="divide-y divide-slate-100 px-6 py-1">
+                  <div v-for="d in downtimeData.slice(0, 20)" :key="d.downtime_id" class="py-3">
+                    <!-- Row 1: date range, hours, planned badge -->
+                    <div class="flex items-center justify-between gap-4">
+                      <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-slate-800">{{ fmtDateShort(d.start_date) }}</span>
+                        <span v-if="d.end_date && d.end_date !== d.start_date" class="text-xs text-slate-400">→ {{ fmtDateShort(d.end_date) }}</span>
+                      </div>
+                      <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-sm font-semibold text-red-600">{{ d.downtime_hours?.toFixed(1) ?? "—" }}h</span>
+                        <UBadge :color="d.planned ? 'info' : 'error'" variant="soft" size="xs">{{ d.planned ? "Planned" : "Unplanned" }}</UBadge>
+                        <UBadge v-if="d.repeat_failure" color="warning" variant="soft" size="xs">Repeat</UBadge>
+                      </div>
                     </div>
-                    <div class="text-right">
-                      <p class="font-semibold text-red-600">{{ d.downtime_hours?.toFixed(1) ?? "—" }}h</p>
-                      <UBadge :color="d.planned ? 'info' : 'error'" variant="soft" size="xs">{{ d.planned ? "Planned" : "Unplanned" }}</UBadge>
+                    <!-- Row 2: description + component -->
+                    <p v-if="d.details" class="mt-1 truncate text-sm text-slate-600" :title="d.details">{{ d.details }}</p>
+                    <!-- Row 3: meta -->
+                    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
+                      <span v-if="d.component_affected"><span class="font-medium text-slate-500">Component:</span> {{ d.component_affected }}</span>
+                      <span v-if="d.root_cause"><span class="font-medium text-slate-500">Cause:</span> {{ d.root_cause }}</span>
+                      <span v-if="d.temporary_fix" class="text-amber-500">Temporary fix applied</span>
                     </div>
                   </div>
                 </div>

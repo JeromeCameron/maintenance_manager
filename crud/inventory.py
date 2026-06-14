@@ -1,8 +1,34 @@
+from datetime import datetime
 from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from schema.models import EquipmentPart, Part, PartCategory, PartSupplier, StockLevel, StockTransaction
+from schema.models import EquipmentPart, Part, PartCategory, PartSupplier, StockLevel, StockTransaction, TransactionType
+
+
+def _apply_transaction(session: Session, tx: StockTransaction, reverse: bool = False) -> None:
+    """Apply (or reverse) a transaction's quantity delta to the matching StockLevel row."""
+    if not tx.part_no:
+        return
+
+    stmt = select(StockLevel).where(StockLevel.part_no == tx.part_no)
+    stmt = stmt.where(
+        StockLevel.location_id == tx.location_id if tx.location_id is not None
+        else StockLevel.location_id.is_(None)  # type: ignore[union-attr]
+    )
+    sl = session.exec(stmt).first()
+
+    if sl is None:
+        sl = StockLevel(part_no=tx.part_no, location_id=tx.location_id, quantity=0)
+
+    if tx.transaction_type == TransactionType.issue:
+        delta = -tx.quantity
+    else:
+        delta = tx.quantity  # receive or adjust (adjust can be negative)
+
+    sl.quantity += -delta if reverse else delta
+    sl.last_updated = datetime.now()
+    session.add(sl)
 
 
 # ------------------------------------------------------------------
@@ -235,6 +261,7 @@ def get_stock_transaction(session: Session, transaction_id: int) -> Optional[Sto
 
 def add_stock_transaction(session: Session, transaction: StockTransaction) -> StockTransaction:
     session.add(transaction)
+    _apply_transaction(session, transaction)
     session.commit()
     session.refresh(transaction)
     return transaction
@@ -246,8 +273,10 @@ def update_stock_transaction(
     db_tx: Optional[StockTransaction] = session.get(StockTransaction, transaction_id)
     if db_tx is None:
         return None
+    _apply_transaction(session, db_tx, reverse=True)  # undo old
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(db_tx, key, value)
+    _apply_transaction(session, db_tx)  # apply new
     session.add(db_tx)
     session.commit()
     session.refresh(db_tx)
@@ -258,6 +287,7 @@ def delete_stock_transaction(session: Session, transaction_id: int) -> bool:
     tx = session.get(StockTransaction, transaction_id)
     if tx is None:
         return False
+    _apply_transaction(session, tx, reverse=True)  # undo
     session.delete(tx)
     session.commit()
     return True

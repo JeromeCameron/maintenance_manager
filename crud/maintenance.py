@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional, Sequence
 
 from sqlmodel import Session, select
@@ -11,7 +12,10 @@ def _recalc_next_service(session: Session, apm: AssetPM) -> None:
     if apm.last_service and apm.pm_plan_id:
         plan = session.get(PmPlans, apm.pm_plan_id)
         if plan and plan.frequency:
-            apm.next_service = next_service_date(apm.last_service, plan.frequency)
+            last_service = apm.last_service
+            if isinstance(last_service, str):
+                last_service = date.fromisoformat(last_service)
+            apm.next_service = next_service_date(last_service, plan.frequency)
 
 
 # ------------------------------------------------------------------

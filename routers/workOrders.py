@@ -2,8 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 import crud.workOrders as work_orders
+import utils.cache as cache
 from schema.database import get_session
 from schema.models import WorkOrder, WorkOrderPart
+
+_WO_TTL = 300  # 5 minutes
+
+
+def _bust_wo_cache() -> None:
+    cache.bust_prefix("work-orders:")
 
 router = APIRouter(prefix="/api/work-orders", tags=["WorkOrder"])
 work_order_part_router = APIRouter(prefix="/api/work-order-parts", tags=["WorkOrderPart"])
@@ -15,12 +22,23 @@ work_order_part_router = APIRouter(prefix="/api/work-order-parts", tags=["WorkOr
 
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[WorkOrder])
 async def get_work_orders(session: Session = Depends(get_session)):
-    return work_orders.get_work_orders(session)
+    cached = cache.get("work-orders:all")
+    if cached is not None:
+        return cached
+    result = list(work_orders.get_work_orders(session))
+    cache.set("work-orders:all", result, ttl_seconds=_WO_TTL)
+    return result
 
 
 @router.get("/asset/{asset_id}", status_code=status.HTTP_200_OK, response_model=list[WorkOrder])
 async def get_work_orders_by_asset(asset_id: str, session: Session = Depends(get_session)):
-    return work_orders.get_work_orders_by_asset(session, asset_id)
+    key = f"work-orders:asset:{asset_id}"
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = list(work_orders.get_work_orders_by_asset(session, asset_id))
+    cache.set(key, result, ttl_seconds=_WO_TTL)
+    return result
 
 
 @router.get("/{work_order_id}", status_code=status.HTTP_200_OK, response_model=WorkOrder)
@@ -33,7 +51,9 @@ async def get_work_order(work_order_id: int, session: Session = Depends(get_sess
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=WorkOrder)
 async def add_work_order(work_order: WorkOrder, session: Session = Depends(get_session)):
-    return work_orders.add_work_order(session, work_order)
+    result = work_orders.add_work_order(session, work_order)
+    _bust_wo_cache()
+    return result
 
 
 @router.put("/{work_order_id}", status_code=status.HTTP_200_OK, response_model=WorkOrder)
@@ -43,6 +63,7 @@ async def update_work_order(
     wo = work_orders.update_work_order(session, work_order_id, data)
     if wo is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
+    _bust_wo_cache()
     return wo
 
 
@@ -51,6 +72,7 @@ async def delete_work_order(work_order_id: int, session: Session = Depends(get_s
     deleted = work_orders.delete_work_order(session, work_order_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
+    _bust_wo_cache()
 
 
 # ------------------------------------------------------------------

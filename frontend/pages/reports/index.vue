@@ -1,15 +1,29 @@
 <script setup lang="ts">
 import type { WorkOrder, Downtime, Issue, AssetPM, Asset, AssetModel, Budget, Invoice } from "~/types"
+import type { CommodityRate } from "~/composables/useCommodityRates"
+
+interface MonthlyMetrics {
+  month: string
+  scheduled_hours: number
+  downtime_hours: number
+  num_failures: number
+  mttr: number | null
+  mtbf: number | null
+  availability: number
+}
 
 const { get } = useApi()
+const { getAll: getCommodityRates } = useCommodityRates()
 
 // ── Data fetches ───────────────────────────────────────────────
-const { data: allAssets }   = useAsyncData("rpt-assets",       () => get<Asset[]>("/assets"))
-const { data: assetModels } = useAsyncData("rpt-asset-models", () => get<AssetModel[]>("/asset-models"))
-const { data: downtimes }  = useAsyncData("rpt-downtimes", () => get<Downtime[]>("/downtimes"))
-const { data: workOrders } = useAsyncData("rpt-wos",       () => get<WorkOrder[]>("/work-orders"))
-const { data: budgets }    = useAsyncData("rpt-budgets",   () => get<Budget[]>("/budgets"))
-const { data: invoices }   = useAsyncData("rpt-invoices",  () => get<Invoice[]>("/invoices"))
+const { data: allAssets }          = useAsyncData("rpt-assets",            () => get<Asset[]>("/assets"))
+const { data: assetModels }        = useAsyncData("rpt-asset-models",      () => get<AssetModel[]>("/asset-models"))
+const { data: downtimes }          = useAsyncData("rpt-downtimes",         () => get<Downtime[]>("/downtimes"))
+const { data: workOrders }         = useAsyncData("rpt-wos",               () => get<WorkOrder[]>("/work-orders"))
+const { data: budgets }            = useAsyncData("rpt-budgets",           () => get<Budget[]>("/budgets"))
+const { data: invoices }           = useAsyncData("rpt-invoices",          () => get<Invoice[]>("/invoices"))
+const { data: monthlyMetricsData } = useAsyncData("rpt-monthly-metrics",   () => get<MonthlyMetrics[]>("/downtimes/monthly-metrics?months=12"))
+const { data: commodityRates }     = await useAsyncData("rpt-commodity-rates", () => getCommodityRates())
 
 // ── Timeline filter ────────────────────────────────────────────
 const timelineOptions = [
@@ -40,9 +54,6 @@ function inRange(dateStr: string | undefined | null, from: Date | null, to: Date
   if (from && d < from) return false
   return d <= to
 }
-
-// ── Configurable ───────────────────────────────────────────────
-const pricePerTonne = ref(100)
 
 // ── Filtered data ──────────────────────────────────────────────
 const filteredDowntimes = computed(() => {
@@ -77,8 +88,15 @@ const modelSpecMap = computed(() => {
   return m
 })
 
+function rateAtDate(dateStr: string | null | undefined): number {
+  if (!dateStr) return 0
+  // rates are sorted DESC by effective_date from the API
+  const applicable = (commodityRates.value ?? []).filter((r: CommodityRate) => r.effective_date <= dateStr)
+  return applicable.length ? applicable[0].rate_per_lb : 0
+}
+
 function calcBales(events: Downtime[]) {
-  let bales = 0, kg = 0
+  let bales = 0, value = 0
   for (const d of events) {
     if (!d.asset_id || !d.downtime_hours) continue
     const modelNo = assetModelNoMap.value[d.asset_id]
@@ -86,13 +104,23 @@ function calcBales(events: Downtime[]) {
     if (!specs) continue
     const lost = d.downtime_hours * (60 / specs.bale_time)
     bales += lost
-    kg += lost * specs.bale_weight
+    const rate = rateAtDate(d.start_date ?? d.log_date)
+    value += lost * specs.bale_weight * rate
   }
-  return { bales: Math.round(bales), value: (kg / 1000) * pricePerTonne.value }
+  return { bales: Math.round(bales), value }
 }
 
 const balesStats   = computed(() => calcBales(filteredDowntimes.value))
-const totalDowntimeHrs = computed(() => filteredDowntimes.value.reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
+
+const currentMonthMetrics = computed(() => {
+  const m = monthlyMetricsData.value ?? []
+  return m[m.length - 1] ?? null
+})
+const prevMonthMetrics = computed(() => {
+  const m = monthlyMetricsData.value ?? []
+  return m[m.length - 2] ?? null
+})
+const totalDowntimeHrs = computed(() => currentMonthMetrics.value?.downtime_hours ?? 0)
 const pmCost        = computed(() => filteredWorkOrders.value.filter((w) => w.typ === "preventative").reduce((s, w) => s + (w.actual_cost ?? 0), 0))
 const correctiveCost = computed(() => filteredWorkOrders.value.filter((w) => w.typ === "corrective").reduce((s, w) => s + (w.actual_cost ?? 0), 0))
 const totalBudget   = computed(() => filteredBudgets.value.reduce((s, b) => s + b.amount, 0))
@@ -109,11 +137,11 @@ const last6 = (() => {
 })()
 
 function monthlyDowntime() {
-  return last6.map(({ year, month }) =>
-    +(downtimes.value ?? [])
-      .filter((d) => { const dt = new Date(d.start_date ?? d.log_date ?? ""); return dt.getFullYear() === year && dt.getMonth() === month })
-      .reduce((s, d) => s + (d.downtime_hours ?? 0), 0).toFixed(1)
-  )
+  const metricsMap = new Map((monthlyMetricsData.value ?? []).map((m) => [m.month, m.downtime_hours]))
+  return last6.map(({ year, month }) => {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}`
+    return +(metricsMap.get(key) ?? 0).toFixed(1)
+  })
 }
 function monthlyBales() {
   return last6.map(({ year, month }) => {
@@ -152,9 +180,10 @@ const kpiCards = computed(() => {
   return [
     {
       id: "downtime",
-      label: "Downtime Hours",
+      label: "Downtime (this month)",
       value: totalDowntimeHrs.value.toFixed(1),
       suffix: "h",
+      note: prevMonthMetrics.value ? `Last month: ${prevMonthMetrics.value.downtime_hours.toFixed(1)}h` : undefined,
       sparkData: downData,
       color: "#ef4444",
       trend: trendVsLastMonth(downData),
@@ -244,12 +273,27 @@ async function downloadDowntime() {
   triggerDownload(`downtime-${slugDate(to)}.csv`, toCSV(["ID", "Asset", "Cause", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Planned", "Component Affected", "Root Cause", "Corrective Action", "Repeat Failure", "Work Order"], rows))
 }
 async function downloadReliability() {
-  const data = await get<Downtime[]>("/downtimes"); const { from, to } = dateRange.value
-  const filtered = (data ?? []).filter((d) => inRange(d.start_date ?? d.log_date, from, to))
-  const byMonth: Record<string, Downtime[]> = {}
-  for (const d of filtered) { const dt = new Date(d.start_date ?? d.log_date ?? ""); if (isNaN(dt.getTime())) continue; const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`; if (!byMonth[key]) byMonth[key] = []; byMonth[key].push(d) }
-  const rows = Object.entries(byMonth).sort(([a], [b]) => a.localeCompare(b)).map(([month, events]) => { const [yr, mo] = month.split("-").map(Number); const dim = new Date(yr, mo, 0).getDate(); const tot = events.reduce((s, e) => s + (e.downtime_hours ?? 0), 0); return [month, events.length, tot.toFixed(2), events.length ? (tot / events.length).toFixed(2) : "—", events.length ? ((dim * 24 - tot) / events.length).toFixed(2) : "—"] })
-  triggerDownload(`reliability-${slugDate(to)}.csv`, toCSV(["Month", "Failure Events", "Total Downtime (hrs)", "MTTR (hrs)", "MTBF (hrs)"], rows))
+  const { from, to } = dateRange.value
+  const months = await get<MonthlyMetrics[]>("/downtimes/monthly-metrics?months=12")
+  const rows = (months ?? [])
+    .filter((m) => {
+      const [y, mo] = m.month.split("-").map(Number)
+      const monthStart = new Date(y, mo - 1, 1)
+      const monthEnd = new Date(y, mo, 0)
+      if (from && monthEnd < from) return false
+      if (monthStart > to) return false
+      return true
+    })
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map((m) => [
+      m.month,
+      m.num_failures,
+      m.downtime_hours.toFixed(2),
+      m.mttr != null ? m.mttr.toFixed(2) : "—",
+      m.mtbf != null ? m.mtbf.toFixed(2) : "—",
+      m.availability.toFixed(2) + "%",
+    ])
+  triggerDownload(`reliability-${slugDate(to)}.csv`, toCSV(["Month", "Failure Events", "Total Downtime (hrs)", "MTTR (hrs)", "MTBF (hrs)", "Availability"], rows))
 }
 async function downloadAssets() {
   const [assets, locs] = await Promise.all([get<any[]>("/assets"), get<{ location_id: number; name: string }[]>("/locations")])
@@ -270,6 +314,25 @@ async function downloadIssues() {
   const rows = (issues ?? []).filter((i) => inRange(i.reported_at, from, to)).map((i) => [i.id, i.asset_id, i.severity, i.status, i.reported_by ? (userMap[i.reported_by] ?? i.reported_by) : "", i.reported_at, i.work_order_id ?? "", i.description])
   triggerDownload(`issues-${slugDate(to)}.csv`, toCSV(["ID", "Asset", "Severity", "Status", "Reported By", "Reported At", "Work Order ID", "Description"], rows))
 }
+async function downloadBalesLost() {
+  const dt = await get<Downtime[]>("/downtimes")
+  const { from, to } = dateRange.value
+  const filtered = (dt ?? []).filter((d) => inRange(d.start_date ?? d.log_date, from, to))
+  const monthMap = new Map<string, Downtime[]>()
+  for (const d of filtered) {
+    const key = (d.start_date ?? d.log_date ?? "").slice(0, 7)
+    if (!key) continue
+    if (!monthMap.has(key)) monthMap.set(key, [])
+    monthMap.get(key)!.push(d)
+  }
+  const rows = [...monthMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, events]) => {
+      const { bales, value } = calcBales(events)
+      return [month, bales, value.toFixed(2)]
+    })
+  triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
+}
 
 const downloading = ref<string | null>(null)
 const lastGenerated = reactive<Record<string, string>>({})
@@ -284,12 +347,13 @@ interface ReportDef {
 }
 
 const reports: ReportDef[] = [
-  { id: "work-orders",  name: "Work Orders Summary",            description: "All work orders with status, priority, cost and hours.",           category: "Operations",  categoryColor: "info",    icon: "i-heroicons-clipboard-document-list",    dateNote: "By issue date",       download: makeDownloader("work-orders",  downloadWorkOrders) },
-  { id: "downtime",     name: "Downtime Log",                   description: "Downtime events with root cause, action and hours lost.",          category: "Operations",  categoryColor: "info",    icon: "i-heroicons-exclamation-triangle",        dateNote: "By start date",       download: makeDownloader("downtime",     downloadDowntime) },
-  { id: "issues",       name: "Issues Log",                     description: "Reported issues with severity, status and resolution.",            category: "Operations",  categoryColor: "info",    icon: "i-heroicons-flag",                        dateNote: "By reported date",    download: makeDownloader("issues",       downloadIssues) },
-  { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",       category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
-  { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",         category: "Assets",      categoryColor: "success", icon: "i-heroicons-wrench-screwdriver",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
-  { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",   category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
+  { id: "work-orders",  name: "Work Orders Summary",            description: "All work orders with status, priority, cost and hours.",                      category: "Operations",  categoryColor: "info",    icon: "i-heroicons-clipboard-document-list",    dateNote: "By issue date",       download: makeDownloader("work-orders",  downloadWorkOrders) },
+  { id: "downtime",     name: "Downtime Log",                   description: "Downtime events with root cause, action and hours lost.",                     category: "Operations",  categoryColor: "info",    icon: "i-heroicons-exclamation-triangle",        dateNote: "By start date",       download: makeDownloader("downtime",     downloadDowntime) },
+  { id: "issues",       name: "Issues Log",                     description: "Reported issues with severity, status and resolution.",                       category: "Operations",  categoryColor: "info",    icon: "i-heroicons-flag",                        dateNote: "By reported date",    download: makeDownloader("issues",       downloadIssues) },
+  { id: "bales-lost",   name: "Bales Lost",                     description: "Monthly bales lost and estimated value using historical commodity rates.",    category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",   downloadBalesLost) },
+  { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
+  { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-wrench-screwdriver",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
+  { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
 ]
 
 const filteredReports = computed(() =>
@@ -491,10 +555,13 @@ async function exportAll() {
           <div class="divide-y divide-slate-50 px-5">
             <!-- Downtime -->
             <div class="flex items-center justify-between py-3">
-              <span class="flex items-center gap-2 text-sm text-slate-600">
-                <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-red-400" />
-                Downtime
-              </span>
+              <div>
+                <span class="flex items-center gap-2 text-sm text-slate-600">
+                  <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-red-400" />
+                  Downtime
+                </span>
+                <p class="mt-0.5 text-xs text-slate-400">This month</p>
+              </div>
               <span class="font-semibold text-slate-900">{{ totalDowntimeHrs.toFixed(1) }}h</span>
             </div>
             <!-- Bales -->
@@ -504,10 +571,7 @@ async function exportAll() {
                   <UIcon name="i-heroicons-cube" class="h-4 w-4 text-amber-400" />
                   Bales Lost
                 </span>
-                <div class="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-                  <span>$/t</span>
-                  <input v-model.number="pricePerTonne" type="number" min="0" step="10" class="w-16 rounded border border-slate-200 px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400" />
-                </div>
+                <p class="mt-0.5 text-xs text-slate-400">At historical $/lb rates</p>
               </div>
               <div class="text-right">
                 <p class="font-semibold text-slate-900">{{ balesStats.bales.toLocaleString() }}</p>

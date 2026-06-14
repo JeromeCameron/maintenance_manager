@@ -11,6 +11,7 @@ const balerSizeOptions = ["small", "medium", "large"]
 
 const isBaler = computed(() => form.value.category === "baler")
 
+
 const columns = [
   { accessorKey: "model_no", header: "Model No." },
   { accessorKey: "manufacturer", header: "Manufacturer" },
@@ -111,7 +112,7 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.model_no)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.model_no)" />
             <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
@@ -121,7 +122,7 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div :class="['w-full rounded-xl bg-white shadow-xl', isBaler ? 'max-w-2xl' : 'max-w-lg']">
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
           <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
               <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
@@ -145,31 +146,29 @@ async function confirmDelete() {
             <UFormField label="Description" class="col-span-2">
               <UTextarea v-model="form.description" :rows="3" class="w-full" />
             </UFormField>
-            <template v-if="isBaler">
-              <div class="col-span-2 border-t border-slate-100 pt-4">
-                <p class="mb-3 text-sm font-medium text-slate-700">Baler Specifications</p>
-                <div class="grid grid-cols-2 gap-x-5 gap-y-4">
-                  <UFormField label="Baler Type">
-                    <USelect v-model="form.baler_type" :items="balerTypeOptions" placeholder="Select type" class="w-full" />
-                  </UFormField>
-                  <UFormField label="Baler Size">
-                    <USelect v-model="form.baler_size" :items="balerSizeOptions" placeholder="Select size" class="w-full" />
-                  </UFormField>
-                  <UFormField label="Bale Weight (kg)">
-                    <UInput v-model.number="form.bale_weight" type="number" class="w-full" />
-                  </UFormField>
-                  <UFormField label="Bale Time (min)">
-                    <UInput v-model.number="form.bale_time" type="number" class="w-full" />
-                  </UFormField>
-                  <UFormField label="Ram Force (kN)">
-                    <UInput v-model.number="form.ram_force" type="number" class="w-full" />
-                  </UFormField>
-                  <UFormField label="Bale Size">
-                    <UInput v-model="form.bale_size" placeholder="e.g. 1200x800x700mm" class="w-full" />
-                  </UFormField>
-                </div>
+            <div v-if="isBaler" class="col-span-2 border-t border-slate-100 pt-4">
+              <p class="mb-3 text-sm font-medium text-slate-700">Baler Specifications</p>
+              <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                <UFormField label="Baler Type">
+                  <USelect v-model="form.baler_type" :items="balerTypeOptions" placeholder="Select type" class="w-full" />
+                </UFormField>
+                <UFormField label="Baler Size">
+                  <USelect v-model="form.baler_size" :items="balerSizeOptions" placeholder="Select size" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Weight (kg)">
+                  <UInput v-model.number="form.bale_weight" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Time (min)">
+                  <UInput v-model.number="form.bale_time" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Ram Force (kN)">
+                  <UInput v-model.number="form.ram_force" type="number" class="w-full" />
+                </UFormField>
+                <UFormField label="Bale Size">
+                  <UInput v-model="form.bale_size" placeholder="e.g. 1200x800x700mm" class="w-full" />
+                </UFormField>
               </div>
-            </template>
+            </div>
           </div>
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
           <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
