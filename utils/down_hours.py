@@ -7,15 +7,13 @@ from utils.utils import get_shift_overlap, is_work_day, last_day_of_month
 
 
 def get_production_downtime_hours(
-    session: Session,
     start_date: date,
     start_time: time,
+    holidays: set[date],
     end_date: date | None = None,
     end_time: time | None = None,
     shift_asset: bool = False,
 ) -> float:
-    holidays = {h.holiday_date for h in get_holidays(session)}
-
     effective_start = datetime.combine(start_date, start_time)
     effective_end = datetime.combine(end_date, end_time) if end_date and end_time else datetime.now()
 
@@ -54,7 +52,11 @@ def split_downtime_by_month(
     end_date: date | None = None,
     end_time: time | None = None,
     shift_asset: bool = False,
+    holidays: set[date] | None = None,
 ) -> list[dict]:
+    if holidays is None:
+        holidays = {h.holiday_date for h in get_holidays(session)}
+
     if end_date is None or end_time is None:
         effective_end_date = date.today()
         effective_end_time = datetime.now().time()
@@ -79,16 +81,14 @@ def split_downtime_by_month(
         seg_start_date = start_date if i == 1 else month_start
         seg_start_time = start_time if i == 1 else time(0, 0, 0)
 
-        # For mid-range months, end at 06:00 on the first day of the next month
-        # so the night shift spanning the month boundary is fully captured
         seg_end_date = effective_end_date if i == month_count else month_last + timedelta(days=1)
         seg_end_time = effective_end_time if i == month_count else time(6, 0, 0)
 
         results.append({
             "month": month_start.strftime("%B %Y"),
             "hours": get_production_downtime_hours(
-                session,
                 seg_start_date, seg_start_time,
+                holidays,
                 seg_end_date, seg_end_time,
                 shift_asset,
             ),

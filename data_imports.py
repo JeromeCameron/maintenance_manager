@@ -6,13 +6,13 @@ Usage:
 """
 
 import math
-from datetime import date
+from datetime import date, datetime, time
 from pathlib import Path
 
 import openpyxl
 
 from schema.database import engine
-from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType
+from schema.models import Asset, AssetCategory, AssetOwnership, AssetStatus, AssetSubStatus, WorkOrder, WorkOrderStatus, PurchaseOrder, PurchaseOrderType, Invoice, InvoiceStatus, InvoiceType, Downtime
 from sqlmodel import Session, text
 
 
@@ -346,9 +346,95 @@ def import_invoices(session: Session) -> None:
     print(f"Invoices — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
 
 
+def import_downtimes(session: Session) -> None:
+    path = DATA_DIR / "tbl_downtime.xlsx"
+    wb = openpyxl.load_workbook(path)
+    ws = wb.active
+
+    headers = [cell.value for cell in ws[1]]
+
+    valid_assets = {row[0] for row in session.exec(text("SELECT asset_id FROM asset")).all()}  # type: ignore
+    valid_causes = {row[0] for row in session.exec(text("SELECT cause_id FROM downtimecause")).all()}  # type: ignore
+
+    inserted = updated = skipped = 0
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        data = dict(zip(headers, row))
+
+        downtime_id = _to_int(data.get("downtime_id"))
+        if downtime_id is None:
+            skipped += 1
+            continue
+
+        log_date_val = data.get("log_date")
+        log_time_val = data.get("log_time")
+        if isinstance(log_date_val, datetime):
+            log_dt = log_date_val.replace(
+                hour=log_time_val.hour if isinstance(log_time_val, time) else 0,
+                minute=log_time_val.minute if isinstance(log_time_val, time) else 0,
+                second=0,
+                microsecond=0,
+            )
+        else:
+            log_dt = None
+
+        start_date_val = data.get("start_date")
+        start_date = start_date_val.date() if isinstance(start_date_val, datetime) else _to_date(start_date_val)
+
+        end_date_val = data.get("end_date")
+        end_date = end_date_val.date() if isinstance(end_date_val, datetime) else _to_date(end_date_val)
+
+        asset_id = str(data["asset_id"]).strip() if data.get("asset_id") else None
+        if asset_id and asset_id not in valid_assets:
+            asset_id = None
+
+        cause_id = _to_int(data.get("cause_id"))
+        if cause_id and cause_id not in valid_causes:
+            cause_id = None
+
+        dt = Downtime(
+            downtime_id=downtime_id,
+            log_date=log_dt,
+            asset_id=asset_id,
+            shift_asset=bool(data.get("shift_asset")),
+            cause_id=cause_id,
+            start_date=start_date,
+            start_time=data.get("start_time") if isinstance(data.get("start_time"), time) else None,
+            end_date=end_date,
+            end_time=data.get("end_time") if isinstance(data.get("end_time"), time) else None,
+            planned=_to_bool(data.get("planned")),
+            details=str(data["details"]).strip() if data.get("details") else None,
+            component_affected=str(data["component_affected"]).strip() if data.get("component_affected") else None,
+            root_cause=str(data["root_cause"]).strip() if data.get("root_cause") else None,
+            corrective_action=str(data["corrective_action"]).strip() if data.get("corrective_action") else None,
+            repeat_failure=_to_bool(data.get("repeat_failure")),
+            temporary_fix=_to_bool(data.get("temporary_fix")),
+            work_order=str(data["work_order"]).strip() if data.get("work_order") else "",
+            downtime_hours=_to_float(data.get("downtime_hours")),
+        )
+
+        existing = session.get(Downtime, downtime_id)
+        session.merge(dt)
+
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+
+    session.commit()
+
+    max_id = session.exec(text("SELECT MAX(downtime_id) FROM downtime")).first()[0]  # type: ignore
+    if max_id:
+        session.exec(text(f"ALTER SEQUENCE downtime_downtime_id_seq RESTART WITH {max_id + 1}"))  # type: ignore
+        session.commit()
+
+    print(f"Downtimes — inserted: {inserted}, updated: {updated}, skipped: {skipped}")
+
+
 if __name__ == "__main__":
     with Session(engine) as session:
         import_assets(session)
         import_work_orders(session)
         import_purchase_orders(session)
         import_invoices(session)
+        import_downtimes(session)

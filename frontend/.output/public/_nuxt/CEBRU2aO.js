@@ -1,0 +1,1 @@
+import{u as n}from"./naj0yi6R.js";function g(){const{get:s,post:t,put:o,del:a}=n();return{getAll:()=>s("/asset-models"),getOne:e=>s(`/asset-models/${e}`),create:e=>t("/asset-models",e),update:(e,l)=>o(`/asset-models/${e}`,l),remove:e=>a(`/asset-models/${e}`)}}export{g as u};

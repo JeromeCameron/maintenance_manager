@@ -22,6 +22,7 @@ const columns = [
   { accessorKey: "downtime_id", header: "ID" },
   { accessorKey: "asset_id", header: "Asset" },
   { accessorKey: "cause_id", header: "Cause" },
+  { accessorKey: "details", header: "Details" },
   { accessorKey: "start_date", header: "Start" },
   { accessorKey: "downtime_hours", header: "Hours" },
   { accessorKey: "planned", header: "Planned" },
@@ -30,13 +31,73 @@ const columns = [
 
 const search = ref("")
 const filtered = computed(() =>
-  (downtimes.value ?? []).filter((d) => {
-    const q = search.value.toLowerCase()
-    return !q || (d.asset_id ?? "").toLowerCase().includes(q) || String(d.downtime_id).includes(q)
-  })
+  (downtimes.value ?? [])
+    .filter((d) => {
+      const q = search.value.toLowerCase()
+      return !q || (d.asset_id ?? "").toLowerCase().includes(q) || String(d.downtime_id).includes(q)
+    })
+    .sort((a, b) => new Date(b.start_date ?? "").getTime() - new Date(a.start_date ?? "").getTime())
 )
 
 const totalHours = computed(() => (downtimes.value ?? []).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
+
+// ── Pareto chart ─────────────────────────────────────────────
+const paretoData = computed(() => {
+  const hours: Record<number, number> = {}
+  const events: Record<number, number> = {}
+  for (const d of downtimes.value ?? []) {
+    if (d.cause_id == null || d.planned) continue
+    hours[d.cause_id] = (hours[d.cause_id] ?? 0) + (d.downtime_hours ?? 0)
+    events[d.cause_id] = (events[d.cause_id] ?? 0) + 1
+  }
+  const sorted = Object.entries(hours)
+    .map(([id, h]) => ({ id: Number(id), name: causeMap.value[Number(id)] ?? `Cause ${id}`, hours: h, events: events[Number(id)] ?? 0 }))
+    .sort((a, b) => b.hours - a.hours)
+
+  const total = sorted.reduce((s, r) => s + r.hours, 0)
+  let cumulative = 0
+  return sorted.map((r) => {
+    cumulative += r.hours
+    return { ...r, cumPct: total > 0 ? Math.round((cumulative / total) * 100) : 0 }
+  })
+})
+
+const paretoCategories = computed(() => paretoData.value.map((r) => r.name))
+const paretoBarData = computed(() => paretoData.value.map((r) => +r.hours.toFixed(1)))
+const paretoCumData = computed(() => paretoData.value.map((r) => r.cumPct))
+
+const paretoSeries = computed(() => [
+  { name: "Downtime Hours", type: "bar",  data: paretoBarData.value },
+  { name: "Cumulative %",   type: "line", data: paretoCumData.value },
+])
+
+const paretoOptions = computed(() => ({
+  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  plotOptions: { bar: { columnWidth: "55%", borderRadius: 4 } },
+  stroke: { width: [0, 2], curve: "straight" },
+  colors: ["#f97316", "#64748b"],
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: paretoCategories.value,
+    labels: { style: { fontSize: "11px", colors: "#94a3b8" }, rotate: -30 },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: [
+    {
+      title: { text: "Hours", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => v.toFixed(0) + "h" },
+    },
+    {
+      opposite: true, min: 0, max: 100, tickAmount: 4,
+      title: { text: "%", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => Math.round(v) + "%" },
+    },
+  ],
+  grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+  legend: { show: false },
+  tooltip: { shared: true },
+}))
 
 // ── Form modal ───────────────────────────────────────────────
 const showModal = ref(false)
@@ -112,12 +173,37 @@ async function confirmDelete() {
       </div>
     </div>
 
+    <!-- Pareto Chart -->
+    <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-700">Failure Drivers — Pareto Analysis</h2>
+          <p class="text-xs text-slate-400">Unplanned downtime hours by cause, sorted by impact</p>
+        </div>
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
+          <UIcon name="i-heroicons-chart-bar-square" class="h-4 w-4 text-orange-500" />
+        </div>
+      </div>
+      <ClientOnly>
+        <apexchart type="line" height="220" :options="paretoOptions" :series="paretoSeries" />
+        <template #fallback>
+          <div class="flex h-[280px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+        </template>
+      </ClientOnly>
+    </div>
+
     <UCard>
       <template #header>
         <UInput v-model="search" placeholder="Search by asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
       </template>
       <UTable :data="filtered" :columns="columns">
         <template #cause_id-cell="{ row: { original: row } }">{{ causeMap[row.cause_id] ?? "—" }}</template>
+        <template #start_date-cell="{ row: { original: row } }">
+          {{ row.start_date ? new Date(row.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—" }}
+        </template>
+        <template #details-cell="{ row: { original: row } }">
+          <span class="text-slate-500">{{ row.details ? (row.details.length > 60 ? row.details.slice(0, 60) + '…' : row.details) : '—' }}</span>
+        </template>
         <template #planned-cell="{ row: { original: row } }">
           <UBadge :color="row.planned ? 'info' : 'error'" variant="soft" size="sm">{{ row.planned ? "Planned" : "Unplanned" }}</UBadge>
         </template>
@@ -126,8 +212,7 @@ async function confirmDelete() {
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/downtime/${row.downtime_id}`)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.downtime_id)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.downtime_id)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
@@ -185,6 +270,12 @@ async function confirmDelete() {
               </UFormField>
               <UFormField label="Repeat Failure">
                 <UCheckbox v-model="form.repeat_failure" label="Repeat failure" />
+              </UFormField>
+              <UFormField label="Temporary Fix">
+                <UCheckbox v-model="form.temporary_fix" label="Temporary fix applied" />
+              </UFormField>
+              <UFormField label="Details" class="col-span-2">
+                <UTextarea v-model="form.details" :rows="2" class="w-full" />
               </UFormField>
               <UFormField label="Root Cause" class="col-span-2">
                 <UTextarea v-model="form.root_cause" :rows="2" class="w-full" />

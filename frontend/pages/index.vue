@@ -6,6 +6,17 @@ const { get } = useApi()
 const { data: assets } = await useAsyncData("assets", () => get<Asset[]>("/assets"))
 const { data: workOrders } = await useAsyncData("work-orders", () => get<WorkOrder[]>("/work-orders"))
 const { data: downtimes } = await useAsyncData("downtimes", () => get<Downtime[]>("/downtimes"))
+
+interface MonthlyMetrics {
+  month: string
+  scheduled_hours: number
+  downtime_hours: number
+  num_failures: number
+  mttr: number | null
+  mtbf: number | null
+  availability: number
+}
+const { data: monthlyMetrics } = await useAsyncData("downtime-metrics", () => get<MonthlyMetrics[]>("/downtimes/monthly-metrics?months=6"))
 const { data: assetPMs } = await useAsyncData("asset-pms", () => get<AssetPM[]>("/maintenance/asset-pms"))
 
 // ── Status colour maps ─────────────────────────────────────────
@@ -27,24 +38,13 @@ const assetsDown = computed(() =>
   (assets.value ?? []).filter((a) => a.status === "out_of_service" || a.status === "maintenance").length
 )
 
-// Availability: (total possible hrs - downtime hrs in last 30d) / total possible hrs
-const availability = computed(() => {
-  const now = new Date()
-  const cutoff = new Date(now)
-  cutoff.setDate(now.getDate() - 30)
-
-  const recentDowntimeHrs = (downtimes.value ?? [])
-    .filter((d) => {
-      const date = new Date(d.start_date ?? d.log_date ?? "")
-      return date >= cutoff
-    })
-    .reduce((sum, d) => sum + (d.downtime_hours ?? 0), 0)
-
-  const activeAssets = (assets.value ?? []).filter((a) => a.status !== "disposed").length
-  if (!activeAssets) return 100
-  const possible = activeAssets * 30 * 24
-  return Math.max(0, +((1 - recentDowntimeHrs / possible) * 100).toFixed(1))
+const currentMonthMetrics = computed(() => {
+  const key = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  return monthlyMetrics.value?.find((m) => m.month === key) ?? null
 })
+
+// Availability for the current month from backend metrics
+const availability = computed(() => currentMonthMetrics.value?.availability ?? 100)
 
 // ── Work order stats ───────────────────────────────────────────
 const openWorkOrders = computed(() =>
@@ -57,9 +57,13 @@ const workOrdersByStatus = computed(() => {
   return counts
 })
 
-const totalDowntimeHours = computed(() =>
-  (downtimes.value ?? []).reduce((sum, d) => sum + (d.downtime_hours ?? 0), 0)
-)
+const now = new Date()
+const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+const prevMonthKey = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`
+const prevMonthLabel = prevMonthDate.toLocaleString("default", { month: "long" })
+
+const currentMonthDowntimeHours = computed(() => currentMonthMetrics.value?.downtime_hours ?? 0)
+const prevMonthDowntimeHours = computed(() => monthlyMetrics.value?.find((m) => m.month === prevMonthKey)?.downtime_hours ?? 0)
 
 // ── PMs due ────────────────────────────────────────────────────
 const pmsDueSoon = computed(() => {
@@ -79,57 +83,29 @@ const kpiCards = computed(() => [
   { label: "Assets Down",        value: assetsDown.value,                   suffix: "",   icon: "i-heroicons-x-circle",               color: "text-red-500",    bg: "bg-red-50" },
   { label: "Availability (30d)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50" },
   { label: "Open Work Orders",   value: openWorkOrders.value.length,        suffix: "",   icon: "i-heroicons-clipboard-document-list", color: "text-amber-500", bg: "bg-amber-50" },
-  { label: "Downtime Hours",     value: totalDowntimeHours.value.toFixed(1), suffix: "h", icon: "i-heroicons-exclamation-triangle",   color: "text-orange-500", bg: "bg-orange-50" },
+  { label: "Downtime (this month)", value: currentMonthDowntimeHours.value.toFixed(1), suffix: "h", icon: "i-heroicons-exclamation-triangle", color: "text-orange-500", bg: "bg-orange-50", caption: `${prevMonthLabel}: ${prevMonthDowntimeHours.value.toFixed(1)}h` },
   { label: "PMs Due (30 days)",  value: pmsDueSoon.value.length,            suffix: "",   icon: "i-heroicons-calendar-days",          color: "text-purple-500", bg: "bg-purple-50" },
 ])
 
 // ── MTTR / MTBF trend (last 6 months) ─────────────────────────
-function getLast6Months() {
-  const now = new Date()
-  return Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-    return {
-      year: d.getFullYear(),
-      month: d.getMonth(),
-      label: d.toLocaleString("default", { month: "short", year: "2-digit" }),
-      daysInMonth: new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(),
-    }
+const monthLabels = computed(() =>
+  (monthlyMetrics.value ?? []).map(({ month }) => {
+    const [y, m] = month.split("-").map(Number)
+    return new Date(y, m - 1, 1).toLocaleString("default", { month: "short", year: "2-digit" })
   })
-}
+)
 
-const last6Months = getLast6Months()
-const monthLabels = last6Months.map((m) => m.label)
-
-// MTTR = average downtime hours per failure event, per month
 const mttrSeries = computed(() => [{
   name: "MTTR",
-  data: last6Months.map(({ year, month }) => {
-    const events = (downtimes.value ?? []).filter((d) => {
-      const date = new Date(d.start_date ?? d.log_date ?? "")
-      return date.getFullYear() === year && date.getMonth() === month && (d.downtime_hours ?? 0) > 0
-    })
-    if (!events.length) return 0
-    const total = events.reduce((s, e) => s + (e.downtime_hours ?? 0), 0)
-    return +(total / events.length).toFixed(2)
-  }),
+  data: (monthlyMetrics.value ?? []).map((m) => m.mttr),
 }])
 
-// MTBF = (calendar hours in month - downtime hours) / failure events
 const mtbfSeries = computed(() => [{
   name: "MTBF",
-  data: last6Months.map(({ year, month, daysInMonth }) => {
-    const events = (downtimes.value ?? []).filter((d) => {
-      const date = new Date(d.start_date ?? d.log_date ?? "")
-      return date.getFullYear() === year && date.getMonth() === month
-    })
-    if (!events.length) return 0
-    const totalDowntime = events.reduce((s, e) => s + (e.downtime_hours ?? 0), 0)
-    const operatingHrs = daysInMonth * 24 - totalDowntime
-    return +(operatingHrs / events.length).toFixed(2)
-  }),
+  data: (monthlyMetrics.value ?? []).map((m) => m.mtbf),
 }])
 
-function areaChartOptions(color: string, unit: string) {
+function areaChartOptions(color: string, unit: string, labels: string[]) {
   return {
     chart: {
       type: "area",
@@ -140,12 +116,13 @@ function areaChartOptions(color: string, unit: string) {
       animations: { enabled: true, speed: 400 },
     },
     stroke: { curve: "smooth", width: 2 },
+    connectNulls: false,
     fill: {
       type: "gradient",
       gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.02, stops: [0, 95, 100] },
     },
     xaxis: {
-      categories: monthLabels,
+      categories: labels,
       labels: { style: { fontSize: "11px", colors: "#94a3b8" } },
       axisBorder: { show: false },
       axisTicks: { show: false },
@@ -165,8 +142,8 @@ function areaChartOptions(color: string, unit: string) {
   }
 }
 
-const mttrOptions = areaChartOptions("#3b82f6", "h")
-const mtbfOptions = areaChartOptions("#8b5cf6", "h")
+const mttrOptions = computed(() => areaChartOptions("#3b82f6", "h", monthLabels.value))
+const mtbfOptions = computed(() => areaChartOptions("#8b5cf6", "h", monthLabels.value))
 
 // ── Recent work orders table ───────────────────────────────────
 const recentWorkOrders = computed(() =>
@@ -214,6 +191,7 @@ function openWorkOrder(id: number) {
             <UIcon :name="card.icon" class="h-5 w-5 shrink-0" :class="card.color" />
           </div>
         </div>
+        <p v-if="card.caption" class="mt-2 text-xs text-slate-400">{{ card.caption }}</p>
       </div>
     </div>
 
@@ -224,6 +202,7 @@ function openWorkOrder(id: number) {
           <div>
             <h2 class="text-sm font-semibold text-slate-700">MTTR — Mean Time to Repair</h2>
             <p class="text-xs text-slate-400">Average downtime hours per failure event</p>
+            <p class="mt-0.5 text-xs font-medium text-green-600">Lower is better</p>
           </div>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
             <UIcon name="i-heroicons-wrench" class="h-4 w-4 text-blue-500" />
@@ -242,6 +221,7 @@ function openWorkOrder(id: number) {
           <div>
             <h2 class="text-sm font-semibold text-slate-700">MTBF — Mean Time Between Failures</h2>
             <p class="text-xs text-slate-400">Operating hours between failure events</p>
+            <p class="mt-0.5 text-xs font-medium text-green-600">Higher is better</p>
           </div>
           <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50">
             <UIcon name="i-heroicons-chart-bar" class="h-4 w-4 text-purple-500" />

@@ -1,0 +1,1 @@
+import{u as c}from"./naj0yi6R.js";function m(){const{get:e,post:t,put:u,del:o}=c();return{getAll:()=>e("/issues"),getOne:s=>e(`/issues/${s}`),getByAsset:s=>e(`/issues/asset/${s}`),create:s=>t("/issues",s),update:(s,n)=>u(`/issues/${s}`,n),remove:s=>o(`/issues/${s}`)}}export{m as u};
