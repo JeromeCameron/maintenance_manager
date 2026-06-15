@@ -2,7 +2,23 @@ from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
+from crud.utility import get_holidays
 from schema.models import Downtime, DowntimeCause
+from utils.down_hours import get_production_downtime_hours
+
+
+def _calculate_downtime_hours(session: Session, downtime: Downtime) -> None:
+    if downtime.start_date is None or downtime.start_time is None:
+        return
+    holidays = {h.holiday_date for h in get_holidays(session)}
+    downtime.downtime_hours = get_production_downtime_hours(
+        downtime.start_date,
+        downtime.start_time,
+        holidays,
+        downtime.end_date,
+        downtime.end_time,
+        downtime.shift_asset,
+    )
 
 
 # ------------------------------------------------------------------
@@ -64,6 +80,7 @@ def get_downtime(session: Session, downtime_id: int) -> Optional[Downtime]:
 
 
 def add_downtime(session: Session, downtime: Downtime) -> Downtime:
+    _calculate_downtime_hours(session, downtime)
     session.add(downtime)
     session.commit()
     session.refresh(downtime)
@@ -78,6 +95,7 @@ def update_downtime(
         return None
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(db_downtime, key, value)
+    _calculate_downtime_hours(session, db_downtime)
     session.add(db_downtime)
     session.commit()
     session.refresh(db_downtime)

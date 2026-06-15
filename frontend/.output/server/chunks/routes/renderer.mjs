@@ -1,11 +1,10 @@
 import { createRenderer, getRequestDependencies, getPreloadLinks, getPrefetchLinks } from 'vue-bundle-renderer/runtime';
-import { a as buildAssetsURL, C as publicAssetsURL, I as useRuntimeConfig, r as getResponseStatusText, q as getResponseStatus, k as encodePath, f as defineRenderHandler, o as getQuery, c as createError, s as getRouteRules, w as joinURL, H as useNitroApp } from '../nitro/nitro.mjs';
+import { b as buildAssetsURL, p as publicAssetsURL, u as useRuntimeConfig, e as encodePath, d as defineRenderHandler, g as getQuery, c as createError, a as destr, f as getRouteRules, h as getResponseStatusText, i as getResponseStatus, j as useNitroApp } from '../nitro/nitro.mjs';
 import { renderToString } from 'vue/server-renderer';
 import { createHead as createHead$1, propsToString, renderSSRHead } from 'unhead/server';
 import { stringify, uneval } from 'devalue';
 import { walkResolver } from 'unhead/utils';
 import { isRef, toValue, hasInjectionContext, inject, ref, watchEffect, getCurrentInstance, onBeforeUnmount, onDeactivated, onActivated } from 'vue';
-import { DeprecationsPlugin, PromisesPlugin, TemplateParamsPlugin, AliasSortingPlugin } from 'unhead/plugins';
 
 const VueResolver = (_, value) => {
   return isRef(value) ? toValue(value) : value;
@@ -86,6 +85,10 @@ const appTeleportTag = "div";
 
 const appTeleportAttrs = {"id":"teleports"};
 
+const appSpaLoaderTag = "div";
+
+const appSpaLoaderAttrs = {"id":"__nuxt-loader"};
+
 const appId = "nuxt-app";
 
 // @ts-expect-error private property consumed by vite-generated url helpers
@@ -126,7 +129,11 @@ const getSPARenderer = lazyCachedFunction(async () => {
 	// @ts-expect-error virtual file
 	const spaTemplate = await import('../virtual/_virtual_spa-template.mjs').then((r) => r.template).catch(() => "").then((r) => {
 		{
-			return APP_ROOT_OPEN_TAG + r + APP_ROOT_CLOSE_TAG;
+			const APP_SPA_LOADER_OPEN_TAG = `<${appSpaLoaderTag}${propsToString(appSpaLoaderAttrs)}>`;
+			const APP_SPA_LOADER_CLOSE_TAG = `</${appSpaLoaderTag}>`;
+			const appTemplate = APP_ROOT_OPEN_TAG + APP_ROOT_CLOSE_TAG;
+			const loaderTemplate = r ? APP_SPA_LOADER_OPEN_TAG + r + APP_SPA_LOADER_CLOSE_TAG : "";
+			return appTemplate + loaderTemplate;
 		}
 	});
 	
@@ -170,17 +177,6 @@ function getRenderer(ssrContext) {
 // @ts-expect-error file will be produced after app build
 const getSSRStyles = lazyCachedFunction(() => import('../build/styles.mjs').then((r) => r.default || r));
 
-function renderPayloadResponse(ssrContext) {
-	return {
-		body: encodeForwardSlashes(stringify(splitPayload(ssrContext).payload, ssrContext["~payloadReducers"])) ,
-		statusCode: getResponseStatus(ssrContext.event),
-		statusMessage: getResponseStatusText(ssrContext.event),
-		headers: {
-			"content-type": "application/json;charset=utf-8" ,
-			"x-powered-by": "Nuxt"
-		}
-	};
-}
 function renderPayloadJsonScript(opts) {
 	const contents = opts.data ? encodeForwardSlashes(stringify(opts.data, opts.ssrContext["~payloadReducers"])) : "";
 	const payload = {
@@ -202,24 +198,9 @@ function renderPayloadJsonScript(opts) {
 function encodeForwardSlashes(str) {
 	return str.replaceAll("/", "\\u002F");
 }
-function splitPayload(ssrContext) {
-	const { data, prerenderedAt, ...initial } = ssrContext.payload;
-	return {
-		initial: {
-			...initial,
-			prerenderedAt
-		},
-		payload: {
-			data,
-			prerenderedAt
-		}
-	};
-}
 
 const unheadOptions = {
   disableDefaults: true,
-  disableCapoSorting: false,
-  plugins: [DeprecationsPlugin, PromisesPlugin, TemplateParamsPlugin, AliasSortingPlugin],
 };
 
 function encodeEventPath(path) {
@@ -264,9 +245,9 @@ async function renderInlineStyles(usedModules) {
 	return Array.from(inlinedStyles).map((style) => ({ innerHTML: style }));
 }
 
-const renderSSRHeadOptions = {"omitLineBreaks":false};
+const renderSSRHeadOptions = {"omitLineBreaks":true};
 
-const entryIds = ["node_modules/nuxt/dist/app/entry.js"];
+const entryIds = [];
 
 // @ts-expect-error private property consumed by vite-generated url helpers
 globalThis.__buildAssetsURL = buildAssetsURL;
@@ -275,8 +256,6 @@ globalThis.__publicAssetsURL = publicAssetsURL;
 const HAS_APP_TELEPORTS = !!(appTeleportAttrs.id);
 const APP_TELEPORT_OPEN_TAG = HAS_APP_TELEPORTS ? `<${appTeleportTag}${propsToString(appTeleportAttrs)}>` : "";
 const APP_TELEPORT_CLOSE_TAG = HAS_APP_TELEPORTS ? `</${appTeleportTag}>` : "";
-const PAYLOAD_URL_RE = /^[^?]*\/_payload.json(?:\?.*)?$/ ;
-const PAYLOAD_FILENAME = "_payload.json" ;
 const handler = defineRenderHandler((event) => {
 	
 	const ssrError = event.path.startsWith("/__nuxt_error") ? getQuery(event) : null;
@@ -303,22 +282,20 @@ async function renderRoute(event, ssrError) {
 			
 			ssrError.status = ssrError.statusCode = Number.parseInt(status);
 		}
+		if (typeof ssrError.data === "string") {
+			try {
+				ssrError.data = destr(ssrError.data);
+			} catch {}
+		}
 		setSSRError(ssrContext, ssrError);
 	}
 	
 	const routeOptions = getRouteRules(event);
-	
-	const _PAYLOAD_EXTRACTION = !ssrContext.noSSR && (NUXT_RUNTIME_PAYLOAD_EXTRACTION);
-	const isRenderingPayload = (_PAYLOAD_EXTRACTION || false) && PAYLOAD_URL_RE.test(ssrContext.url);
-	if (isRenderingPayload) {
-		const url = ssrContext.url.substring(0, ssrContext.url.lastIndexOf("/")) || "/";
-		ssrContext.url = url;
-		event._path = event.node.req.url = url;
-	}
 	if (routeOptions.ssr === false) {
 		ssrContext.noSSR = true;
 	}
-	const payloadURL = _PAYLOAD_EXTRACTION ? joinURL(ssrContext.runtimeConfig.app.cdnURL || ssrContext.runtimeConfig.app.baseURL, ssrContext.url.replace(/\?.*$/, ""), PAYLOAD_FILENAME) + "?" + ssrContext.runtimeConfig.app.buildId : undefined;
+	
+	!ssrContext.noSSR && (NUXT_RUNTIME_PAYLOAD_EXTRACTION);
 	
 	const renderer = await getRenderer(ssrContext);
 	{
@@ -339,7 +316,7 @@ async function renderRoute(event, ssrError) {
 	});
 	
 	
-	const inlinedStyles = !ssrContext["~renderResponse"] && !ssrContext._renderResponse && !isRenderingPayload ? await renderInlineStyles(ssrContext.modules ?? []) : [];
+	const inlinedStyles = !ssrContext["~renderResponse"] && !ssrContext._renderResponse && true ? await renderInlineStyles(ssrContext.modules ?? []) : [];
 	await ssrContext.nuxt?.hooks.callHook("app:rendered", {
 		ssrContext,
 		renderResult: _rendered
@@ -352,35 +329,9 @@ async function renderRoute(event, ssrError) {
 	if (ssrContext.payload?.error && !ssrError) {
 		throw ssrContext.payload.error;
 	}
-	
-	if (isRenderingPayload) {
-		const response = renderPayloadResponse(ssrContext);
-		return response;
-	}
 	const NO_SCRIPTS = routeOptions.noScripts;
 	
 	const { styles, scripts } = getRequestDependencies(ssrContext, renderer.rendererContext);
-	
-	if (_PAYLOAD_EXTRACTION && !NO_SCRIPTS) {
-		ssrContext.head.push({ link: [{
-			rel: "preload",
-			as: "fetch",
-			crossorigin: "anonymous",
-			href: payloadURL
-		} ] }, headEntryOptions);
-	}
-	if (ssrContext["~preloadManifest"] && !NO_SCRIPTS) {
-		ssrContext.head.push({ link: [{
-			rel: "preload",
-			as: "fetch",
-			fetchpriority: "low",
-			crossorigin: "anonymous",
-			href: buildAssetsURL(`builds/meta/${ssrContext.runtimeConfig.app.buildId}.json`)
-		}] }, {
-			...headEntryOptions,
-			tagPriority: "low"
-		});
-	}
 	
 	if (inlinedStyles.length) {
 		ssrContext.head.push({ style: inlinedStyles });
@@ -408,18 +359,13 @@ async function renderRoute(event, ssrError) {
 				ssrContext.modules?.delete(id);
 			}
 		}
-		
 		ssrContext.head.push({ link: getPreloadLinks(ssrContext, renderer.rendererContext) }, headEntryOptions);
 		ssrContext.head.push({ link: getPrefetchLinks(ssrContext, renderer.rendererContext) }, headEntryOptions);
 		
-		ssrContext.head.push({ script: _PAYLOAD_EXTRACTION ? renderPayloadJsonScript({
-			ssrContext,
-			data: splitPayload(ssrContext).initial,
-			src: payloadURL
-		})  : renderPayloadJsonScript({
+		ssrContext.head.push({ script: renderPayloadJsonScript({
 			ssrContext,
 			data: ssrContext.payload
-		})  }, {
+		})   }, {
 			...headEntryOptions,
 			
 			tagPosition: "bodyClose",

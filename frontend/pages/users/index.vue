@@ -118,7 +118,7 @@ async function confirmDelete() {
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="navigateTo(`/users/${row.id}`)" />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row.id)" />
+            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.id)" />
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
           </div>
         </template>
