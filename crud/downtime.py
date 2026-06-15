@@ -1,3 +1,4 @@
+from datetime import date, time
 from typing import Optional, Sequence
 
 from sqlmodel import Session, select
@@ -7,16 +8,32 @@ from schema.models import Downtime, DowntimeCause
 from utils.down_hours import get_production_downtime_hours
 
 
+def _parse_date(v) -> Optional[date]:
+    if v is None:
+        return None
+    if isinstance(v, date):
+        return v
+    return date.fromisoformat(str(v))
+
+
+def _parse_time(v) -> Optional[time]:
+    if v is None:
+        return None
+    if isinstance(v, time):
+        return v
+    return time.fromisoformat(str(v))
+
+
 def _calculate_downtime_hours(session: Session, downtime: Downtime) -> None:
     if downtime.start_date is None or downtime.start_time is None:
         return
     holidays = {h.holiday_date for h in get_holidays(session)}
     downtime.downtime_hours = get_production_downtime_hours(
-        downtime.start_date,
-        downtime.start_time,
+        _parse_date(downtime.start_date),
+        _parse_time(downtime.start_time),
         holidays,
-        downtime.end_date,
-        downtime.end_time,
+        _parse_date(downtime.end_date),
+        _parse_time(downtime.end_time),
         downtime.shift_asset,
     )
 

@@ -244,6 +244,6 @@ if (import.meta.dev && !import.meta.nitro && import.meta.hot) {
 }
 /** client-end **/
 
-import cfg0 from "/home/jimmy/maintenance_manager/frontend/app.config.ts"
+import cfg0 from "/Users/jimmy/Documents/Coded/maintenance_manager/frontend/app.config.ts"
 
 export default /*@__PURE__*/ defuFn(cfg0, inlineConfig)
