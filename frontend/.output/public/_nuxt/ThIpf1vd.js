@@ -1,0 +1,1 @@
+import{u as c}from"./DCHFiLc0.js";function i(){const{get:t,post:o,put:s,del:n}=c();return{getAll:()=>t("/depots"),getOne:e=>t(`/depots/${e}`),create:e=>o("/depots",e),update:(e,p)=>s(`/depots/${e}`,p),remove:e=>n(`/depots/${e}`)}}export{i as u};

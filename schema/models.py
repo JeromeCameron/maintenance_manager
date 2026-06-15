@@ -344,7 +344,7 @@ class Downtime(SQLModel, table=True):
     corrective_action: Optional[str] = Field(default=None, sa_type=Text)
     repeat_failure: Optional[bool] = Field(default=None)
     temporary_fix: Optional[bool] = Field(default=None)
-    work_order: str
+    work_order: Optional[str] = Field(default=None)
     downtime_hours: Optional[float] = Field(default=None)
 
     asset: Optional["Asset"] = Relationship(back_populates="downtimes")

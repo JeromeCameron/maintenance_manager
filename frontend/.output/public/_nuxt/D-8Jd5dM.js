@@ -1,0 +1,1 @@
+import{u as c}from"./DCHFiLc0.js";function p(){const{get:e,post:o,put:s,del:m}=c();return{getAll:()=>e("/commodity-rates"),create:t=>o("/commodity-rates",t),update:(t,r)=>s(`/commodity-rates/${t}`,r),remove:t=>m(`/commodity-rates/${t}`)}}export{p as u};
