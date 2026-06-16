@@ -112,13 +112,13 @@ const spendSeries = computed(() => [
   {
     name: "Budget",
     data: chartMonths.map(({ year, month }) =>
-      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, b) => s + b.amount, 0)
+      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, b) => s + b.amount, 0)
     ),
   },
   {
     name: "Actual Spend",
     data: chartMonths.map(({ year, month }) =>
-      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
+      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
     ),
   },
 ])
@@ -128,7 +128,7 @@ const spendChartOptions = {
   stroke: { width: [2, 2], curve: "smooth", dashArray: [6, 0] },
   markers: { size: 3, strokeWidth: 0 },
   xaxis: { categories: chartMonths.map((m) => m.label), labels: { style: { fontSize: "10px", colors: "#94a3b8" } }, axisBorder: { show: false }, axisTicks: { show: false } },
-  yaxis: { labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => `$${(v / 1000).toFixed(1)}k` }, min: 0 },
+  yaxis: { tickAmount: 3, labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}k` : `$${v.toFixed(0)}` }, min: 0 },
   grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 2, right: 2 } },
   colors: ["#94a3b8", "#3b82f6"],
   legend: { show: false },
@@ -379,9 +379,9 @@ async function confirmDeleteBudget() {
             </div>
           </div>
           <ClientOnly>
-            <apexchart type="line" height="100" :options="spendChartOptions" :series="spendSeries" />
+            <apexchart type="line" height="160" :options="spendChartOptions" :series="spendSeries" />
             <template #fallback>
-              <div class="flex h-[100px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+              <div class="flex h-[160px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
             </template>
           </ClientOnly>
         </UCard>

@@ -38,7 +38,7 @@ app = FastAPI(title="Maintenance Manager API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://10.20.10.50:3000"],
+    allow_origins=["http://localhost:3000", "http://10.20.10.50:3000", "http://100.66.114.121",  # Tailscale IP of the server],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
