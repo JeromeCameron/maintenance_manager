@@ -87,7 +87,7 @@ const pageInfo = computed(() => {
       </div>
 
       <!-- Nav groups -->
-      <nav class="flex-1 space-y-3 px-3 py-3">
+      <nav class="flex-1 overflow-y-auto space-y-3 px-3 py-3">
         <div v-for="group in navGroups" :key="group.label">
           <p class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
             {{ group.label }}
