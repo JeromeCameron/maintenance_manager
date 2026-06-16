@@ -144,7 +144,11 @@ const costCentreOptions = computed(() => (costCentres.value ?? []).map((c) => ({
 const poTypeOptions = ["corrective", "predictive", "preventative", "consumables", "rental"]
 const invoiceStatusOptions = ["processing", "submitted", "on_hold"]
 const invoiceTypeOptions = ["parts", "parts_and_labour", "labour", "consumables", "services"]
-const monthOptions = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+function monthToFY(yyyyMm: string): string {
+  const [year, month] = yyyyMm.split("-").map(Number)
+  const fyEnd = month >= 4 ? year + 1 : year
+  return `FY${String(fyEnd).slice(-2)}`
+}
 
 // ── PO Modal ──────────────────────────────────────────────────
 const showPOModal = ref(false)
@@ -240,7 +244,7 @@ function openCreateBudget() {
 
 function openEditBudget(row: Budget) {
   budgetEditing.value = row
-  budgetForm.value = { ...row }
+  budgetForm.value = { ...row, month: row.month ? String(row.month).slice(0, 7) : undefined }
   budgetError.value = null
   showBudgetModal.value = true
 }
@@ -249,10 +253,15 @@ async function saveBudgetEntry() {
   savingBudget.value = true
   budgetError.value = null
   try {
+    const payload = { ...budgetForm.value }
+    if (payload.month && /^\d{4}-\d{2}$/.test(String(payload.month))) {
+      payload.financial_year = monthToFY(String(payload.month))
+      payload.month = `${payload.month}-01` as any
+    }
     if (budgetEditing.value?.id) {
-      await updateBudget(budgetEditing.value.id, budgetForm.value as Budget)
+      await updateBudget(budgetEditing.value.id, payload as Budget)
     } else {
-      await createBudget(budgetForm.value as Budget)
+      await createBudget(payload as Budget)
     }
     await refreshBudgets()
     showBudgetModal.value = false
@@ -566,11 +575,11 @@ async function confirmDeleteBudget() {
               <UFormField label="GL Code" required>
                 <USelect v-model="budgetForm.gl_code" :items="costCentreOptions" placeholder="Select GL code" class="w-full" />
               </UFormField>
-              <UFormField label="Financial Year" required>
-                <UInput v-model="budgetForm.financial_year" placeholder="e.g. 2025/2026" class="w-full" />
+              <UFormField label="Financial Year">
+                <UInput :model-value="budgetForm.month && /^\d{4}-\d{2}$/.test(String(budgetForm.month)) ? monthToFY(String(budgetForm.month)) : (budgetForm.financial_year ?? '')" disabled class="w-full" />
               </UFormField>
               <UFormField label="Month" required>
-                <USelect v-model="budgetForm.month" :items="monthOptions" placeholder="Select month" class="w-full" />
+                <UInput v-model="budgetForm.month" type="month" class="w-full" />
               </UFormField>
               <UFormField label="Amount" required>
                 <UInput v-model.number="budgetForm.amount" type="number" step="0.01" class="w-full">
