@@ -199,7 +199,7 @@ async function confirmDelete() {
       <UTable :data="filtered" :columns="columns">
         <template #cause_id-cell="{ row: { original: row } }">{{ causeMap[row.cause_id] ?? "—" }}</template>
         <template #start_date-cell="{ row: { original: row } }">
-          {{ row.start_date ? new Date(row.start_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }) : "—" }}
+          {{ row.start_date ? (() => { const d = new Date(row.start_date); return `${String(d.getUTCDate()).padStart(2,'0')}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(-2)}` })() : "—" }}
         </template>
         <template #details-cell="{ row: { original: row } }">
           <span class="text-slate-500">{{ row.details ? (row.details.length > 60 ? row.details.slice(0, 60) + '…' : row.details) : '—' }}</span>

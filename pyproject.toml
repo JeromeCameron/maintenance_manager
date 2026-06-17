@@ -16,6 +16,8 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "python-jose[cryptography]>=3.5.0",
     "sqlmodel>=0.0.38",
+    "matplotlib>=3.9",
+    "reportlab>=4.2",
 ]
 
 [dependency-groups]

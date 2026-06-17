@@ -334,6 +334,36 @@ async function downloadBalesLost() {
   triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
 }
 
+// ── Weekly PDF report ─────────────────────────────────────────
+const { token } = useAuth()
+const config = useRuntimeConfig()
+const generatingPDF = ref(false)
+const pdfError = ref<string | null>(null)
+
+async function downloadWeeklyPDF() {
+  generatingPDF.value = true
+  pdfError.value = null
+  try {
+    const res = await fetch(`${config.public.apiBase}/reports/weekly`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    })
+    if (!res.ok) throw new Error(`Server error ${res.status}`)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `weekly_report_${new Date().toISOString().slice(0, 10)}.pdf`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch (e: unknown) {
+    pdfError.value = (e as Error).message ?? "Failed to generate report"
+  } finally {
+    generatingPDF.value = false
+  }
+}
+
 const downloading = ref<string | null>(null)
 const lastGenerated = reactive<Record<string, string>>({})
 function makeDownloader(id: string, fn: () => Promise<void>) {
@@ -383,6 +413,25 @@ async function exportAll() {
 
 <template>
   <div class="space-y-5">
+
+    <!-- ── Weekly PDF Report ────────────────────────────────────── -->
+    <div class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
+      <div class="flex items-center gap-4">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600">
+          <UIcon name="i-heroicons-document-chart-bar" class="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-slate-800">Weekly Management Report</p>
+          <p class="text-xs text-slate-500">Covers the previous Mon – Sun. Includes downtime, work orders, PM compliance, finance and reliability.</p>
+        </div>
+      </div>
+      <div class="flex flex-col items-end gap-1">
+        <UButton leading-icon="i-heroicons-arrow-down-tray" :loading="generatingPDF" @click="downloadWeeklyPDF">
+          Download PDF
+        </UButton>
+        <p v-if="pdfError" class="text-xs text-red-500">{{ pdfError }}</p>
+      </div>
+    </div>
 
     <!-- ── Header ──────────────────────────────────────────────── -->
     <div class="flex flex-wrap items-center gap-3">

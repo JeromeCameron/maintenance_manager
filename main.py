@@ -31,6 +31,7 @@ from routers.po import router as po_router
 from routers.supplier import router as supplier_router
 from routers.user import router as user_router
 from routers.utility import router as utility_router
+from routers.reports import router as reports_router
 from routers.workOrders import router as work_order_router
 from routers.workOrders import work_order_part_router
 
@@ -85,6 +86,9 @@ app.include_router(po_router, dependencies=[Depends(write_on_write)])
 app.include_router(invoice_router, dependencies=[Depends(write_on_write)])
 
 app.include_router(commodity_rate_router, dependencies=[Depends(admin_on_write)])
+
+# Reports — any authenticated
+app.include_router(reports_router, dependencies=[Depends(get_current_user)])
 
 # Utility — any authenticated
 app.include_router(utility_router, dependencies=[Depends(get_current_user)])
