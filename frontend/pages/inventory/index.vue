@@ -55,7 +55,9 @@ const poOptions = computed(() => [
 ])
 const workOrderOptions = computed(() => [
   { label: "— None —", value: null },
-  ...(workOrders.value ?? []).map(w => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
+  ...[...(workOrders.value ?? [])]
+    .sort((a, b) => (a.work_order_id ?? 0) - (b.work_order_id ?? 0))
+    .map(w => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
 ])
 const uomOptions = ["unit", "pieces", "gallons", "drums", "boxes", "pairs", "quart", "liter", "meter", "bag"]
 
@@ -186,7 +188,6 @@ async function submitAdjustment() {
     const tx = await createTransaction({
       ...adjustment.value,
       part_no: form.value.part_no,
-      transaction_date: new Date().toISOString().slice(0, 10),
     } as StockTransaction)
     partTransactions.value = [tx, ...partTransactions.value]
     await refreshStock()
@@ -516,7 +517,7 @@ function deletePart(part: Part) {
                     <USelect v-model="adjustment.location_id" :items="locationOptions" class="w-full" />
                   </UFormField>
                   <UFormField label="Work Order">
-                    <USelect v-model="adjustment.work_order_id" :items="workOrderOptions" class="w-full" />
+                    <USelect v-model="adjustment.work_order_id" :items="workOrderOptions" searchable searchable-placeholder="Type WO number…" class="w-full" />
                   </UFormField>
                   <UFormField label="Purchase Order">
                     <USelect v-model="adjustment.po_no" :items="poOptions" class="w-full" />

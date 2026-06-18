@@ -22,8 +22,7 @@ const columns = [
   { accessorKey: "work_order_id", header: "WO #" },
   { accessorKey: "asset_id", header: "Asset" },
   { accessorKey: "priority", header: "Priority" },
-  { accessorKey: "typ", header: "Type" },
-  { accessorKey: "planned", header: "Planned" },
+  { id: "description", header: "Description" },
   { accessorKey: "status", header: "Status" },
   { accessorKey: "issue_date", header: "Issued" },
   { accessorKey: "date_completed", header: "Completed" },
@@ -247,11 +246,8 @@ async function confirmDelete() {
       </template>
 
       <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
-        <template #planned-cell="{ row: { original: row } }">
-          <UBadge v-if="row.planned != null" :color="row.planned ? 'primary' : 'neutral'" variant="soft">
-            {{ row.planned ? "Planned" : "Unplanned" }}
-          </UBadge>
-          <span v-else class="text-gray-400">—</span>
+        <template #description-cell="{ row: { original: row } }">
+          <span class="text-slate-500">{{ row.description ? (row.description.length > 50 ? row.description.slice(0, 50) + '…' : row.description) : '—' }}</span>
         </template>
         <template #status-cell="{ row: { original: row } }">
           <UBadge :color="statusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status.replace(/_/g, " ") }}</UBadge>

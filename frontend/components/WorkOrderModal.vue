@@ -10,10 +10,12 @@ const { getOne, update, getPartsByWorkOrder, addPart, updatePart, removePart } =
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
 const { getPMsByAsset } = useMaintenance()
+const { getParts } = useInventory()
 
-const [{ data: assets }, { data: suppliers }] = await Promise.all([
+const [{ data: assets }, { data: suppliers }, { data: inventoryParts }] = await Promise.all([
   useAsyncData("wo-modal-assets", () => getAssets()),
   useAsyncData("wo-modal-suppliers", () => getSuppliers()),
+  useAsyncData("wo-modal-parts", () => getParts()),
 ])
 
 const priorityOptions = ["Low", "Medium", "High"]
@@ -29,6 +31,9 @@ const assetOptions = computed(() =>
 )
 const supplierOptions = computed(() =>
   [{ label: "None", value: undefined }, ...(suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id }))]
+)
+const partOptions = computed(() =>
+  (inventoryParts.value ?? []).map((p) => ({ label: `${p.part_no} — ${p.part_name}`, value: p.part_no }))
 )
 
 // ── Form state ────────────────────────────────────────────────
@@ -204,9 +209,9 @@ async function save() {
               </template>
             </UTable>
 
-            <div v-if="editingPart" class="mt-3 grid grid-cols-4 gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
-              <UFormField label="Part No">
-                <UInput v-model="editPartDraft.part_no" class="w-full" />
+            <div v-if="editingPart" class="mt-3 grid grid-cols-5 gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
+              <UFormField label="Part No" class="col-span-2">
+                <USelect v-model="editPartDraft.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
               <UFormField label="Qty">
                 <UInput v-model.number="editPartDraft.quantity_used" type="number" min="1" class="w-full" />
@@ -220,9 +225,9 @@ async function save() {
               </div>
             </div>
 
-            <div v-else class="mt-3 grid grid-cols-4 gap-3 border-t pt-3">
-              <UFormField label="Part No">
-                <UInput v-model="newPart.part_no" placeholder="e.g. BLT-001" class="w-full" />
+            <div v-else class="mt-3 grid grid-cols-5 gap-3 border-t pt-3">
+              <UFormField label="Part No" class="col-span-2">
+                <USelect v-model="newPart.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
               <UFormField label="Qty">
                 <UInput v-model.number="newPart.quantity_used" type="number" min="1" class="w-full" />

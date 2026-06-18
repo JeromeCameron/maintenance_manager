@@ -158,6 +158,8 @@ async def get_monthly_metrics(
     failures: dict[tuple[int, int], int] = {k: 0 for k in month_list}
 
     for dt in all_dts:
+        if dt.planned:
+            continue
         if dt.start_date is None:
             continue
 

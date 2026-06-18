@@ -180,7 +180,7 @@ const kpiCards = computed(() => {
   return [
     {
       id: "downtime",
-      label: "Downtime (this month)",
+      label: "Unplanned Downtime (this month)",
       value: totalDowntimeHrs.value.toFixed(1),
       suffix: "h",
       note: prevMonthMetrics.value ? `Last month: ${prevMonthMetrics.value.downtime_hours.toFixed(1)}h` : undefined,
@@ -607,7 +607,7 @@ async function exportAll() {
               <div>
                 <span class="flex items-center gap-2 text-sm text-slate-600">
                   <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-red-400" />
-                  Downtime
+                  Unplanned Downtime
                 </span>
                 <p class="mt-0.5 text-xs text-slate-400">This month</p>
               </div>
