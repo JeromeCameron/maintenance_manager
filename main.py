@@ -1,7 +1,10 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from auth.dependencies import admin_on_write, get_current_user, write_on_write
+from auth.rate_limit import limiter
 from routers.asset import asset_model_router, asset_scores_router
 from routers.asset import router as asset_router
 from routers.auth import router as auth_router
@@ -36,6 +39,8 @@ from routers.workOrders import router as work_order_router
 from routers.workOrders import work_order_part_router
 
 app = FastAPI(title="Maintenance Manager API", version="1.0.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

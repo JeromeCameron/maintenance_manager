@@ -11,8 +11,10 @@ export const useAuth = () => {
   const apiBase = config.public.apiBase
 
   const token = useCookie<string | null>("auth_token", {
-    maxAge: 60 * 60 * 8, // 8 hours
+    maxAge: 60 * 60 * 2, // 2 hours (matches server token expiry)
     sameSite: "strict",
+    // httpOnly: true  — requires server-side login handler (Nuxt server route) to work
+    // secure: true    — enable once HTTPS is configured on the server
   })
 
   const user = useState<AuthUser | null>("auth_user", () => null)

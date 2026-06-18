@@ -3,11 +3,14 @@ from typing import Optional
 import os
 
 import bcrypt
-from jose import JWTError, jwt
+import jwt
+from dotenv import load_dotenv
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production-use-a-long-random-string")
+load_dotenv()
+
+SECRET_KEY = os.environ["SECRET_KEY"]
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
+ACCESS_TOKEN_EXPIRE_MINUTES = 120  # 2 hours
 
 
 def hash_password(password: str) -> str:

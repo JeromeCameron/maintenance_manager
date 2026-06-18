@@ -2,7 +2,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import ClassVar, List, Optional
 
-from pydantic import model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import CheckConstraint, Text
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -189,6 +189,20 @@ class User(SQLModel, table=True):
     )
     inspections: List["Inspection"] = Relationship(back_populates="inspector")
     issues: List["Issue"] = Relationship(back_populates="reporter")
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: Optional[int] = None
+    username: str
+    firstname: str
+    lastname: str
+    role: UserRole
+    email: str
+    active: bool
+    first_login: Optional[datetime] = None
+    last_login: Optional[datetime] = None
 
 
 # ------------- Utility Tables ----------------------- #
