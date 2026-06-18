@@ -1,8 +1,9 @@
 """Generates the weekly maintenance management PDF report."""
 
 import io
+from calendar import monthrange
 from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Optional
 
 import matplotlib
@@ -27,6 +28,7 @@ from reportlab.platypus import (
 )
 from sqlmodel import Session, select
 
+from crud.utility import get_holidays as _get_holidays
 from schema.models import (
     Asset,
     AssetModel,
@@ -40,6 +42,7 @@ from schema.models import (
     WorkOrder,
     WorkOrderStatus,
 )
+from utils.down_hours import get_production_downtime_hours
 
 # ── Palette ────────────────────────────────────────────────────────────────────
 _BLUE  = "#2563eb"
@@ -244,21 +247,48 @@ def _pie_chart(labels, values, title):
 
 
 # ── Data gathering ─────────────────────────────────────────────────────────────
+def _hours_in_range(
+    all_dts: list,
+    holidays: set,
+    range_start: date,
+    range_end: date,
+) -> float:
+    """Sum shift-aware production downtime hours for events overlapping [range_start, range_end]."""
+    total = 0.0
+    for dt in all_dts:
+        if dt.start_date is None or dt.start_time is None:
+            continue
+        event_end_date = dt.end_date or date.today()
+        event_end_time = dt.end_time or datetime.now().time()
+        if dt.start_date > range_end or event_end_date < range_start:
+            continue
+        seg_start_date = max(dt.start_date, range_start)
+        seg_start_time = dt.start_time if dt.start_date >= range_start else time(0, 0)
+        seg_end_date = min(event_end_date, range_end)
+        seg_end_time = event_end_time if event_end_date <= range_end else time(23, 59, 59)
+        total += get_production_downtime_hours(
+            seg_start_date, seg_start_time, holidays,
+            seg_end_date, seg_end_time, dt.shift_asset,
+        )
+    return round(total, 2)
+
+
 def _gather(session: Session) -> dict:
     week = _prev_week()
     m_s, m_e = _current_month()
     p_s, p_e = _prev_month()
     today = date.today()
 
-    assets     = list(session.exec(select(Asset)).all())
-    models     = list(session.exec(select(AssetModel)).all())
-    downtimes  = list(session.exec(select(Downtime)).all())
-    work_orders= list(session.exec(select(WorkOrder)).all())
-    issues     = list(session.exec(select(Issue)).all())
-    budgets    = list(session.exec(select(Budget)).all())
-    invoices   = list(session.exec(select(Invoice)).all())
-    asset_pms  = list(session.exec(select(AssetPM)).all())
-    rates      = list(session.exec(select(CommodityRate).order_by(CommodityRate.effective_date.desc())).all())
+    assets      = list(session.exec(select(Asset)).all())
+    models      = list(session.exec(select(AssetModel)).all())
+    downtimes   = list(session.exec(select(Downtime)).all())
+    work_orders = list(session.exec(select(WorkOrder)).all())
+    issues      = list(session.exec(select(Issue)).all())
+    budgets     = list(session.exec(select(Budget)).all())
+    invoices    = list(session.exec(select(Invoice)).all())
+    asset_pms   = list(session.exec(select(AssetPM)).all())
+    rates       = list(session.exec(select(CommodityRate).order_by(CommodityRate.effective_date.desc())).all())
+    holidays    = {h.holiday_date for h in _get_holidays(session)}
 
     model_map = {m.model_no: m for m in models}
     asset_model_map = {a.asset_id: model_map.get(a.model_no) for a in assets if a.model_no}
@@ -273,22 +303,30 @@ def _gather(session: Session) -> dict:
                 return r.rate_per_lb
         return 0
 
-    def calc_bales(dts):
+    def calc_bales(range_start: date, range_end: date):
         bales, value = 0.0, 0.0
-        for dt in dts:
-            if not dt.asset_id or not dt.downtime_hours:
+        for dt in downtimes:
+            if not dt.asset_id or dt.start_date is None or dt.start_time is None:
+                continue
+            event_end = dt.end_date or today
+            if dt.start_date > range_end or event_end < range_start:
                 continue
             m = asset_model_map.get(dt.asset_id)
             if not m or not m.bale_time or not m.bale_weight:
                 continue
-            lost = dt.downtime_hours * (60 / m.bale_time)
+            hrs = _hours_in_range([dt], holidays, range_start, range_end)
+            lost = hrs * (60 / m.bale_time)
             bales += lost
-            value += lost * m.bale_weight * rate_at(dt.start_date or dt.log_date)
+            value += lost * m.bale_weight * rate_at(dt.start_date)
         return round(bales), value
 
     open_statuses = {WorkOrderStatus.requested, WorkOrderStatus.scheduled,
                      WorkOrderStatus.awaiting_parts, WorkOrderStatus.awaiting_po,
                      WorkOrderStatus.in_progress, WorkOrderStatus.on_hold}
+
+    # Like-for-like: compare current month up to today vs same day-of-month in previous month
+    prev_like_day = min(today.day, monthrange(p_s.year, p_s.month)[1])
+    prev_like_end = date(p_s.year, p_s.month, prev_like_day)
 
     week_dts  = [d for d in downtimes   if week.contains(d.start_date or d.log_date)]
     month_dts = [d for d in downtimes   if _in_range(d.start_date or d.log_date, m_s, m_e)]
@@ -301,8 +339,24 @@ def _gather(session: Session) -> dict:
     prev_inv  = [i for i in invoices    if _in_range(i.rec_date or i.job_date, p_s, p_e)]
     open_iss  = [i for i in issues      if i.status in (IssueStatus.open, IssueStatus.in_review)]
     week_iss  = [i for i in issues      if week.contains(_to_date(i.reported_at))]
-    overdue_pms   = [p for p in asset_pms if p.active and p.next_service and _to_date(p.next_service) < today]
-    due_soon_pms  = [p for p in asset_pms if p.active and p.next_service and today <= _to_date(p.next_service) <= today + timedelta(days=14)]
+    overdue_pms  = [p for p in asset_pms if p.active and p.next_service and _to_date(p.next_service) < today]
+    due_soon_pms = [p for p in asset_pms if p.active and p.next_service and today <= _to_date(p.next_service) <= today + timedelta(days=14)]
+
+    # Properly attributed monthly hours (shift-aware, split across month boundaries)
+    curr_month_hrs = _hours_in_range(downtimes, holidays, m_s, today)
+    prev_like_hrs  = _hours_in_range(downtimes, holidays, p_s, prev_like_end)
+
+    # Per-asset breakdown for the comparison chart
+    curr_by_asset: dict[str, float] = defaultdict(float)
+    prev_like_by_asset: dict[str, float] = defaultdict(float)
+    for dt in downtimes:
+        if not dt.asset_id or dt.start_date is None or dt.start_time is None:
+            continue
+        event_end = dt.end_date or today
+        if not (dt.start_date > today or event_end < m_s):
+            curr_by_asset[dt.asset_id] += _hours_in_range([dt], holidays, m_s, today)
+        if not (dt.start_date > prev_like_end or event_end < p_s):
+            prev_like_by_asset[dt.asset_id] += _hours_in_range([dt], holidays, p_s, prev_like_end)
 
     return dict(
         week=week, m_s=m_s, m_e=m_e, p_s=p_s, p_e=p_e, today=today,
@@ -312,8 +366,13 @@ def _gather(session: Session) -> dict:
         month_inv=month_inv, month_bud=month_bud, prev_bud=prev_bud, prev_inv=prev_inv,
         open_iss=open_iss, week_iss=week_iss,
         asset_pms=asset_pms, overdue_pms=overdue_pms, due_soon_pms=due_soon_pms,
-        week_bales=calc_bales(week_dts),
-        month_bales=calc_bales(month_dts),
+        curr_month_hrs=curr_month_hrs,
+        prev_like_hrs=prev_like_hrs,
+        prev_like_end=prev_like_end,
+        curr_by_asset=dict(curr_by_asset),
+        prev_like_by_asset=dict(prev_like_by_asset),
+        week_bales=calc_bales(week.start, week.end),
+        month_bales=calc_bales(m_s, today),
     )
 
 

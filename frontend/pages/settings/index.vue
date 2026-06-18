@@ -1139,7 +1139,7 @@ async function confirmDeleteRate() {
               </UFormField>
             </div>
             <UFormField label="Critical">
-              <UToggle v-model="itemForm.is_critical" />
+              <UCheckbox v-model="itemForm.is_critical" label="Mark as critical item" />
             </UFormField>
             <UAlert v-if="itemError" color="error" variant="soft" :description="itemError" />
             <div class="flex justify-end gap-3">

@@ -6,8 +6,9 @@ const { getPOs, getPO, createPO, updatePO, removePO, getInvoices, getInvoice, cr
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
 const { getAll: getLocations } = useLocations()
+const { getAll: getWorkOrders } = useWorkOrders()
 
-const [{ data: pos, refresh: refreshPOs }, { data: invoices, refresh: refreshInvoices }, { data: budgets, refresh: refreshBudgets }, { data: assets }, { data: suppliers }, { data: locations }, { data: costCentres }] = await Promise.all([
+const [{ data: pos, refresh: refreshPOs }, { data: invoices, refresh: refreshInvoices }, { data: budgets, refresh: refreshBudgets }, { data: assets }, { data: suppliers }, { data: locations }, { data: costCentres }, { data: workOrders }] = await Promise.all([
   useAsyncData("pos", () => getPOs()),
   useAsyncData("invoices", () => getInvoices()),
   useAsyncData("budgets", () => getBudgets()),
@@ -15,6 +16,7 @@ const [{ data: pos, refresh: refreshPOs }, { data: invoices, refresh: refreshInv
   useAsyncData("suppliers-select", () => getSuppliers()),
   useAsyncData("locations-select", () => getLocations()),
   useAsyncData("cost-centres", () => getCostCentres()),
+  useAsyncData("finance-work-orders", () => getWorkOrders()),
 ])
 
 const activeTab = ref("pos")
@@ -140,6 +142,14 @@ const spendChartOptions = {
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const supplierOptions = computed(() => (suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id })))
 const locationOptions = computed(() => (locations.value ?? []).map((l) => ({ label: l.name, value: l.location_id })))
+const poOptions = computed(() => [
+  { label: "— None —", value: null },
+  ...[...(pos.value ?? [])].sort((a, b) => a.po_no.localeCompare(b.po_no)).map((p) => ({ label: `${p.po_no}${p.description ? ` — ${p.description}` : ""}`, value: p.po_no })),
+])
+const workOrderOptions = computed(() => [
+  { label: "— None —", value: null },
+  ...[...(workOrders.value ?? [])].sort((a, b) => (a.work_order_id ?? 0) - (b.work_order_id ?? 0)).map((w) => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
+])
 const costCentreOptions = computed(() => (costCentres.value ?? []).map((c) => ({ label: `${c.gl_code}${c.description ? ` — ${c.description}` : ""}`, value: c.gl_code })))
 const poTypeOptions = ["corrective", "predictive", "preventative", "consumables", "rental"]
 const invoiceStatusOptions = ["processing", "submitted", "on_hold"]
@@ -529,10 +539,10 @@ async function confirmDeleteBudget() {
                 <USelect v-model="invoiceForm.location_id" :items="locationOptions" placeholder="Select location" class="w-full" />
               </UFormField>
               <UFormField label="PO No">
-                <UInput v-model="invoiceForm.po_no" placeholder="Linked PO" class="w-full" />
+                <USelect v-model="invoiceForm.po_no" :items="poOptions" placeholder="Select PO" searchable searchable-placeholder="Type PO number…" class="w-full" />
               </UFormField>
               <UFormField label="Work Order ID">
-                <UInput v-model.number="invoiceForm.work_order_id" type="number" class="w-full" />
+                <USelect v-model="invoiceForm.work_order_id" :items="workOrderOptions" placeholder="Select work order" searchable searchable-placeholder="Type WO number…" class="w-full" />
               </UFormField>
               <UFormField label="Invoice Type">
                 <USelect v-model="invoiceForm.invoice_type" :items="invoiceTypeOptions" class="w-full" />

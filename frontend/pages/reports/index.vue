@@ -334,33 +334,29 @@ async function downloadBalesLost() {
   triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
 }
 
-// ── Weekly PDF report ─────────────────────────────────────────
+// ── Weekly HTML report ────────────────────────────────────────
 const { token } = useAuth()
 const config = useRuntimeConfig()
-const generatingPDF = ref(false)
-const pdfError = ref<string | null>(null)
+const generatingReport = ref(false)
+const reportError = ref<string | null>(null)
 
-async function downloadWeeklyPDF() {
-  generatingPDF.value = true
-  pdfError.value = null
+async function openWeeklyReport() {
+  generatingReport.value = true
+  reportError.value = null
   try {
-    const res = await fetch(`${config.public.apiBase}/reports/weekly`, {
+    const res = await fetch(`${config.public.apiBase}/reports/weekly-html`, {
       headers: { Authorization: `Bearer ${token.value}` },
     })
     if (!res.ok) throw new Error(`Server error ${res.status}`)
-    const blob = await res.blob()
+    const html = await res.text()
+    const blob = new Blob([html], { type: "text/html" })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `weekly_report_${new Date().toISOString().slice(0, 10)}.pdf`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    const win = window.open(url, "_blank")
+    if (win) setTimeout(() => URL.revokeObjectURL(url), 10_000)
   } catch (e: unknown) {
-    pdfError.value = (e as Error).message ?? "Failed to generate report"
+    reportError.value = (e as Error).message ?? "Failed to generate report"
   } finally {
-    generatingPDF.value = false
+    generatingReport.value = false
   }
 }
 
@@ -414,7 +410,7 @@ async function exportAll() {
 <template>
   <div class="space-y-5">
 
-    <!-- ── Weekly PDF Report ────────────────────────────────────── -->
+    <!-- ── Weekly Management Report ───────────────────────────── -->
     <div class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
       <div class="flex items-center gap-4">
         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600">
@@ -422,14 +418,14 @@ async function exportAll() {
         </div>
         <div>
           <p class="text-sm font-semibold text-slate-800">Weekly Management Report</p>
-          <p class="text-xs text-slate-500">Covers the previous Mon – Sun. Includes downtime, work orders, PM compliance, finance and reliability.</p>
+          <p class="text-xs text-slate-500">Covers the previous Mon – Sun. Includes downtime, work orders, PM compliance, finance and reliability. Opens in a new tab — print or save as PDF from there.</p>
         </div>
       </div>
       <div class="flex flex-col items-end gap-1">
-        <UButton leading-icon="i-heroicons-arrow-down-tray" :loading="generatingPDF" @click="downloadWeeklyPDF">
-          Download PDF
+        <UButton leading-icon="i-heroicons-arrow-top-right-on-square" :loading="generatingReport" @click="openWeeklyReport">
+          Open Report
         </UButton>
-        <p v-if="pdfError" class="text-xs text-red-500">{{ pdfError }}</p>
+        <p v-if="reportError" class="text-xs text-red-500">{{ reportError }}</p>
       </div>
     </div>
 
