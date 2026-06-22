@@ -199,6 +199,82 @@ async def get_monthly_metrics(
     return results
 
 
+@router.get("/monthly-metrics-by-category", status_code=status.HTTP_200_OK)
+async def get_monthly_metrics_by_category(
+    months: int = Query(default=12, ge=1, le=24),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    cache_key = f"downtime:metrics:by-category:{months}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    today = date.today()
+    holidays = {h.holiday_date for h in get_holidays(session)}
+
+    month_list: list[tuple[int, int]] = []
+    for i in range(months - 1, -1, -1):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_list.append((y, m))
+    month_set = set(month_list)
+
+    all_assets = session.exec(sql_select(Asset).where(Asset.status != "disposed")).all()
+    asset_category: dict[str, str] = {a.asset_id: a.category for a in all_assets}
+    all_categories = sorted({a.category for a in all_assets})
+
+    all_dts = downtimes.get_downtimes(session)
+
+    downtime_hrs: dict[tuple[tuple[int, int], str], float] = {}
+    failures: dict[tuple[tuple[int, int], str], int] = {}
+
+    for dt in all_dts:
+        if dt.planned or dt.asset_id is None or dt.start_date is None:
+            continue
+        category = asset_category.get(dt.asset_id)
+        if not category:
+            continue
+
+        start_key = (dt.start_date.year, dt.start_date.month)
+        if start_key in month_set:
+            pair = (start_key, category)
+            failures[pair] = failures.get(pair, 0) + 1
+
+        if dt.start_time is None:
+            continue
+
+        for seg in split_downtime_by_month(
+            session, dt.start_date, dt.start_time, dt.end_date, dt.end_time, dt.shift_asset,
+            holidays=holidays,
+        ):
+            try:
+                seg_date = datetime.strptime(seg["month"], "%B %Y").date()
+            except ValueError:
+                continue
+            seg_key = (seg_date.year, seg_date.month)
+            if seg_key not in month_set:
+                continue
+            pair = (seg_key, category)
+            downtime_hrs[pair] = round(downtime_hrs.get(pair, 0.0) + seg["hours"], 2)
+
+    results = [
+        {
+            "month": f"{y}-{m:02d}",
+            "category": category,
+            "downtime_hours": downtime_hrs.get(((y, m), category), 0.0),
+            "failures": failures.get(((y, m), category), 0),
+        }
+        for (y, m) in month_list
+        for category in all_categories
+    ]
+
+    cache.set(cache_key, results, ttl_seconds=_METRICS_TTL)
+    return results
+
+
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[Downtime])
 async def get_downtimes(session: Session = Depends(get_session)):
     return downtimes.get_downtimes(session)

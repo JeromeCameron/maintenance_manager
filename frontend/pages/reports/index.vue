@@ -334,6 +334,98 @@ async function downloadBalesLost() {
   triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
 }
 
+async function downloadAvailabilityByCategory() {
+  const { from, to } = dateRange.value
+  const [catMetrics, assets, holidays, dt] = await Promise.all([
+    get<{ month: string; category: string; downtime_hours: number; failures: number }[]>("/downtimes/monthly-metrics-by-category?months=24"),
+    get<Asset[]>("/assets"),
+    get<{ holiday_date: string }[]>("/holidays"),
+    get<Downtime[]>("/downtimes"),
+  ])
+
+  const holidaySet = new Set((holidays ?? []).map(h => h.holiday_date.slice(0, 10)))
+
+  // Build shift status per asset from downtime records (matches backend logic)
+  const assetShiftMap: Record<string, boolean> = {}
+  for (const d of dt ?? []) {
+    if (d.asset_id != null) assetShiftMap[d.asset_id] = d.shift_asset ?? false
+  }
+
+  // Sum scheduled hours per working day per category (8h non-shift, 16h shift)
+  const categoryHoursPerDay: Record<string, number> = {}
+  for (const a of assets ?? []) {
+    if (a.status !== "disposed") {
+      const hrs = assetShiftMap[a.asset_id] ? 16 : 8
+      categoryHoursPerDay[a.category] = (categoryHoursPerDay[a.category] ?? 0) + hrs
+    }
+  }
+
+  function workingDays(y: number, m: number) {
+    const days = new Date(y, m, 0).getDate()
+    let n = 0
+    for (let d = 1; d <= days; d++) {
+      const date = new Date(y, m - 1, d)
+      const dow = date.getDay()
+      if (dow === 0 || dow === 6) continue
+      if (!holidaySet.has(date.toISOString().slice(0, 10))) n++
+    }
+    return n
+  }
+
+  // Filter to selected date range and build lookup map
+  const filtered = (catMetrics ?? []).filter(r => inRange(r.month + "-01", from, to))
+  const dtMap: Record<string, number> = {}
+  for (const r of filtered) dtMap[`${r.month}|${r.category}`] = r.downtime_hours
+
+  const months = [...new Set(filtered.map(r => r.month))].sort()
+  const categories = Object.keys(categoryHoursPerDay).sort()
+
+  const headers = ["Month", ...categories.map(c => `${c} availability %`), ...categories.map(c => `${c} downtime hrs`)]
+  const rows = months.map(month => {
+    const [y, m] = month.split("-").map(Number)
+    const wdays = workingDays(y, m)
+    const row: (string | number)[] = [month]
+    for (const cat of categories) {
+      const dtHrs = dtMap[`${month}|${cat}`] ?? 0
+      const scheduled = (categoryHoursPerDay[cat] ?? 0) * wdays
+      row.push(scheduled > 0 ? (((scheduled - dtHrs) / scheduled) * 100).toFixed(1) + "%" : "100%")
+    }
+    for (const cat of categories) row.push((dtMap[`${month}|${cat}`] ?? 0).toFixed(1))
+    return row
+  })
+  triggerDownload(`availability-by-category-${slugDate(to)}.csv`, toCSV(headers, rows))
+}
+
+async function downloadDowntimeByCategory() {
+  const { from, to } = dateRange.value
+  const catMetrics = await get<{ month: string; category: string; downtime_hours: number; failures: number }[]>("/downtimes/monthly-metrics-by-category?months=24")
+  const rows = (catMetrics ?? [])
+    .filter(r => inRange(r.month + "-01", from, to) && (r.downtime_hours > 0 || r.failures > 0))
+    .sort((a, b) => a.month.localeCompare(b.month) || a.category.localeCompare(b.category))
+    .map(r => [r.month, r.category, r.downtime_hours.toFixed(1), r.failures])
+  triggerDownload(`downtime-by-category-${slugDate(to)}.csv`, toCSV(["Month", "Equipment Category", "Downtime Hours", "Failure Events"], rows))
+}
+
+async function downloadFailureDrivers() {
+  const [dt, causes] = await Promise.all([get<Downtime[]>("/downtimes"), get<{ cause_id: number; name: string }[]>("/downtime-causes")])
+  const causeMap: Record<number, string> = {}
+  for (const c of causes ?? []) if (c.cause_id) causeMap[c.cause_id] = c.name
+  const { from, to } = dateRange.value
+  const map: Record<string, { hours: number; count: number }> = {}
+  for (const d of dt ?? []) {
+    if (d.planned || !d.downtime_hours) continue
+    if (!inRange(d.start_date ?? d.log_date, from, to)) continue
+    const cause = d.cause_id ? (causeMap[d.cause_id] ?? `Cause #${d.cause_id}`) : (d.root_cause?.trim() || "Unknown")
+    if (!map[cause]) map[cause] = { hours: 0, count: 0 }
+    map[cause].hours += d.downtime_hours; map[cause].count++
+  }
+  const totalHours = Object.values(map).reduce((s, v) => s + v.hours, 0)
+  const rows = Object.entries(map)
+    .sort(([, a], [, b]) => b.hours - a.hours)
+    .map(([cause, { hours, count }]) => [cause, count, hours.toFixed(1), totalHours > 0 ? ((hours / totalHours) * 100).toFixed(1) + "%" : "0%"])
+  triggerDownload(`failure-drivers-${slugDate(to)}.csv`, toCSV(["Cause", "Events", "Downtime Hours", "% of Total Downtime"], rows))
+}
+
 // ── Weekly HTML report ────────────────────────────────────────
 const { token } = useAuth()
 const config = useRuntimeConfig()
@@ -380,6 +472,9 @@ const reports: ReportDef[] = [
   { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
   { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-wrench-screwdriver",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
   { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
+  { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.).", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
+  { id: "dt-by-cat",    name: "Downtime by Equipment Category", description: "Unplanned downtime hours and failure events aggregated by equipment category per month.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-squares-2x2",                 dateNote: "Monthly aggregation", download: makeDownloader("dt-by-cat",    downloadDowntimeByCategory) },
+  { id: "failure-drv",  name: "Failure Drivers",                description: "Downtime events and hours grouped by root cause, sorted by highest impact.",  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-exclamation-circle",           dateNote: "By start date",       download: makeDownloader("failure-drv",  downloadFailureDrivers) },
 ]
 
 const filteredReports = computed(() =>
