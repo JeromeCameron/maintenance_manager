@@ -91,15 +91,14 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Location</UButton>
-    </div>
-
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by name, parish or supervisor..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by name, parish or supervisor..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Location</UButton>
+        </div>
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #typ-cell="{ row: { original: row } }">
           <UBadge :color="row.typ === 'depot' ? 'info' : 'neutral'" variant="soft" size="sm">{{ row.typ.replace(/_/g, " ") }}</UBadge>
         </template>

@@ -162,10 +162,8 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UModal v-model:open="showCreateModal" :ui="{ content: 'max-w-2xl' }" @update:open="onCreateOpen">
-        <UButton leading-icon="i-heroicons-plus">New Work Order</UButton>
-        <template #content>
+    <UModal v-model:open="showCreateModal" :ui="{ content: 'max-w-2xl' }" @update:open="onCreateOpen">
+      <template #content>
           <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
             <!-- Header -->
             <div class="flex shrink-0 items-start gap-4 border-b border-gray-100 px-6 py-5">
@@ -232,20 +230,30 @@ async function confirmDelete() {
             </div>
           </div>
         </template>
-      </UModal>
-    </div>
+    </UModal>
 
     <!-- List -->
     <UCard>
       <template #header>
-        <div class="flex flex-wrap items-center gap-3">
-          <UInput v-model="search" placeholder="Search by WO # or asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
-          <USelect v-model="statusFilter" :items="statusOptions" class="w-48" />
-          <USelect v-model="priorityFilter" :items="filterPriorityOptions" class="w-40" />
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <UInput v-model="search" placeholder="Search by WO # or asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
+            <USelect v-model="statusFilter" :items="statusOptions" class="w-48" />
+            <USelect v-model="priorityFilter" :items="filterPriorityOptions" class="w-40" />
+          </div>
+          <UButton leading-icon="i-heroicons-plus" @click="showCreateModal = true" class="!bg-blue-700 hover:!bg-blue-800">New Work Order</UButton>
         </div>
       </template>
 
-      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
+      <UTable
+        :data="filtered"
+        :columns="columns"
+        :ui="{
+          root: 'relative overflow-auto max-h-[calc(100vh-22rem)]',
+          th: 'bg-slate-100 text-slate-500 font-semibold',
+          tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors',
+        }"
+      >
         <template #description-cell="{ row: { original: row } }">
           <span class="text-slate-500">{{ row.description ? (row.description.length > 50 ? row.description.slice(0, 50) + '…' : row.description) : '—' }}</span>
         </template>

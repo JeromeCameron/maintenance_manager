@@ -319,14 +319,6 @@ async function confirmDeleteBudget() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div class="flex gap-2">
-        <UButton v-if="activeTab === 'pos'" leading-icon="i-heroicons-plus" @click="openCreatePO">New PO</UButton>
-        <UButton v-if="activeTab === 'invoices'" leading-icon="i-heroicons-plus" @click="openCreateInvoice">New Invoice</UButton>
-        <UButton v-if="activeTab === 'budgets'" leading-icon="i-heroicons-plus" @click="openCreateBudget">New Budget</UButton>
-      </div>
-    </div>
-
     <!-- KPIs + Chart -->
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <!-- Stacked badges -->
@@ -409,11 +401,19 @@ async function confirmDeleteBudget() {
     </div>
 
     <UCard>
-      <template v-if="activeTab !== 'budgets'" #header>
-        <UInput v-model="search" placeholder="Search..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+      <template #header>
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-if="activeTab !== 'budgets'" v-model="search" placeholder="Search..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <div v-else />
+          <div class="flex gap-2">
+            <UButton v-if="activeTab === 'pos'" leading-icon="i-heroicons-plus" @click="openCreatePO" class="!bg-blue-700 hover:!bg-blue-800">New PO</UButton>
+            <UButton v-if="activeTab === 'invoices'" leading-icon="i-heroicons-plus" @click="openCreateInvoice" class="!bg-blue-700 hover:!bg-blue-800">New Invoice</UButton>
+            <UButton v-if="activeTab === 'budgets'" leading-icon="i-heroicons-plus" @click="openCreateBudget" class="!bg-blue-700 hover:!bg-blue-800">New Budget</UButton>
+          </div>
+        </div>
       </template>
 
-      <UTable v-if="activeTab === 'pos'" :data="filteredPOs" :columns="poColumns">
+      <UTable v-if="activeTab === 'pos'" :data="filteredPOs" :columns="poColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #po_date-cell="{ row: { original: row } }">{{ fmtDate(row.po_date) }}</template>
         <template #description-cell="{ row: { original: row } }">
           <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
@@ -427,7 +427,7 @@ async function confirmDeleteBudget() {
         </template>
       </UTable>
 
-      <UTable v-else-if="activeTab === 'invoices'" :data="filteredInvoices" :columns="invoiceColumns">
+      <UTable v-else-if="activeTab === 'invoices'" :data="filteredInvoices" :columns="invoiceColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #invoice_date-cell="{ row: { original: row } }">{{ fmtDate(row.invoice_date) }}</template>
         <template #description-cell="{ row: { original: row } }">
           <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
@@ -444,7 +444,7 @@ async function confirmDeleteBudget() {
         </template>
       </UTable>
 
-      <UTable v-else :data="budgets ?? []" :columns="budgetColumns">
+      <UTable v-else :data="budgets ?? []" :columns="budgetColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #month-cell="{ row: { original: row } }">{{ fmtDate(row.month) }}</template>
         <template #amount-cell="{ row: { original: row } }">${{ row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
         <template #notes-cell="{ row: { original: row } }"><span class="text-slate-500">{{ row.notes ?? "—" }}</span></template>

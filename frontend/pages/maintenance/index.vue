@@ -109,10 +109,6 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New PM Schedule</UButton>
-    </div>
-
     <UAlert v-if="pmsDueSoon.length" color="warning" variant="soft" icon="i-heroicons-clock"
       :title="`${pmsDueSoon.length} PM${pmsDueSoon.length > 1 ? 's' : ''} due in the next 30 days`" />
 
@@ -126,7 +122,12 @@ async function confirmDelete() {
     </div>
 
     <UCard v-if="activeTab !== 'plans'">
-      <UTable :data="filtered" :columns="columns">
+      <template #header>
+        <div class="flex justify-end">
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New PM Schedule</UButton>
+        </div>
+      </template>
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #asset_id-cell="{ row: { original: row } }">
           <span class="font-medium text-slate-700">{{ row.asset_id }}</span>
         </template>
@@ -153,7 +154,7 @@ async function confirmDelete() {
     </UCard>
 
     <UCard v-else>
-      <UTable :data="plans ?? []" :columns="[
+      <UTable :data="plans ?? []" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }" :columns="[
         { accessorKey: 'pm_id', header: 'Plan ID' },
         { accessorKey: 'asset_type', header: 'Asset Type' },
         { accessorKey: 'trigger', header: 'Trigger' },

@@ -256,18 +256,17 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Inspection</UButton>
-    </div>
-
     <UCard>
       <template #header>
-        <div class="flex flex-wrap gap-3">
-          <UInput v-model="search" placeholder="Search by asset or inspection no..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
-          <USelect v-model="resultFilter" :items="resultOptions2" placeholder="Filter by result" class="w-40" />
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-wrap gap-3">
+            <UInput v-model="search" placeholder="Search by asset or inspection no..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
+            <USelect v-model="resultFilter" :items="resultOptions2" placeholder="Filter by result" class="w-40" />
+          </div>
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Inspection</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #overall_result-cell="{ row: { original: row } }">
           <UBadge :color="resultColors[row.overall_result] ?? 'neutral'" variant="soft">{{ row.overall_result }}</UBadge>
         </template>

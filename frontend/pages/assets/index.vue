@@ -208,6 +208,22 @@ const issuesData = ref<Issue[]>([])
 
 const isBaler = computed(() => form.value.category === "baler")
 
+const availabilityMTD = computed(() => {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const dtHours = downtimeData.value
+    .filter(dt => !!dt.start_date && new Date(dt.start_date) >= monthStart)
+    .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
+  let workdays = 0
+  const c = new Date(monthStart)
+  while (c.getTime() <= now.getTime()) {
+    if (c.getDay() !== 0 && c.getDay() !== 6) workdays++
+    c.setDate(c.getDate() + 1)
+  }
+  const sched = workdays * 8
+  return sched > 0 ? Math.max(0, ((sched - dtHours) / sched) * 100) : 100
+})
+
 const closedStatuses = ["completed", "cancelled", "closed"]
 const openWorkOrders = computed(() => workOrdersData.value.filter((w) => !closedStatuses.includes(w.status)))
 const recentWorkOrders = computed(() =>
@@ -301,15 +317,22 @@ function fmtDateShort(v?: string | null) {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Asset</UButton>
-    </div>
-
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Asset</UButton>
+        </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
+      <UTable
+        :data="filtered"
+        :columns="columns"
+        :ui="{
+          root: 'relative overflow-auto max-h-[calc(100vh-22rem)]',
+          th: 'bg-slate-100 text-slate-500 font-semibold',
+          tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors',
+        }"
+      >
         <template #status-cell="{ row: { original: row } }">
           <UBadge :color="statusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status.replace(/_/g, " ") }}</UBadge>
         </template>
@@ -413,6 +436,17 @@ function fmtDateShort(v?: string | null) {
               </div>
               <p class="text-xs text-slate-400">{{ form.manufacturer }}<span v-if="form.model_no"> · {{ form.model_no }}</span></p>
             </div>
+            <div
+              v-if="!loadingAsset"
+              class="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold"
+              :style="availabilityMTD >= 90 ? 'background:#f0fdf4;color:#15803d' : availabilityMTD >= 75 ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'"
+            >
+              <span
+                class="h-2 w-2 rounded-full"
+                :style="availabilityMTD >= 90 ? 'background:#22c55e' : availabilityMTD >= 75 ? 'background:#f59e0b' : 'background:#ef4444'"
+              />
+              {{ availabilityMTD.toFixed(1) }}% MTD Avail.
+            </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showViewModal = false" />
           </div>
 
@@ -485,16 +519,47 @@ function fmtDateShort(v?: string | null) {
 
               <!-- Baler Info (read-only from model) -->
               <div v-else-if="activeTab === 'baler'" class="px-6 py-5">
-                <div v-if="modelData" class="space-y-4">
-                  <p class="text-xs text-slate-400">Specs for model <strong>{{ modelData.model_no }}</strong>. Edit via Settings → Asset Models.</p>
-                  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    <div v-for="(label, key) in { baler_type: 'Baler Type', baler_size: 'Baler Size', bale_weight: 'Bale Weight (kg)', bale_time: 'Bale Time (min)', ram_force: 'Ram Force (kN)', bale_size: 'Bale Size' }"
-                      :key="key"
-                      class="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
-                      <p class="text-xs text-slate-400">{{ label }}</p>
-                      <p class="mt-0.5 font-medium text-slate-800 capitalize">{{ (modelData as any)[key] ?? "—" }}</p>
+                <div v-if="modelData" class="space-y-5">
+                  <!-- Header banner -->
+                  <div class="flex items-center gap-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-4 text-white shadow-sm">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/15">
+                      <UIcon name="i-heroicons-cube" class="h-5 w-5 text-white" />
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold">{{ modelData.model_no }}</p>
+                      <p class="text-xs text-blue-100 capitalize">{{ modelData.baler_type ?? "" }} · {{ modelData.baler_size ?? "—" }}</p>
                     </div>
                   </div>
+
+                  <!-- Spec cards -->
+                  <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                      <p class="text-xs font-medium text-blue-400">Bale Weight</p>
+                      <p class="mt-1 text-xl font-bold text-blue-700">{{ modelData.bale_weight ?? "—" }}<span v-if="modelData.bale_weight" class="ml-1 text-sm font-medium text-blue-400">kg</span></p>
+                    </div>
+                    <div class="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+                      <p class="text-xs font-medium text-violet-400">Bale Time</p>
+                      <p class="mt-1 text-xl font-bold text-violet-700">{{ modelData.bale_time ?? "—" }}<span v-if="modelData.bale_time" class="ml-1 text-sm font-medium text-violet-400">min</span></p>
+                    </div>
+                    <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                      <p class="text-xs font-medium text-amber-400">Ram Force</p>
+                      <p class="mt-1 text-xl font-bold text-amber-700">{{ modelData.ram_force ?? "—" }}<span v-if="modelData.ram_force" class="ml-1 text-sm font-medium text-amber-400">kN</span></p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400">Baler Type</p>
+                      <p class="mt-1 text-base font-semibold capitalize text-slate-700">{{ modelData.baler_type ?? "—" }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400">Baler Size</p>
+                      <p class="mt-1 text-base font-semibold capitalize text-slate-700">{{ modelData.baler_size ?? "—" }}</p>
+                    </div>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400">Bale Size</p>
+                      <p class="mt-1 text-base font-semibold text-slate-700">{{ modelData.bale_size ?? "—" }}</p>
+                    </div>
+                  </div>
+
+                  <p class="text-xs text-slate-400">Edit specs via Settings → Asset Models.</p>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
                   <p class="text-sm text-slate-400">No model assigned or baler specs not set. Edit specs in Settings → Asset Models.</p>
@@ -643,8 +708,7 @@ function fmtDateShort(v?: string | null) {
               <!-- Downtime -->
               <div v-else-if="activeTab === 'downtime'">
                 <div v-if="downtimeData.length" class="divide-y divide-slate-100 px-6 py-1">
-                  <div v-for="d in downtimeData.slice(0, 20)" :key="d.downtime_id" class="py-3">
-                    <!-- Row 1: date range, hours, planned badge -->
+                  <div v-for="d in [...downtimeData].sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')).slice(0, 20)" :key="d.downtime_id" class="py-3">
                     <div class="flex items-center justify-between gap-4">
                       <div class="flex items-center gap-2">
                         <span class="text-sm font-medium text-slate-800">{{ fmtDateShort(d.start_date) }}</span>
@@ -656,9 +720,7 @@ function fmtDateShort(v?: string | null) {
                         <UBadge v-if="d.repeat_failure" color="warning" variant="soft" size="xs">Repeat</UBadge>
                       </div>
                     </div>
-                    <!-- Row 2: description + component -->
                     <p v-if="d.details" class="mt-1 truncate text-sm text-slate-600" :title="d.details">{{ d.details }}</p>
-                    <!-- Row 3: meta -->
                     <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
                       <span v-if="d.component_affected"><span class="font-medium text-slate-500">Component:</span> {{ d.component_affected }}</span>
                       <span v-if="d.root_cause"><span class="font-medium text-slate-500">Cause:</span> {{ d.root_cause }}</span>

@@ -163,14 +163,9 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-red-50 px-4 py-2 text-sm">
-          <span class="text-red-600">Total: </span>
-          <span class="font-bold text-red-700">{{ totalHours.toFixed(1) }}h</span>
-        </div>
-        <UButton leading-icon="i-heroicons-plus" @click="openCreate">Log Downtime</UButton>
-      </div>
+    <div class="rounded-lg bg-red-50 px-4 py-2 text-sm inline-flex items-center gap-1.5">
+      <span class="text-red-600">Total: </span>
+      <span class="font-bold text-red-700">{{ totalHours.toFixed(1) }}h</span>
     </div>
 
     <!-- Pareto Chart -->
@@ -194,9 +189,12 @@ async function confirmDelete() {
 
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">Log Downtime</UButton>
+        </div>
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #cause_id-cell="{ row: { original: row } }">{{ causeMap[row.cause_id] ?? "—" }}</template>
         <template #start_date-cell="{ row: { original: row } }">
           {{ row.start_date ? (() => { const d = new Date(row.start_date); return `${String(d.getUTCDate()).padStart(2,'0')}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(-2)}` })() : "—" }}

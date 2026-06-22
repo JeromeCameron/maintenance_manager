@@ -79,12 +79,12 @@ const pmsDueSoon = computed(() => {
 
 // ── KPI cards ──────────────────────────────────────────────────
 const kpiCards = computed(() => [
-  { label: "Total Assets",       value: assets.value?.length ?? 0,         suffix: "",   icon: "i-heroicons-wrench-screwdriver",     color: "text-blue-500",   bg: "bg-blue-50" },
-  { label: "Assets Down",        value: assetsDown.value,                   suffix: "",   icon: "i-heroicons-x-circle",               color: "text-red-500",    bg: "bg-red-50" },
-  { label: "Availability (30d)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50" },
-  { label: "Open Work Orders",   value: openWorkOrders.value.length,        suffix: "",   icon: "i-heroicons-clipboard-document-list", color: "text-amber-500", bg: "bg-amber-50" },
-  { label: "Unplanned Downtime (this month)", value: currentMonthDowntimeHours.value.toFixed(1), suffix: "h", icon: "i-heroicons-exclamation-triangle", color: "text-orange-500", bg: "bg-orange-50", caption: `${prevMonthLabel}: ${prevMonthDowntimeHours.value.toFixed(1)}h` },
-  { label: "PMs Due (30 days)",  value: pmsDueSoon.value.length,            suffix: "",   icon: "i-heroicons-calendar-days",          color: "text-purple-500", bg: "bg-purple-50" },
+  { label: "Total Assets",       value: assets.value?.length ?? 0,         suffix: "",   icon: "i-heroicons-wrench-screwdriver",     color: "text-blue-500",   bg: "bg-blue-50",   border: "border-blue-300" },
+  { label: "Assets Down",        value: assetsDown.value,                   suffix: "",   icon: "i-heroicons-x-circle",               color: "text-red-500",    bg: "bg-red-50",    border: "border-red-300" },
+  { label: "Availability (30d)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50",  border: "border-green-300" },
+  { label: "Open Work Orders",   value: openWorkOrders.value.length,        suffix: "",   icon: "i-heroicons-clipboard-document-list", color: "text-amber-500", bg: "bg-amber-50",  border: "border-amber-300" },
+  { label: "Unplanned Downtime (this month)", value: currentMonthDowntimeHours.value.toFixed(1), suffix: "h", icon: "i-heroicons-exclamation-triangle", color: "text-orange-500", bg: "bg-orange-50", border: "border-orange-300", caption: `${prevMonthLabel}: ${prevMonthDowntimeHours.value.toFixed(1)}h` },
+  { label: "PMs Due (30 days)",  value: pmsDueSoon.value.length,            suffix: "",   icon: "i-heroicons-calendar-days",          color: "text-purple-500", bg: "bg-purple-50", border: "border-purple-300" },
 ])
 
 // ── MTTR / MTBF trend (last 6 months) ─────────────────────────
@@ -178,7 +178,7 @@ function openWorkOrder(id: number) {
       <div
         v-for="card in kpiCards"
         :key="card.label"
-        class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+        :class="['rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 border-l-4', card.border]"
       >
         <div class="flex items-start justify-between">
           <div class="min-w-0 flex-1">
@@ -197,7 +197,7 @@ function openWorkOrder(id: number) {
 
     <!-- MTTR / MTBF Trend Charts -->
     <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 border-t-4 border-blue-200">
         <div class="mb-1 flex items-center justify-between">
           <div>
             <h2 class="text-sm font-semibold text-slate-700">MTTR — Mean Time to Repair</h2>
@@ -216,7 +216,7 @@ function openWorkOrder(id: number) {
         </ClientOnly>
       </div>
 
-      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 border-t-4 border-purple-200">
         <div class="mb-1 flex items-center justify-between">
           <div>
             <h2 class="text-sm font-semibold text-slate-700">MTBF — Mean Time Between Failures</h2>
@@ -238,7 +238,7 @@ function openWorkOrder(id: number) {
 
     <!-- Assets by Status / Open Work Orders -->
     <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 border-t-4 border-emerald-200">
         <h2 class="mb-4 text-sm font-semibold text-slate-700">Assets by Status</h2>
         <div class="space-y-3">
           <div v-for="(count, status) in assetsByStatus" :key="status" class="flex items-center justify-between">
@@ -254,7 +254,7 @@ function openWorkOrder(id: number) {
         </div>
       </div>
 
-      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+      <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200 border-t-4 border-amber-200">
         <h2 class="mb-4 text-sm font-semibold text-slate-700">Open Work Orders by Status</h2>
         <div class="space-y-3">
           <div v-for="(count, status) in workOrdersByStatus" :key="status" class="flex items-center justify-between">
@@ -267,7 +267,7 @@ function openWorkOrder(id: number) {
     </div>
 
     <!-- Recent Open Work Orders -->
-    <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+    <div class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200 border-t-4 border-sky-200">
       <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
         <h2 class="text-sm font-semibold text-slate-700">Open Work Orders</h2>
         <UButton to="/work-orders" variant="ghost" size="sm" trailing-icon="i-heroicons-arrow-right" color="neutral">View all</UButton>
@@ -288,7 +288,7 @@ function openWorkOrder(id: number) {
     </div>
 
     <!-- PMs Due Soon -->
-    <div v-if="pmsDueSoon.length" class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+    <div v-if="pmsDueSoon.length" class="rounded-xl bg-white shadow-sm ring-1 ring-slate-200 border-t-4 border-amber-200">
       <div class="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
         <UIcon name="i-heroicons-clock" class="h-4 w-4 text-amber-500" />
         <h2 class="text-sm font-semibold text-slate-700">Preventative Maintenance Due (Next 30 Days)</h2>

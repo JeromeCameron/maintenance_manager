@@ -106,6 +106,23 @@ const ownershipOptions = ["owned", "rented", "leased"]
 const woStatusColors: Record<string, string> = {
   requested: "info", in_progress: "warning", completed: "success", on_hold: "neutral", cancelled: "error",
 }
+
+// ── MTD Availability ──────────────────────────────────────────
+const availabilityMTD = computed(() => {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const dtHours = (downtimes.value ?? [])
+    .filter(dt => !!dt.start_date && new Date(dt.start_date) >= monthStart)
+    .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
+  let workdays = 0
+  const c = new Date(monthStart)
+  while (c.getTime() <= now.getTime()) {
+    if (c.getDay() !== 0 && c.getDay() !== 6) workdays++
+    c.setDate(c.getDate() + 1)
+  }
+  const sched = workdays * 8
+  return sched > 0 ? Math.max(0, ((sched - dtHours) / sched) * 100) : 100
+})
 </script>
 
 <template>
@@ -115,6 +132,18 @@ const woStatusColors: Record<string, string> = {
       <h1 class="text-2xl font-bold text-slate-900">
         {{ isNew ? "New Asset" : `Asset: ${assetId}` }}
       </h1>
+      <template v-if="!isNew">
+        <div
+          style="display:flex;align-items:center;gap:6px;border-radius:9999px;padding:3px 12px 3px 8px;font-size:13px;font-weight:600;"
+          :style="availabilityMTD >= 90 ? 'background:#f0fdf4;color:#15803d' : availabilityMTD >= 75 ? 'background:#fffbeb;color:#b45309' : 'background:#fef2f2;color:#b91c1c'"
+        >
+          <span
+            style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"
+            :style="availabilityMTD >= 90 ? 'background:#22c55e' : availabilityMTD >= 75 ? 'background:#f59e0b' : 'background:#ef4444'"
+          />
+          {{ availabilityMTD.toFixed(1) }}% <span style="font-weight:400;opacity:0.65;margin-left:2px">MTD Avail.</span>
+        </div>
+      </template>
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

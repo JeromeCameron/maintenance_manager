@@ -18,6 +18,14 @@ const [{ data: assets }, { data: suppliers }, { data: inventoryParts }] = await 
   useAsyncData("wo-modal-parts", () => getParts()),
 ])
 
+const woStatusColors: Record<string, string> = {
+  requested: "info", scheduled: "info", in_progress: "warning", awaiting_parts: "warning",
+  awaiting_po: "warning", on_hold: "neutral", cancelled: "error", completed: "success", closed: "neutral",
+}
+const priorityColors: Record<string, string> = {
+  High: "error", Medium: "warning", Low: "neutral",
+}
+
 const priorityOptions = ["Low", "Medium", "High"]
 const typeOptions = ["corrective", "predictive", "preventative", "inspection", "project"]
 const woStatusOptions = ["requested", "scheduled", "awaiting_parts", "awaiting_po", "in_progress", "on_hold", "cancelled", "completed", "closed"]
@@ -131,8 +139,19 @@ async function save() {
     <template #content>
       <div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl">
         <!-- Header -->
-        <div class="flex shrink-0 items-center justify-between border-b border-gray-100 px-6 py-5">
-          <h3 class="text-base font-semibold text-slate-900">Work Order #{{ workOrderId }}</h3>
+        <div class="flex shrink-0 items-start justify-between border-b border-gray-100 px-6 py-5">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-semibold text-slate-900">Work Order #{{ workOrderId }}</h3>
+              <UBadge v-if="form.status" :color="woStatusColors[form.status] ?? 'neutral'" variant="soft" size="sm">
+                {{ form.status.replace(/_/g, ' ') }}
+              </UBadge>
+              <UBadge v-if="form.priority" :color="priorityColors[form.priority] ?? 'neutral'" variant="soft" size="sm">
+                {{ form.priority }}
+              </UBadge>
+            </div>
+            <p v-if="form.asset_id" class="mt-1 text-xs text-slate-400">{{ form.asset_id }}</p>
+          </div>
           <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="open = false" />
         </div>
 

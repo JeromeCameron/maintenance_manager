@@ -97,15 +97,14 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New User</UButton>
-    </div>
-
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by name, username or email..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by name, username or email..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New User</UButton>
+        </div>
       </template>
-      <UTable :data="filtered" :columns="columns">
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #role-cell="{ row: { original: row } }">
           <UBadge :color="roleColors[row.role] ?? 'neutral'" variant="soft" size="sm" class="capitalize">{{ row.role }}</UBadge>
         </template>

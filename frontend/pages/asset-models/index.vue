@@ -95,13 +95,12 @@ async function confirmDelete() {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Model</UButton>
-    </div>
-
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by model no. or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by model no. or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Model</UButton>
+        </div>
       </template>
       <UTable :data="filtered" :columns="columns">
         <template #category-cell="{ row: { original: row } }">

@@ -364,18 +364,17 @@ function deletePart(part: Part) {
 
 <template>
   <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <UButton leading-icon="i-heroicons-plus" @click="openCreate">New Part</UButton>
-    </div>
-
     <UAlert v-if="lowStock.length" color="warning" variant="soft" icon="i-heroicons-exclamation-triangle"
       :title="`${lowStock.length} part${lowStock.length > 1 ? 's' : ''} at or below reorder level`" />
 
     <UCard>
       <template #header>
-        <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex items-center justify-between gap-3">
+          <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Part</UButton>
+        </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]' }">
+      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]', th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
         <template #category_id-cell="{ row: { original: row } }">{{ catMap[row.category_id] ?? "—" }}</template>
         <template #stock-cell="{ row: { original: row } }">
           <span :class="(stockMap[row.part_no] ?? 0) <= row.reorder_level ? 'font-semibold text-amber-600' : 'font-medium'">
@@ -537,7 +536,7 @@ function deletePart(part: Part) {
               <!-- Transactions history -->
               <div>
                 <h4 class="mb-3 text-sm font-semibold text-slate-700">Recent Transactions</h4>
-                <UTable :data="partTransactions" :columns="txColumns">
+                <UTable :data="partTransactions" :columns="txColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
                   <template #transaction_type-cell="{ row: { original: row } }">
                     <UBadge :color="txTypeColors[row.transaction_type] ?? 'neutral'" variant="soft" size="xs">
                       {{ row.transaction_type }}
@@ -557,7 +556,7 @@ function deletePart(part: Part) {
                 <h4 class="text-sm font-semibold text-slate-700">Compatible Equipment Models</h4>
                 <UButton size="xs" leading-icon="i-heroicons-plus" @click="openCreateEp">Add</UButton>
               </div>
-              <UTable :data="partEquipment" :columns="epColumns">
+              <UTable :data="partEquipment" :columns="epColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
                 <template #is_critical-cell="{ row: { original: row } }">
                   <UBadge v-if="row.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
                   <span v-else class="text-slate-400 text-sm">—</span>
@@ -578,7 +577,7 @@ function deletePart(part: Part) {
                 <h4 class="text-sm font-semibold text-slate-700">Part Suppliers</h4>
                 <UButton size="xs" leading-icon="i-heroicons-plus" @click="openCreatePs">Add</UButton>
               </div>
-              <UTable :data="partSupplierRows" :columns="psColumns">
+              <UTable :data="partSupplierRows" :columns="psColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
                 <template #supplier_id-cell="{ row: { original: row } }">
                   {{ suppliers?.find(s => s.supplier_id === row.supplier_id)?.name ?? row.supplier_id ?? "—" }}
                 </template>
