@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from sqlmodel import Session
 
 from crud.utility import get_holidays
-from utils.utils import get_shift_overlap, is_work_day, last_day_of_month
+from utils.utils import get_shift_overlap, is_work_day, last_day_of_month, now_local, today_local
 
 
 def get_production_downtime_hours(
@@ -15,7 +15,7 @@ def get_production_downtime_hours(
     shift_asset: bool = False,
 ) -> float:
     effective_start = datetime.combine(start_date, start_time)
-    effective_end = datetime.combine(end_date, end_time) if end_date and end_time else datetime.now()
+    effective_end = datetime.combine(end_date, end_time) if end_date and end_time else now_local()
 
     total_hours = 0.0
     # Start one day before to capture night shifts that began the prior evening
@@ -58,8 +58,8 @@ def split_downtime_by_month(
         holidays = {h.holiday_date for h in get_holidays(session)}
 
     if end_date is None or end_time is None:
-        effective_end_date = date.today()
-        effective_end_time = datetime.now().time()
+        effective_end_date = today_local()
+        effective_end_time = now_local().time()
     else:
         effective_end_date = end_date
         effective_end_time = end_time

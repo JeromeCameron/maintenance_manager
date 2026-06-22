@@ -43,6 +43,7 @@ from schema.models import (
     WorkOrderStatus,
 )
 from utils.down_hours import get_production_downtime_hours
+from utils.utils import now_local, today_local
 
 # ── Palette ────────────────────────────────────────────────────────────────────
 _BLUE  = "#2563eb"
@@ -99,21 +100,21 @@ def _in_range(v, start: date, end: date) -> bool:
 
 
 def _prev_week() -> WeekRange:
-    today = date.today()
+    today = today_local()
     last_sun = today - timedelta(days=today.weekday() + 1)
     last_mon = last_sun - timedelta(days=6)
     return WeekRange(last_mon, last_sun)
 
 
 def _current_month() -> tuple[date, date]:
-    today = date.today()
+    today = today_local()
     start = today.replace(day=1)
     end = (date(today.year, today.month + 1, 1) if today.month < 12 else date(today.year + 1, 1, 1)) - timedelta(days=1)
     return start, end
 
 
 def _prev_month() -> tuple[date, date]:
-    end = date.today().replace(day=1) - timedelta(days=1)
+    end = today_local().replace(day=1) - timedelta(days=1)
     return end.replace(day=1), end
 
 
@@ -258,8 +259,8 @@ def _hours_in_range(
     for dt in all_dts:
         if dt.start_date is None or dt.start_time is None:
             continue
-        event_end_date = dt.end_date or date.today()
-        event_end_time = dt.end_time or datetime.now().time()
+        event_end_date = dt.end_date or today_local()
+        event_end_time = dt.end_time or now_local().time()
         if dt.start_date > range_end or event_end_date < range_start:
             continue
         seg_start_date = max(dt.start_date, range_start)
@@ -277,7 +278,7 @@ def _gather(session: Session) -> dict:
     week = _prev_week()
     m_s, m_e = _current_month()
     p_s, p_e = _prev_month()
-    today = date.today()
+    today = today_local()
 
     assets      = list(session.exec(select(Asset)).all())
     models      = list(session.exec(select(AssetModel)).all())
@@ -790,7 +791,7 @@ def _header_footer(canvas, doc):
     canvas.drawString(18, H_pg - 17, "MAINTENANCE MANAGER")
     canvas.setFont("Helvetica", 8)
     canvas.drawRightString(W_pg - 18, H_pg - 17,
-                           f"Weekly Report  ·  Generated {date.today().strftime('%d %b %Y')}")
+                           f"Weekly Report  ·  Generated {today_local().strftime('%d %b %Y')}")
 
     # Bottom bar
     canvas.setFillColor(colors.HexColor(_BORDER))
@@ -822,7 +823,7 @@ def generate_weekly_report(session: Session) -> bytes:
     story = [
         Paragraph("Weekly Maintenance Report", S["h1"]),
         Paragraph(f"Period: {week.label()}", S["sub"]),
-        Paragraph(f"Generated: {date.today().strftime('%A, %d %B %Y')}", S["sub"]),
+        Paragraph(f"Generated: {today_local().strftime('%A, %d %B %Y')}", S["sub"]),
         HRFlowable(width="100%", thickness=1, color=RL_BLUE, spaceAfter=10),
     ]
 

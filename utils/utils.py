@@ -1,5 +1,18 @@
 from calendar import monthrange
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+APP_TZ = ZoneInfo("America/Jamaica")
+
+
+def now_local() -> datetime:
+    """Current datetime in Jamaica time, naive (tzinfo stripped for compatibility)."""
+    return datetime.now(APP_TZ).replace(tzinfo=None)
+
+
+def today_local() -> date:
+    """Current date in Jamaica time."""
+    return datetime.now(APP_TZ).date()
 
 
 def is_work_day(check_date: date, holidays: set) -> bool:

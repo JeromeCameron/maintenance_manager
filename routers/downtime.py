@@ -13,7 +13,7 @@ from utils.down_hours import split_downtime_by_month
 from utils.prod_metrics import availability as calc_availability
 from utils.prod_metrics import mtbf as calc_mtbf
 from utils.prod_metrics import mttr as calc_mttr
-from utils.utils import is_work_day
+from utils.utils import is_work_day, today_local
 
 downtime_cause_router = APIRouter(prefix="/api/downtime-causes", tags=["DowntimeCause"])
 router = APIRouter(prefix="/api/downtimes", tags=["Downtime"])
@@ -79,7 +79,7 @@ async def get_monthly_downtime_hours(
     if cached is not None:
         return cached
 
-    today = date.today()
+    today = today_local()
     holidays = {h.holiday_date for h in get_holidays(session)}
 
     target_months: set[tuple[int, int]] = set()
@@ -124,7 +124,7 @@ async def get_monthly_metrics(
     if cached is not None:
         return cached
 
-    today = date.today()
+    today = today_local()
     holidays = {h.holiday_date for h in get_holidays(session)}
 
     month_list: list[tuple[int, int]] = []
@@ -209,7 +209,7 @@ async def get_monthly_metrics_by_category(
     if cached is not None:
         return cached
 
-    today = date.today()
+    today = today_local()
     holidays = {h.holiday_date for h in get_holidays(session)}
 
     month_list: list[tuple[int, int]] = []

@@ -3,7 +3,7 @@ from datetime import date, datetime, time, timedelta
 from sqlmodel import Session
 
 from crud.utility import get_holidays
-from utils.utils import get_shift_overlap, is_work_day
+from utils.utils import get_shift_overlap, is_work_day, now_local
 
 
 def get_production_hours(
@@ -17,7 +17,7 @@ def get_production_hours(
     holidays = {h.holiday_date for h in get_holidays(session)}
 
     effective_start = datetime.combine(start_date, start_time)
-    effective_end = datetime.combine(end_date, end_time) if end_date and end_time else datetime.now()
+    effective_end = datetime.combine(end_date, end_time) if end_date and end_time else now_local()
 
     total_hours = 0.0
     curr_date = effective_start.date() - timedelta(days=1)
