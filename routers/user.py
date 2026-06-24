@@ -8,6 +8,9 @@ from schema.models import User, UserRead, ChangePasswordRequest
 
 router = APIRouter(prefix="/api/users", tags=["User"])
 
+# Separate router for self-service endpoints that must bypass the admin_on_write gate
+self_router = APIRouter(prefix="/api/users", tags=["User"])
+
 
 @router.get("", response_model=list[UserRead])
 async def get_users(session: Session = Depends(get_session)):
@@ -27,7 +30,7 @@ async def get_user(user_id: int, session: Session = Depends(get_session)):
     return user
 
 
-@router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@self_router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_my_password(
     body: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),

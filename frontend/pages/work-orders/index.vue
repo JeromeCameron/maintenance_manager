@@ -63,9 +63,9 @@ const filtered = computed(() =>
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
-  const d = new Date(value)
-  if (isNaN(d.getTime())) return '—'
-  return `${String(d.getDate()).padStart(2,'0')}-${MONTHS[d.getMonth()]}-${String(d.getFullYear()).slice(-2)}`
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return '—'
+  return `${String(day).padStart(2,'0')}-${MONTHS[month - 1]}-${String(year).slice(-2)}`
 }
 
 const priorityOptions = ["Low", "Medium", "High"]
