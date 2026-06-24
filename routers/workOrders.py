@@ -4,7 +4,7 @@ from sqlmodel import Session
 import crud.workOrders as work_orders
 import utils.cache as cache
 from schema.database import get_session
-from schema.models import ReactivityStats, WorkOrder, WorkOrderPart
+from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
 
 _WO_TTL = 300  # 5 minutes
 
@@ -27,6 +27,17 @@ async def get_reactivity_stats(session: Session = Depends(get_session)):
         return cached
     result = work_orders.get_reactivity_stats(session)
     cache.set("work-orders:reactivity", result, ttl_seconds=_WO_TTL)
+    return result
+
+
+@router.get("/reactivity/trend", status_code=status.HTTP_200_OK, response_model=list[ReactivityTrendMonth])
+async def get_reactivity_trend(months: int = 6, session: Session = Depends(get_session)):
+    key = f"work-orders:reactivity-trend:{months}"
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+    result = work_orders.get_reactivity_trend(session, months)
+    cache.set(key, result, ttl_seconds=_WO_TTL)
     return result
 
 

@@ -3,7 +3,7 @@ from typing import Optional, Sequence
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from schema.models import ReactivityStats, WorkOrder, WorkOrderPart
+from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
 
 
 def _next_work_order_id(session: Session) -> int:
@@ -28,6 +28,57 @@ def get_reactivity_stats(session: Session) -> ReactivityStats:
         planned_pct=round((planned / total * 100), 1) if total else 0,
         unplanned_pct=round((unplanned / total * 100), 1) if total else 0,
     )
+
+
+def get_reactivity_trend(session: Session, months: int = 6) -> list[ReactivityTrendMonth]:
+    from datetime import date as date_type
+
+    today = date_type.today()
+    month_list: list[tuple[int, int]] = []
+    for i in range(months - 1, -1, -1):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_list.append((y, m))
+
+    start_date = date_type(month_list[0][0], month_list[0][1], 1)
+
+    all_wos = session.exec(
+        select(WorkOrder)
+        .where(WorkOrder.issue_date.is_not(None))  # type: ignore[union-attr]
+        .where(WorkOrder.issue_date >= start_date)
+    ).all()
+
+    planned_counts: dict[tuple[int, int], int] = {k: 0 for k in month_list}
+    unplanned_counts: dict[tuple[int, int], int] = {k: 0 for k in month_list}
+
+    for wo in all_wos:
+        if wo.issue_date is None:
+            continue
+        key = (wo.issue_date.year, wo.issue_date.month)
+        if key not in planned_counts:
+            continue
+        if wo.planned:
+            planned_counts[key] += 1
+        else:
+            unplanned_counts[key] += 1
+
+    result = []
+    for (y, m) in month_list:
+        planned = planned_counts[(y, m)]
+        unplanned = unplanned_counts[(y, m)]
+        total = planned + unplanned
+        result.append(ReactivityTrendMonth(
+            month=f"{y:04d}-{m:02d}",
+            planned=planned,
+            unplanned=unplanned,
+            total=total,
+            planned_pct=round(planned / total * 100, 1) if total else 0,
+            unplanned_pct=round(unplanned / total * 100, 1) if total else 0,
+        ))
+    return result
 
 
 def get_work_orders(session: Session) -> Sequence[WorkOrder]:

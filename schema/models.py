@@ -218,6 +218,15 @@ class ReactivityStats(BaseModel):
     unplanned_pct: float
 
 
+class ReactivityTrendMonth(BaseModel):
+    month: str
+    total: int
+    planned: int
+    unplanned: int
+    planned_pct: float
+    unplanned_pct: float
+
+
 # ------------- Utility Tables ----------------------- #
 class Holidays(SQLModel, table=True):
     holiday_id: Optional[int] = Field(default=None, primary_key=True, nullable=False)

@@ -8,7 +8,9 @@ const { data: workOrders } = await useAsyncData("work-orders", () => get<WorkOrd
 const { data: downtimes } = await useAsyncData("downtimes", () => get<Downtime[]>("/downtimes"))
 
 interface ReactivityStats { total: number; planned: number; unplanned: number; planned_pct: number; unplanned_pct: number }
+interface ReactivityTrendMonth { month: string; total: number; planned: number; unplanned: number; planned_pct: number; unplanned_pct: number }
 const { data: reactivity } = await useAsyncData("wo-reactivity", () => get<ReactivityStats>("/work-orders/reactivity"))
+const { data: reactivityTrend } = await useAsyncData("wo-reactivity-trend", () => get<ReactivityTrendMonth[]>("/work-orders/reactivity/trend?months=6"))
 
 interface MonthlyMetrics {
   month: string
@@ -26,6 +28,10 @@ const { data: assetPMs } = await useAsyncData("asset-pms", () => get<AssetPM[]>(
 const statusColors: Record<string, string> = {
   operational: "success", maintenance: "warning", out_of_service: "error", disposed: "neutral",
 }
+const statusHex: Record<string, string> = {
+  operational: "#1d4ed8", maintenance: "#3b82f6", out_of_service: "#93c5fd", disposed: "#bfdbfe",
+}
+const statusOrder = ["operational", "maintenance", "out_of_service", "disposed"]
 const woStatusColors: Record<string, string> = {
   requested: "info", in_progress: "warning", completed: "success", on_hold: "neutral", cancelled: "error",
 }
@@ -36,6 +42,42 @@ const assetsByStatus = computed(() => {
   for (const a of assets.value ?? []) counts[a.status] = (counts[a.status] ?? 0) + 1
   return counts
 })
+
+const assetDonutItems = computed(() =>
+  statusOrder
+    .filter((s) => (assetsByStatus.value[s] ?? 0) > 0)
+    .map((s) => ({ status: s, count: assetsByStatus.value[s] ?? 0, color: statusHex[s] }))
+)
+const assetDonutSeries = computed(() => assetDonutItems.value.map((i) => i.count))
+const assetDonutOptions = computed(() => ({
+  chart: { type: "donut", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 500 } },
+  colors: assetDonutItems.value.map((i) => i.color),
+  labels: assetDonutItems.value.map((i) => i.status.replace(/_/g, " ")),
+  plotOptions: {
+    pie: {
+      expandOnClick: false,
+      donut: {
+        size: "70%",
+        labels: {
+          show: true,
+          value: { fontSize: "26px", fontWeight: 700, color: "#0f172a", offsetY: 4 },
+          total: {
+            show: true,
+            label: "Assets",
+            fontSize: "11px",
+            fontWeight: 500,
+            color: "#94a3b8",
+            formatter: () => String(assets.value?.length ?? 0),
+          },
+        },
+      },
+    },
+  },
+  dataLabels: { enabled: false },
+  stroke: { width: 3, colors: ["#ffffff"] },
+  legend: { show: false },
+  tooltip: { y: { formatter: (v: number) => `${v} asset${v !== 1 ? "s" : ""}` } },
+}))
 
 const assetsDown = computed(() =>
   (assets.value ?? []).filter((a) => a.status === "out_of_service" || a.status === "maintenance").length
@@ -60,6 +102,66 @@ const workOrdersByStatus = computed(() => {
   return counts
 })
 
+
+const reactivityGaugeSeries = computed(() => [reactivity.value?.unplanned_pct ?? 0])
+const reactivityGaugeOptions = computed(() => ({
+  chart: { type: "radialBar", toolbar: { show: false }, fontFamily: "inherit", sparkline: { enabled: true } },
+  plotOptions: {
+    radialBar: {
+      startAngle: -135,
+      endAngle: 135,
+      hollow: { size: "60%" },
+      track: { background: "#f1f5f9", strokeWidth: "100%", margin: 0 },
+      dataLabels: {
+        name: { show: true, fontSize: "10px", fontWeight: 500, color: "#94a3b8", offsetY: 18 },
+        value: { show: true, fontSize: "20px", fontWeight: 700, color: "#0f172a", offsetY: -8,
+          formatter: (v: number) => `${Math.round(v)}%` },
+      },
+    },
+  },
+  fill: {
+    type: "gradient",
+    gradient: { shade: "light", type: "horizontal", gradientToColors: ["#ef4444"], stops: [0, 100] },
+  },
+  colors: ["#22c55e"],
+  labels: ["Unplanned"],
+  stroke: { lineCap: "round" },
+}))
+
+const trendMonthLabels = computed(() =>
+  (reactivityTrend.value ?? []).map(({ month }) => {
+    const [y, m] = month.split("-").map(Number)
+    return new Date(y, m - 1, 1).toLocaleString("default", { month: "short", year: "2-digit" })
+  })
+)
+
+const trendSeries = computed(() => [
+  { name: "Planned",   data: (reactivityTrend.value ?? []).map((m) => m.planned) },
+  { name: "Unplanned", data: (reactivityTrend.value ?? []).map((m) => m.unplanned) },
+])
+
+const trendChartOptions = computed(() => ({
+  chart: { type: "bar", stacked: true, toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  plotOptions: { bar: { columnWidth: "50%", borderRadius: 3 } },
+  colors: ["#3b82f6", "#fbbf24"],
+  xaxis: {
+    categories: trendMonthLabels.value,
+    labels: { style: { fontSize: "11px", colors: "#94a3b8" } },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: {
+    labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => String(Math.round(v)) },
+    min: 0,
+  },
+  grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 4, right: 4 } },
+  dataLabels: { enabled: false },
+  legend: { show: false },
+  tooltip: {
+    shared: true,
+    y: { formatter: (v: number) => String(Math.round(v)) },
+  },
+}))
 
 const now = new Date()
 const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -244,49 +346,71 @@ function openWorkOrder(id: number) {
     <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
       <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
         <h2 class="mb-4 text-sm font-semibold text-slate-700">Assets by Status</h2>
-        <div class="space-y-3">
-          <div v-for="(count, status) in assetsByStatus" :key="status" class="flex items-center justify-between">
-            <UBadge :color="statusColors[status] ?? 'neutral'" variant="soft">{{ status.replace(/_/g, " ") }}</UBadge>
-            <div class="flex items-center gap-3">
-              <div class="h-1.5 w-28 overflow-hidden rounded-full bg-slate-100">
-                <div class="h-full rounded-full bg-blue-500" :style="{ width: `${(count / (assets?.length ?? 1)) * 100}%` }" />
-              </div>
-              <span class="w-5 text-right text-sm font-semibold text-slate-600">{{ count }}</span>
-            </div>
+        <div class="flex items-center gap-6">
+          <!-- Donut -->
+          <div class="shrink-0 w-[180px]">
+            <ClientOnly>
+              <apexchart type="donut" height="180" :options="assetDonutOptions" :series="assetDonutSeries" />
+              <template #fallback>
+                <div class="flex h-[180px] items-center justify-center text-sm text-slate-400">Loading…</div>
+              </template>
+            </ClientOnly>
           </div>
-          <p v-if="!assets?.length" class="text-sm text-slate-400">No assets found.</p>
+          <!-- Legend -->
+          <div class="flex-1 space-y-3">
+            <div v-for="item in assetDonutItems" :key="item.status" class="flex items-center gap-3">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: item.color }" />
+              <span class="flex-1 text-sm capitalize text-slate-600">{{ item.status.replace(/_/g, " ") }}</span>
+              <span class="text-sm font-bold text-slate-900">{{ Math.round((item.count / (assets?.length ?? 1)) * 100) }}%</span>
+              <span class="w-6 text-right text-xs text-slate-400">{{ item.count }}</span>
+            </div>
+            <p v-if="!assets?.length" class="text-sm text-slate-400">No assets found.</p>
+          </div>
         </div>
       </div>
 
       <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <h2 class="mb-4 text-sm font-semibold text-slate-700">Open Work Orders by Status</h2>
-        <div class="space-y-3">
-          <div v-for="(count, status) in workOrdersByStatus" :key="status" class="flex items-center justify-between">
-            <UBadge :color="woStatusColors[status] ?? 'neutral'" variant="soft">{{ status.replace(/_/g, " ") }}</UBadge>
-            <span class="text-sm font-semibold text-slate-600">{{ count }}</span>
+        <div class="mb-1 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-700">Reactivity Trend</h2>
+            <p class="text-xs text-slate-400">Planned vs unplanned work orders — last 6 months</p>
           </div>
-          <p v-if="!openWorkOrders.length" class="text-sm text-slate-400">No open work orders.</p>
+          <div class="flex items-center gap-3 text-xs text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full bg-blue-500" />Planned</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block h-2 w-2 rounded-full bg-amber-400" />Unplanned</span>
+          </div>
         </div>
 
-        <!-- Planned vs Unplanned split -->
-        <div v-if="reactivity?.total" class="mt-4 border-t border-slate-100 pt-4">
-          <div class="mb-2 flex items-center justify-between">
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Reactivity (all WOs)</p>
-            <p class="text-xs text-slate-400">{{ reactivity.unplanned_pct }}% unplanned</p>
-          </div>
-          <div class="flex h-2 w-full overflow-hidden rounded-full bg-slate-100">
-            <div class="h-full rounded-l-full bg-blue-500 transition-all" :style="{ width: reactivity.planned_pct + '%' }" />
-            <div class="h-full rounded-r-full bg-amber-400 transition-all" :style="{ width: reactivity.unplanned_pct + '%' }" />
-          </div>
-          <div class="mt-2 flex justify-between text-xs text-slate-500">
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block h-2 w-2 rounded-full bg-blue-500" />
-              Planned {{ reactivity.planned_pct }}% ({{ reactivity.planned }})
-            </span>
-            <span class="flex items-center gap-1.5">
-              <span class="inline-block h-2 w-2 rounded-full bg-amber-400" />
-              Unplanned {{ reactivity.unplanned_pct }}% ({{ reactivity.unplanned }})
-            </span>
+        <ClientOnly>
+          <apexchart type="bar" height="170" :options="trendChartOptions" :series="trendSeries" />
+          <template #fallback>
+            <div class="flex h-[170px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+          </template>
+        </ClientOnly>
+
+        <!-- All-time gauge -->
+        <div v-if="reactivity?.total" class="mt-2 border-t border-slate-100 pt-3">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">All time</p>
+          <div class="flex items-center gap-4">
+            <div class="w-[120px] shrink-0">
+              <ClientOnly>
+                <apexchart type="radialBar" height="120" :options="reactivityGaugeOptions" :series="reactivityGaugeSeries" />
+              </ClientOnly>
+            </div>
+            <div class="flex-1 grid grid-cols-3 gap-2">
+              <div class="rounded-lg bg-slate-50 px-3 py-2 text-center">
+                <p class="text-lg font-bold text-slate-900">{{ reactivity.total }}</p>
+                <p class="text-[10px] uppercase tracking-wide text-slate-400">Total</p>
+              </div>
+              <div class="rounded-lg bg-blue-50 px-3 py-2 text-center">
+                <p class="text-lg font-bold text-blue-700">{{ reactivity.planned }}</p>
+                <p class="text-[10px] uppercase tracking-wide text-blue-400">Planned</p>
+              </div>
+              <div class="rounded-lg bg-amber-50 px-3 py-2 text-center">
+                <p class="text-lg font-bold text-amber-700">{{ reactivity.unplanned }}</p>
+                <p class="text-[10px] uppercase tracking-wide text-amber-400">Unplanned</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
