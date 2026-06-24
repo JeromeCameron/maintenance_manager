@@ -1,7 +1,54 @@
 <script setup lang="ts">
 const route = useRoute()
 const { user, logout } = useAuth()
+const { get } = useApi()
+const { changePassword } = useUsers()
 const showIdleWarning = useState("idle_warning", () => false)
+
+// ── Profile modal ─────────────────────────────────────────────
+const showProfileModal = ref(false)
+const profileTab = ref("profile")
+const profileTabs = [
+  { value: "profile", slot: "profile", label: "Profile", icon: "i-heroicons-user" },
+  { value: "password", slot: "password", label: "Change Password", icon: "i-heroicons-key" },
+]
+
+interface ProfileData { id: number; username: string; firstname: string; lastname: string; email: string; role: string; active: boolean }
+const profileData = ref<ProfileData | null>(null)
+
+async function openProfile() {
+  profileTab.value = "profile"
+  passwordForm.value = { current: "", new: "", confirm: "" }
+  passwordError.value = null
+  profileData.value = await get<ProfileData>("/users/me")
+  showProfileModal.value = true
+}
+
+// ── Change password ───────────────────────────────────────────
+const passwordForm = ref({ current: "", new: "", confirm: "" })
+const passwordError = ref<string | null>(null)
+const passwordSaving = ref(false)
+
+async function submitChangePassword() {
+  passwordError.value = null
+  if (passwordForm.value.new !== passwordForm.value.confirm) {
+    passwordError.value = "New passwords do not match"
+    return
+  }
+  if (!passwordForm.value.new) {
+    passwordError.value = "New password cannot be empty"
+    return
+  }
+  passwordSaving.value = true
+  try {
+    await changePassword(passwordForm.value.current, passwordForm.value.new)
+    showProfileModal.value = false
+  } catch (e: unknown) {
+    passwordError.value = (e as { data?: { detail?: string }; message?: string }).data?.detail ?? (e as { message?: string }).message ?? "Failed to change password"
+  } finally {
+    passwordSaving.value = false
+  }
+}
 
 const navGroups = [
   {
@@ -137,6 +184,81 @@ const pageInfo = computed(() => {
       </div>
     </aside>
 
+    <!-- Profile Modal -->
+    <UModal v-model:open="showProfileModal">
+      <template #content>
+        <div class="w-full rounded-xl bg-white shadow-xl">
+          <!-- Header -->
+          <div class="flex items-center gap-4 border-b border-slate-100 px-6 py-5">
+            <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600">
+              <span class="text-sm font-bold text-white">
+                {{ user ? user.firstname[0] + user.lastname[0] : "?" }}
+              </span>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-slate-900">{{ user?.firstname }} {{ user?.lastname }}</h3>
+              <p class="text-sm capitalize text-slate-500">{{ user?.role }}</p>
+            </div>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showProfileModal = false" />
+          </div>
+
+          <!-- Tabs -->
+          <div class="px-6 pt-4">
+            <UTabs v-model="profileTab" :items="profileTabs">
+              <template #leading="{ item }">
+                <UIcon :name="item.icon" class="h-4 w-4" />
+              </template>
+
+              <template #profile>
+                <div class="mt-4 space-y-3 pb-6">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="rounded-lg bg-slate-50 px-4 py-3">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">First Name</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.firstname }}</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Last Name</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.lastname }}</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Username</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.username }}</p>
+                    </div>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Role</p>
+                      <p class="mt-0.5 text-sm font-medium capitalize text-slate-900">{{ profileData?.role }}</p>
+                    </div>
+                    <div class="col-span-2 rounded-lg bg-slate-50 px-4 py-3">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Email</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.email }}</p>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template #password>
+                <div class="mt-4 space-y-4 pb-2">
+                  <UFormField label="Current Password" required>
+                    <UInput v-model="passwordForm.current" type="password" autocomplete="current-password" class="w-full" />
+                  </UFormField>
+                  <UFormField label="New Password" required>
+                    <UInput v-model="passwordForm.new" type="password" autocomplete="new-password" class="w-full" />
+                  </UFormField>
+                  <UFormField label="Confirm New Password" required>
+                    <UInput v-model="passwordForm.confirm" type="password" autocomplete="new-password" class="w-full" />
+                  </UFormField>
+                  <UAlert v-if="passwordError" color="error" variant="soft" :description="passwordError" />
+                  <div class="flex justify-end pt-1 pb-4">
+                    <UButton :loading="passwordSaving" @click="submitChangePassword">Change Password</UButton>
+                  </div>
+                </div>
+              </template>
+            </UTabs>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
     <!-- Main area -->
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 
@@ -148,11 +270,15 @@ const pageInfo = computed(() => {
         </div>
         <div class="flex items-center gap-2">
           <UButton variant="ghost" size="sm" icon="i-heroicons-bell" color="neutral" />
-          <div class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600">
+          <button
+            class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
+            title="View profile"
+            @click="openProfile"
+          >
             <span class="text-xs font-bold text-white">
               {{ user ? user.firstname[0] + user.lastname[0] : '?' }}
             </span>
-          </div>
+          </button>
         </div>
       </header>
 

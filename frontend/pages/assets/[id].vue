@@ -107,12 +107,17 @@ const woStatusColors: Record<string, string> = {
   requested: "info", in_progress: "warning", completed: "success", on_hold: "neutral", cancelled: "error",
 }
 
+function parseDateLocal(v: string): Date {
+  const [y, m, d] = v.slice(0, 10).split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+
 // ── MTD Availability ──────────────────────────────────────────
 const availabilityMTD = computed(() => {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const dtHours = (downtimes.value ?? [])
-    .filter(dt => !!dt.start_date && new Date(dt.start_date) >= monthStart)
+    .filter(dt => !!dt.start_date && parseDateLocal(dt.start_date) >= monthStart)
     .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
   let workdays = 0
   const c = new Date(monthStart)

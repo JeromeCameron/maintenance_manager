@@ -212,7 +212,7 @@ const availabilityMTD = computed(() => {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const dtHours = downtimeData.value
-    .filter(dt => !!dt.start_date && new Date(dt.start_date) >= monthStart)
+    .filter(dt => !!dt.start_date && parseDateLocal(dt.start_date) >= monthStart)
     .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
   let workdays = 0
   const c = new Date(monthStart)
@@ -308,10 +308,14 @@ async function confirmDelete() {
   }
 }
 
-function fmtDate(v?: string | null) { return v ? new Date(v).toLocaleDateString() : "—" }
+function parseDateLocal(v: string): Date {
+  const [y, m, d] = v.slice(0, 10).split("-").map(Number)
+  return new Date(y, m - 1, d)
+}
+function fmtDate(v?: string | null) { return v ? parseDateLocal(v).toLocaleDateString() : "—" }
 function fmtDateShort(v?: string | null) {
   if (!v) return "—"
-  return new Date(v).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })
+  return parseDateLocal(v).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })
 }
 </script>
 

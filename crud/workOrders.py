@@ -3,7 +3,7 @@ from typing import Optional, Sequence
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from schema.models import WorkOrder, WorkOrderPart
+from schema.models import ReactivityStats, WorkOrder, WorkOrderPart
 
 
 def _next_work_order_id(session: Session) -> int:
@@ -13,6 +13,21 @@ def _next_work_order_id(session: Session) -> int:
 
 # ------------------------------------------------------------------
 # Work Order
+
+
+def get_reactivity_stats(session: Session) -> ReactivityStats:
+    total = session.exec(select(func.count(WorkOrder.work_order_id))).first() or 0
+    planned = session.exec(
+        select(func.count(WorkOrder.work_order_id)).where(WorkOrder.planned == True)  # noqa: E712
+    ).first() or 0
+    unplanned = total - planned
+    return ReactivityStats(
+        total=total,
+        planned=planned,
+        unplanned=unplanned,
+        planned_pct=round((planned / total * 100), 1) if total else 0,
+        unplanned_pct=round((unplanned / total * 100), 1) if total else 0,
+    )
 
 
 def get_work_orders(session: Session) -> Sequence[WorkOrder]:

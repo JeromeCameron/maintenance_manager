@@ -7,6 +7,9 @@ const { data: assets } = await useAsyncData("assets", () => get<Asset[]>("/asset
 const { data: workOrders } = await useAsyncData("work-orders", () => get<WorkOrder[]>("/work-orders"))
 const { data: downtimes } = await useAsyncData("downtimes", () => get<Downtime[]>("/downtimes"))
 
+interface ReactivityStats { total: number; planned: number; unplanned: number; planned_pct: number; unplanned_pct: number }
+const { data: reactivity } = await useAsyncData("wo-reactivity", () => get<ReactivityStats>("/work-orders/reactivity"))
+
 interface MonthlyMetrics {
   month: string
   scheduled_hours: number
@@ -56,6 +59,7 @@ const workOrdersByStatus = computed(() => {
   for (const w of openWorkOrders.value) counts[w.status] = (counts[w.status] ?? 0) + 1
   return counts
 })
+
 
 const now = new Date()
 const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -262,6 +266,28 @@ function openWorkOrder(id: number) {
             <span class="text-sm font-semibold text-slate-600">{{ count }}</span>
           </div>
           <p v-if="!openWorkOrders.length" class="text-sm text-slate-400">No open work orders.</p>
+        </div>
+
+        <!-- Planned vs Unplanned split -->
+        <div v-if="reactivity?.total" class="mt-4 border-t border-slate-100 pt-4">
+          <div class="mb-2 flex items-center justify-between">
+            <p class="text-xs font-medium uppercase tracking-wide text-slate-400">Reactivity (all WOs)</p>
+            <p class="text-xs text-slate-400">{{ reactivity.unplanned_pct }}% unplanned</p>
+          </div>
+          <div class="flex h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div class="h-full rounded-l-full bg-blue-500 transition-all" :style="{ width: reactivity.planned_pct + '%' }" />
+            <div class="h-full rounded-r-full bg-amber-400 transition-all" :style="{ width: reactivity.unplanned_pct + '%' }" />
+          </div>
+          <div class="mt-2 flex justify-between text-xs text-slate-500">
+            <span class="flex items-center gap-1.5">
+              <span class="inline-block h-2 w-2 rounded-full bg-blue-500" />
+              Planned {{ reactivity.planned_pct }}% ({{ reactivity.planned }})
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span class="inline-block h-2 w-2 rounded-full bg-amber-400" />
+              Unplanned {{ reactivity.unplanned_pct }}% ({{ reactivity.unplanned }})
+            </span>
+          </div>
         </div>
       </div>
     </div>

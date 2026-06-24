@@ -2,7 +2,7 @@ from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from auth.security import hash_password
+from auth.security import hash_password, verify_password
 from schema.models import User
 
 
@@ -42,6 +42,15 @@ def update_user(session: Session, id: int, data: User) -> Optional[User]:
     session.commit()
     session.refresh(db_user)
     return db_user
+
+
+def change_own_password(session: Session, user: User, current_password: str, new_password: str) -> bool:
+    if not verify_password(current_password, user.password):
+        return False
+    user.password = hash_password(new_password)
+    session.add(user)
+    session.commit()
+    return True
 
 
 def delete_user(session: Session, id: int) -> bool:

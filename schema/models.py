@@ -205,6 +205,19 @@ class UserRead(BaseModel):
     last_login: Optional[datetime] = None
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ReactivityStats(BaseModel):
+    total: int
+    planned: int
+    unplanned: int
+    planned_pct: float
+    unplanned_pct: float
+
+
 # ------------- Utility Tables ----------------------- #
 class Holidays(SQLModel, table=True):
     holiday_id: Optional[int] = Field(default=None, primary_key=True, nullable=False)

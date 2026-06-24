@@ -8,6 +8,8 @@ export function useUsers() {
   const create = (data: User) => post<User>("/users", data)
   const update = (id: number, data: User) => put<User>(`/users/${id}`, data)
   const remove = (id: number) => del(`/users/${id}`)
+  const changePassword = (currentPassword: string, newPassword: string) =>
+    put("/users/me/password", { current_password: currentPassword, new_password: newPassword })
 
-  return { getAll, getOne, create, update, remove }
+  return { getAll, getOne, create, update, remove, changePassword }
 }

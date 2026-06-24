@@ -4,7 +4,7 @@ from sqlmodel import Session
 import crud.workOrders as work_orders
 import utils.cache as cache
 from schema.database import get_session
-from schema.models import WorkOrder, WorkOrderPart
+from schema.models import ReactivityStats, WorkOrder, WorkOrderPart
 
 _WO_TTL = 300  # 5 minutes
 
@@ -18,6 +18,16 @@ work_order_part_router = APIRouter(prefix="/api/work-order-parts", tags=["WorkOr
 
 # ------------------------------------------------------------------
 # Work Order endpoints
+
+
+@router.get("/reactivity", status_code=status.HTTP_200_OK, response_model=ReactivityStats)
+async def get_reactivity_stats(session: Session = Depends(get_session)):
+    cached = cache.get("work-orders:reactivity")
+    if cached is not None:
+        return cached
+    result = work_orders.get_reactivity_stats(session)
+    cache.set("work-orders:reactivity", result, ttl_seconds=_WO_TTL)
+    return result
 
 
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[WorkOrder])

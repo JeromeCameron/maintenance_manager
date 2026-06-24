@@ -4,7 +4,7 @@ from sqlmodel import Session
 import crud.user as users
 from auth.dependencies import require_admin, get_current_user
 from schema.database import get_session
-from schema.models import User, UserRead
+from schema.models import User, UserRead, ChangePasswordRequest
 
 router = APIRouter(prefix="/api/users", tags=["User"])
 
@@ -25,6 +25,17 @@ async def get_user(user_id: int, session: Session = Depends(get_session)):
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
+
+
+@router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+async def change_my_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    ok = users.change_own_password(session, current_user, body.current_password, body.new_password)
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=UserRead,
