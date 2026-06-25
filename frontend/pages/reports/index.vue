@@ -626,6 +626,36 @@ const assetBalesStats = computed(() =>
   isBaler.value ? calcBales(assetDowntimes.value) : null
 )
 
+const assetBalesAvgPerMonth = computed(() => {
+  if (!isBaler.value) return null
+  const cutoff = new Date(analysisMonths.value[0].year, analysisMonths.value[0].month, 1)
+  const recent = assetDowntimes.value.filter(d => new Date(d.start_date ?? d.log_date ?? '') >= cutoff)
+  const { bales, value } = calcBales(recent)
+  return { bales: Math.round(bales / 12), value: value / 12 }
+})
+
+const assetMonthlyBales = computed(() => {
+  if (!isBaler.value) return []
+  return analysisMonths.value.map(({ year, month }) => {
+    const events = assetDowntimes.value.filter(d => {
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month
+    })
+    return calcBales(events).bales
+  })
+})
+
+const assetMonthlyBaleValue = computed(() => {
+  if (!isBaler.value) return []
+  return analysisMonths.value.map(({ year, month }) => {
+    const events = assetDowntimes.value.filter(d => {
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month
+    })
+    return +calcBales(events).value.toFixed(2)
+  })
+})
+
 const avg12mAvailability = computed(() => {
   const vals = assetMonthlyAvailability.value
   if (!vals.length) return 100
@@ -803,6 +833,41 @@ const locationBalesStats = computed(() => {
   if (!locationHasBalers.value) return null
   const balerIds = new Set(locationAssets.value.filter(a => a.category === 'baler').map(a => a.asset_id))
   return calcBales(locationDowntimes.value.filter(d => d.asset_id && balerIds.has(d.asset_id)))
+})
+
+const locationBalesAvgPerMonth = computed(() => {
+  if (!locationHasBalers.value) return null
+  const balerIds = new Set(locationAssets.value.filter(a => a.category === 'baler').map(a => a.asset_id))
+  const cutoff = new Date(analysisMonths.value[0].year, analysisMonths.value[0].month, 1)
+  const recent = locationDowntimes.value.filter(d => d.asset_id && balerIds.has(d.asset_id) && new Date(d.start_date ?? d.log_date ?? '') >= cutoff)
+  const { bales, value } = calcBales(recent)
+  return { bales: Math.round(bales / 12), value: value / 12 }
+})
+
+const locationMonthlyBales = computed(() => {
+  if (!locationHasBalers.value) return []
+  const balerIds = new Set(locationAssets.value.filter(a => a.category === 'baler').map(a => a.asset_id))
+  return analysisMonths.value.map(({ year, month }) => {
+    const events = locationDowntimes.value.filter(d => {
+      if (!d.asset_id || !balerIds.has(d.asset_id)) return false
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month
+    })
+    return calcBales(events).bales
+  })
+})
+
+const locationMonthlyBaleValue = computed(() => {
+  if (!locationHasBalers.value) return []
+  const balerIds = new Set(locationAssets.value.filter(a => a.category === 'baler').map(a => a.asset_id))
+  return analysisMonths.value.map(({ year, month }) => {
+    const events = locationDowntimes.value.filter(d => {
+      if (!d.asset_id || !balerIds.has(d.asset_id)) return false
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month
+    })
+    return +calcBales(events).value.toFixed(2)
+  })
 })
 
 const locationAvg12mAvailability = computed(() => {
@@ -1156,6 +1221,12 @@ function locTypLabel(typ: string) {
               <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</p>
               <p class="mt-0.5 text-sm text-slate-700">{{ locationMap[selectedAssetObj.location_id] ?? selectedAssetObj.location_id }}</p>
             </div>
+            <div>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Current Availability</p>
+              <p class="mt-0.5 text-sm font-semibold" :class="assetMonthlyAvailability[11] >= 90 ? 'text-green-600' : assetMonthlyAvailability[11] >= 75 ? 'text-amber-600' : 'text-red-600'">
+                {{ assetMonthlyAvailability[11] }}%
+              </p>
+            </div>
             <div v-if="selectedAssetModel?.bale_time" class="sm:col-span-2">
               <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Bale Specs</p>
               <p class="mt-0.5 text-sm text-slate-700">{{ selectedAssetModel.bale_time }} min/bale · {{ selectedAssetModel.bale_weight }} lb/bale</p>
@@ -1278,8 +1349,12 @@ function locTypLabel(typ: string) {
                   <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-amber-700">Lifetime Bales Lost</p>
                     <p class="mt-0.5 text-2xl font-bold text-amber-900">{{ assetBalesStats.bales.toLocaleString() }}</p>
+                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600">avg {{ assetBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
                   </div>
                 </div>
+                <ClientOnly>
+                  <apexchart type="line" width="96" height="50" :options="sparkOpts('#f59e0b')" :series="[{ data: assetMonthlyBales }]" />
+                </ClientOnly>
               </div>
               <div class="flex items-center justify-between rounded-lg bg-red-50 px-4 py-4">
                 <div class="flex items-center gap-3">
@@ -1289,8 +1364,12 @@ function locTypLabel(typ: string) {
                   <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-red-700">Estimated Value Lost</p>
                     <p class="mt-0.5 text-2xl font-bold text-red-900">{{ fmtCurrency(assetBalesStats.value) }}</p>
+                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600">avg {{ fmtCurrency(assetBalesAvgPerMonth.value) }} / month</p>
                   </div>
                 </div>
+                <ClientOnly>
+                  <apexchart type="line" width="96" height="50" :options="sparkOpts('#ef4444')" :series="[{ data: assetMonthlyBaleValue }]" />
+                </ClientOnly>
               </div>
               <p class="text-xs text-slate-400">Calculated using historical commodity rates at each downtime event date.</p>
             </div>
@@ -1444,7 +1523,7 @@ function locTypLabel(typ: string) {
               </p>
             </div>
             <div class="space-y-4 px-5 py-5">
-              <div class="flex items-center rounded-lg bg-amber-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-amber-50 px-4 py-4">
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
                     <UIcon name="i-heroicons-cube" class="h-5 w-5 text-amber-600" />
@@ -1452,10 +1531,14 @@ function locTypLabel(typ: string) {
                   <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-amber-700">Lifetime Bales Lost</p>
                     <p class="mt-0.5 text-2xl font-bold text-amber-900">{{ locationBalesStats.bales.toLocaleString() }}</p>
+                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600">avg {{ locationBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
                   </div>
                 </div>
+                <ClientOnly>
+                  <apexchart type="line" width="96" height="50" :options="sparkOpts('#f59e0b')" :series="[{ data: locationMonthlyBales }]" />
+                </ClientOnly>
               </div>
-              <div class="flex items-center rounded-lg bg-red-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-red-50 px-4 py-4">
                 <div class="flex items-center gap-3">
                   <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100">
                     <UIcon name="i-heroicons-banknotes" class="h-5 w-5 text-red-600" />
@@ -1463,8 +1546,12 @@ function locTypLabel(typ: string) {
                   <div>
                     <p class="text-xs font-medium uppercase tracking-wide text-red-700">Estimated Value Lost</p>
                     <p class="mt-0.5 text-2xl font-bold text-red-900">{{ fmtCurrency(locationBalesStats.value) }}</p>
+                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600">avg {{ fmtCurrency(locationBalesAvgPerMonth.value) }} / month</p>
                   </div>
                 </div>
+                <ClientOnly>
+                  <apexchart type="line" width="96" height="50" :options="sparkOpts('#ef4444')" :series="[{ data: locationMonthlyBaleValue }]" />
+                </ClientOnly>
               </div>
               <p class="text-xs text-slate-400">Calculated using historical commodity rates at each downtime event date.</p>
             </div>
