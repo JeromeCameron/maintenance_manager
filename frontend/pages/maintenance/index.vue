@@ -43,7 +43,17 @@ const columns = [
   { id: "actions", header: "" },
 ]
 
-const filtered = computed(() => activeTab.value === "due" ? pmsDueSoon.value : assetPMs.value ?? [])
+function byNextService(a: AssetPM, b: AssetPM) {
+  if (!a.next_service && !b.next_service) return 0
+  if (!a.next_service) return 1
+  if (!b.next_service) return -1
+  return a.next_service.localeCompare(b.next_service)
+}
+
+const filtered = computed(() => {
+  const list = activeTab.value === "due" ? pmsDueSoon.value : assetPMs.value ?? []
+  return [...list].sort(byNextService)
+})
 
 // ── Form modal ───────────────────────────────────────────────
 const showModal = ref(false)
