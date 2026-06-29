@@ -1,8 +1,26 @@
+from datetime import date
 from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
 from schema.models import Inspection, InspectionResult, InspectionTemplate, InspectionTemplateItem
+
+
+def generate_inspection_no(session: Session) -> str:
+    year = date.today().year
+    prefix = f"INS-{year}-"
+    existing = session.exec(
+        select(Inspection.inspection_no).where(Inspection.inspection_no.like(f"{prefix}%"))
+    ).all()
+    max_seq = 0
+    for no in existing:
+        try:
+            seq = int(no[len(prefix):])
+            if seq > max_seq:
+                max_seq = seq
+        except ValueError:
+            pass
+    return f"{prefix}{max_seq + 1:03d}"
 
 
 # ------------------------------------------------------------------
@@ -122,6 +140,8 @@ def get_inspection(session: Session, inspection_id: int) -> Optional[Inspection]
 
 
 def add_inspection(session: Session, inspection: Inspection) -> Inspection:
+    if not inspection.inspection_no:
+        inspection.inspection_no = generate_inspection_no(session)
     session.add(inspection)
     session.commit()
     session.refresh(inspection)

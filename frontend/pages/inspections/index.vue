@@ -171,24 +171,25 @@ function printChecklist() {
   const items = checklistItems.value
   const results = checklistResults.value
 
-  const badge = (r: string) => {
-    const bg: Record<string, string> = { pass: "#16a34a", fail: "#dc2626", na: "#64748b" }
-    return `<span style="background:${bg[r] ?? "#94a3b8"};color:white;padding:2px 10px;border-radius:4px;font-size:10px;font-weight:bold;text-transform:uppercase">${r || "N/A"}</span>`
-  }
-
   const groups = checklistByCategory.value
   let rows = ""
   let rowNum = 1
   for (const [cat, catItems] of Object.entries(groups)) {
     rows += `<tr><td colspan="5" style="background:#eff6ff;color:#1d4ed8;font-weight:bold;padding:6px 10px;font-size:11px;letter-spacing:.05em;text-transform:uppercase">${cat}</td></tr>`
     for (const item of catItems) {
-      const res = item.id != null ? (results[item.id] ?? { result: "na", notes: "" }) : { result: "na", notes: "" }
+      const tickBox = `<span style="display:inline-block;width:11px;height:11px;border:1.5px solid #475569;border-radius:2px;vertical-align:middle;margin-right:3px"></span>`
       rows += `<tr>
         <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#64748b">${rowNum++}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${item.question}${item.is_critical ? ' <span style="color:#dc2626;font-weight:bold" title="Critical">*</span>' : ""}</td>
         <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${item.is_critical ? '<span style="color:#dc2626;font-size:10px;font-weight:bold">YES</span>' : "—"}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${badge(res.result)}</td>
-        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:10px">${res.notes || "—"}</td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">
+          <span style="display:inline-flex;gap:10px;font-size:10px;align-items:center">
+            <span>${tickBox} Pass</span>
+            <span>${tickBox} Fail</span>
+            <span>${tickBox} N/A</span>
+          </span>
+        </td>
+        <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:10px">${item.notes || ""}</td>
       </tr>`
     }
   }
@@ -204,7 +205,12 @@ function printChecklist() {
     thead tr { background: #2563eb; }
     thead th { color: white; padding: 7px 10px; text-align: left; font-size: 11px; }
     tbody tr:nth-child(even) { background: #f8fafc; }
+    .result-options { display: flex; gap: 10px; align-items: center; font-size: 10px; }
+    .result-options span { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .tick-box { display: inline-block; width: 11px; height: 11px; border: 1.5px solid #475569; border-radius: 2px; flex-shrink: 0; }
     .footer { margin-top: 20px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; gap: 20px; align-items: center; }
+    .sig-block { margin-top: 28px; display: flex; gap: 40px; }
+    .sig-line { flex: 1; border-top: 1px solid #94a3b8; padding-top: 4px; font-size: 10px; color: #94a3b8; }
     .stamp { color: #94a3b8; font-size: 10px; margin-top: 8px; }
     @media print { body { margin: 12px; } }
   </style></head><body>
@@ -216,12 +222,22 @@ function printChecklist() {
     <div>Status: <b>${insp.submitted ? "Submitted" : "Draft"}</b></div>
   </div>
   <table>
-    <thead><tr><th style="width:36px">#</th><th>Inspection Item</th><th style="width:72px;text-align:center">Critical</th><th style="width:80px;text-align:center">Result</th><th>Notes</th></tr></thead>
+    <thead><tr><th style="width:36px">#</th><th>Inspection Item</th><th style="width:72px;text-align:center">Critical</th><th style="width:150px">Result</th><th>Notes</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>
   <div class="footer">
-    <div>Overall Result: ${badge(insp.overall_result ?? "na")}</div>
-    <div style="color:#64748b;font-size:11px">Pass: <b style="color:#16a34a">${summaryStats.value.pass}</b> &nbsp; Fail: <b style="color:#dc2626">${summaryStats.value.fail}</b> &nbsp; N/A: <b>${summaryStats.value.na}</b></div>
+    <div style="color:#64748b;font-size:11px">Overall Result: &nbsp;
+      <span style="display:inline-flex;gap:14px;font-size:11px">
+        <span><span style="display:inline-block;width:12px;height:12px;border:1.5px solid #475569;border-radius:2px;vertical-align:middle;margin-right:3px"></span> Pass</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border:1.5px solid #475569;border-radius:2px;vertical-align:middle;margin-right:3px"></span> Fail</span>
+        <span><span style="display:inline-block;width:12px;height:12px;border:1.5px solid #475569;border-radius:2px;vertical-align:middle;margin-right:3px"></span> N/A</span>
+      </span>
+    </div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line">Inspected by</div>
+    <div class="sig-line">Signature</div>
+    <div class="sig-line">Date</div>
   </div>
   ${insp.notes ? `<div style="margin-top:12px;font-size:11px;color:#64748b"><b>Notes:</b> ${insp.notes}</div>` : ""}
   <div class="stamp">Generated ${new Date().toLocaleString()}</div>
@@ -321,8 +337,12 @@ async function confirmDelete() {
 
             <!-- Details tab -->
             <div v-if="activeTab === 'details'" class="grid grid-cols-2 gap-x-5 gap-y-4">
-              <UFormField label="Inspection No" required class="col-span-2">
-                <UInput v-model="form.inspection_no" placeholder="e.g. INS-2024-001" class="w-full" />
+              <UFormField label="Inspection No" class="col-span-2">
+                <UInput
+                  :model-value="isEditing ? form.inspection_no : 'Auto-generated on save'"
+                  disabled
+                  class="w-full"
+                />
               </UFormField>
               <UFormField label="Asset">
                 <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />

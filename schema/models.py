@@ -724,7 +724,7 @@ class Inspection(SQLModel, table=True):
     """A single completed inspection for an asset"""
 
     id: Optional[int] = Field(primary_key=True, default=None)
-    inspection_no: str = Field(unique=True)  # e.g INS-2024-001
+    inspection_no: Optional[str] = Field(default=None, unique=True)  # e.g INS-2026-001, auto-generated
     asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
     template_id: Optional[int] = Field(
         default=None, foreign_key="inspectiontemplate.id"
