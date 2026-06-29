@@ -39,10 +39,12 @@ from schema.models import (
     Invoice,
     Issue,
     IssueStatus,
+    Location,
     WorkOrder,
     WorkOrderStatus,
 )
 from utils.down_hours import get_production_downtime_hours
+from utils.production_hours import get_production_hours
 from utils.utils import now_local, today_local
 
 # ── Palette ────────────────────────────────────────────────────────────────────
@@ -282,6 +284,7 @@ def _gather(session: Session) -> dict:
 
     assets      = list(session.exec(select(Asset)).all())
     models      = list(session.exec(select(AssetModel)).all())
+    locations   = list(session.exec(select(Location)).all())
     downtimes   = list(session.exec(select(Downtime)).all())
     work_orders = list(session.exec(select(WorkOrder)).all())
     issues      = list(session.exec(select(Issue)).all())
@@ -293,6 +296,18 @@ def _gather(session: Session) -> dict:
 
     model_map = {m.model_no: m for m in models}
     asset_model_map = {a.asset_id: model_map.get(a.model_no) for a in assets if a.model_no}
+
+    location_shift_map: dict[int, bool] = {
+        l.location_id: bool(l.shift_depot)
+        for l in locations if l.location_id is not None
+    }
+    scheduled_by_asset: dict[str, float] = {
+        a.asset_id: get_production_hours(
+            session, m_s, time(0, 0), today, time(23, 59, 59),
+            shift_depot=location_shift_map.get(a.location_id, False) if a.location_id else False,
+        )
+        for a in assets if a.asset_id
+    }
 
     def rate_at(v) -> float:
         d = _to_date(v)
@@ -372,6 +387,7 @@ def _gather(session: Session) -> dict:
         prev_like_end=prev_like_end,
         curr_by_asset=dict(curr_by_asset),
         prev_like_by_asset=dict(prev_like_by_asset),
+        scheduled_by_asset=scheduled_by_asset,
         week_bales=calc_bales(week.start, week.end),
         month_bales=calc_bales(m_s, today),
     )
@@ -700,8 +716,7 @@ def _sec_reliability(d, S, W):
     month_dts, assets = d["month_dts"], d["assets"]
     m_s, p_s = d["m_s"], d["p_s"]
     prev_dts = d["prev_dts"]
-
-    WORKING_HRS = 8 * 22  # ~22 working days × 8h
+    scheduled_by_asset: dict[str, float] = d.get("scheduled_by_asset", {})
 
     def metrics(dts):
         by_asset: dict[str, list[float]] = defaultdict(list)
@@ -713,13 +728,14 @@ def _sec_reliability(d, S, W):
             events = by_asset.get(a.asset_id, [])
             n = len(events)
             dt_hrs = sum(events)
+            sched = scheduled_by_asset.get(a.asset_id, 0) or 0
             result[a.asset_id] = {
                 "alias": a.alias or "",
                 "n": n,
                 "dt_hrs": dt_hrs,
-                "avail": max(0, (WORKING_HRS - dt_hrs) / WORKING_HRS * 100),
+                "avail": max(0, (sched - dt_hrs) / sched * 100) if sched > 0 else 100.0,
                 "mttr": dt_hrs / n if n else None,
-                "mtbf": (WORKING_HRS - dt_hrs) / n if n else None,
+                "mtbf": (sched - dt_hrs) / n if n else None,
             }
         return result
 
@@ -742,7 +758,7 @@ def _sec_reliability(d, S, W):
     cw[-1] = W - sum(cw[:-1])
 
     elems = [Paragraph("9. Reliability Summary", S["h2"])]
-    elems.append(Paragraph(f"Month to date: {m_s.strftime('%B %Y')}  (based on ~{WORKING_HRS}h scheduled hours)", S["body"]))
+    elems.append(Paragraph(f"Month to date: {m_s.strftime('%B %Y')}  (scheduled hours calculated per asset from depot shift pattern)", S["body"]))
     elems.append(Spacer(1, 5))
     if rows:
         elems.append(_make_table(

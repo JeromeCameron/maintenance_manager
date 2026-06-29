@@ -4,10 +4,12 @@ import type { Downtime } from "~/types"
 const { isAdmin } = useAuth()
 const { getAll, getOne, create, update, remove, getCauses } = useDowntime()
 const { getAll: getAssets } = useAssets()
+const { getAll: getWorkOrders } = useWorkOrders()
 
 const { data: downtimes, refresh } = await useAsyncData("downtimes", () => getAll())
 const { data: causes } = await useAsyncData("downtime-causes", () => getCauses())
 const { data: assets } = await useAsyncData("assets-select", () => getAssets())
+const { data: workOrders } = await useAsyncData("downtime-work-orders", () => getWorkOrders())
 
 const causeMap = computed(() => {
   const m: Record<number, string> = {}
@@ -17,6 +19,11 @@ const causeMap = computed(() => {
 
 const causeOptions = computed(() => (causes.value ?? []).map((c) => ({ label: c.name, value: c.cause_id })))
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const workOrderOptions = computed(() =>
+  [...(workOrders.value ?? [])]
+    .sort((a, b) => (b.work_order_id ?? 0) - (a.work_order_id ?? 0))
+    .map(w => ({ label: `#${w.work_order_id}${w.description ? ' — ' + w.description.slice(0, 50) : ''}`, value: String(w.work_order_id) }))
+)
 
 const columns = [
   { accessorKey: "downtime_id", header: "ID" },
@@ -255,7 +262,7 @@ async function confirmDelete() {
                 <UInput v-model.number="form.downtime_hours" type="number" step="0.25" class="w-full" />
               </UFormField>
               <UFormField label="Work Order">
-                <UInput v-model="form.work_order" placeholder="WO reference" class="w-full" />
+                <USelect v-model="form.work_order" :items="workOrderOptions" placeholder="Select work order" class="w-full" />
               </UFormField>
               <UFormField label="Component Affected" class="col-span-2">
                 <UInput v-model="form.component_affected" class="w-full" />

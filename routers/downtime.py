@@ -8,7 +8,7 @@ import crud.downtime as downtimes
 import utils.cache as cache
 from crud.utility import get_holidays
 from schema.database import get_session
-from schema.models import Asset, Downtime, DowntimeCause
+from schema.models import Asset, Downtime, DowntimeCause, Location
 from utils.down_hours import split_downtime_by_month
 from utils.prod_metrics import availability as calc_availability
 from utils.prod_metrics import mtbf as calc_mtbf
@@ -136,15 +136,19 @@ async def get_monthly_metrics(
             y -= 1
         month_list.append((y, m))
 
-    # Shift status per asset from downtime history
-    asset_shift: dict[str, bool] = {}
     all_dts = downtimes.get_downtimes(session)
-    for dt in all_dts:
-        if dt.asset_id is not None:
-            asset_shift[dt.asset_id] = dt.shift_asset
+
+    locations = session.exec(sql_select(Location)).all()
+    location_shift_map: dict[int, bool] = {
+        l.location_id: bool(l.shift_depot)
+        for l in locations if l.location_id is not None
+    }
 
     active_assets = session.exec(sql_select(Asset).where(Asset.status != "disposed")).all()
-    hours_per_workday = sum(16 if asset_shift.get(a.asset_id, False) else 8 for a in active_assets)
+    total_hours_per_workday = sum(
+        16 if location_shift_map.get(a.location_id, False) else 8
+        for a in active_assets
+    )
 
     scheduled: dict[tuple[int, int], float] = {}
     for (y, m) in month_list:
@@ -152,7 +156,7 @@ async def get_monthly_metrics(
             1 for d in range(1, monthrange(y, m)[1] + 1)
             if is_work_day(date(y, m, d), holidays)
         )
-        scheduled[(y, m)] = float(work_days * hours_per_workday)
+        scheduled[(y, m)] = float(work_days * total_hours_per_workday)
 
     downtime_hrs: dict[tuple[int, int], float] = {k: 0.0 for k in month_list}
     failures: dict[tuple[int, int], int] = {k: 0 for k in month_list}

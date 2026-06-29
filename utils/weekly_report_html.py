@@ -395,8 +395,8 @@ def _sec_issues(d: dict) -> str:
 def _sec_reliability(d: dict) -> str:
     assets = d["assets"]
     m_s    = d["m_s"]
-    curr_by_asset = d["curr_by_asset"]   # properly attributed hours per asset, MTD
-    WORKING_HRS = 8 * 22
+    curr_by_asset     = d["curr_by_asset"]   # properly attributed hours per asset, MTD
+    scheduled_by_asset: dict[str, float] = d.get("scheduled_by_asset", {})
 
     # Count failure events per asset (events that started in the current month)
     month_dts = d["month_dts"]
@@ -410,9 +410,10 @@ def _sec_reliability(d: dict) -> str:
     for a in sorted(assets, key=lambda x: x.asset_id or ""):
         n       = failures_by_asset.get(a.asset_id, 0)
         dt_hrs  = curr_by_asset.get(a.asset_id, 0.0)
-        avail = max(0.0, (WORKING_HRS - dt_hrs) / WORKING_HRS * 100)
+        sched   = scheduled_by_asset.get(a.asset_id, 0) or 0
+        avail = max(0.0, (sched - dt_hrs) / sched * 100) if sched > 0 else 100.0
         mttr  = dt_hrs / n if n else None
-        mtbf  = (WORKING_HRS - dt_hrs) / n if n else None
+        mtbf  = (sched - dt_hrs) / n if n else None
         avail_col = "#16a34a" if avail >= 90 else "#b45309" if avail >= 75 else "#dc2626"
         rows.append([
             f'<strong>{a.asset_id or "—"}</strong>',
@@ -451,7 +452,7 @@ def _sec_reliability(d: dict) -> str:
             f'{bars}</div>'
         )
 
-    note = f'<p style="font-size:11px;color:#94a3b8;margin:8px 0 0">Based on ~{WORKING_HRS}h scheduled hours/month.</p>'
+    note = '<p style="font-size:11px;color:#94a3b8;margin:8px 0 0">Scheduled hours calculated per asset from depot shift pattern (single or double shift).</p>'
     return _card(f"9. Reliability Summary – {m_s.strftime('%B %Y')}", tbl + chart + note, "📈")
 
 

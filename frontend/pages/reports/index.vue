@@ -565,8 +565,10 @@ const assetInvoices = computed(() =>
 )
 
 const assetShiftHours = computed(() => {
-  const rec = assetDowntimes.value.find(d => d.shift_asset !== undefined && d.shift_asset !== null)
-  return rec?.shift_asset ? 16 : 8
+  const locId = selectedAssetObj.value?.location_id
+  if (!locId) return 8
+  const loc = (locations.value ?? []).find(l => l.location_id === locId)
+  return loc?.shift_depot ? 16 : 8
 })
 
 const assetMonthlyDowntime = computed(() =>
@@ -724,6 +726,67 @@ const availLineOpts = computed(() => ({
     }],
   },
   tooltip: { y: { formatter: (v: number) => v.toFixed(1) + '%' } },
+  grid: { borderColor: '#f1f5f9' },
+}))
+
+const assetMonthlyMTTR = computed(() =>
+  analysisMonths.value.map(({ year, month }, idx) => {
+    const events = assetDowntimes.value.filter(d => {
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month && !d.planned
+    })
+    if (!events.length) return null
+    const totalHrs = events.reduce((s, d) => s + (d.downtime_hours ?? 0), 0)
+    return +(totalHrs / events.length).toFixed(2)
+  })
+)
+
+const assetMonthlyMTBF = computed(() =>
+  analysisMonths.value.map(({ year, month }, idx) => {
+    const events = assetDowntimes.value.filter(d => {
+      const dt = new Date(d.start_date ?? d.log_date ?? '')
+      return dt.getFullYear() === year && dt.getMonth() === month && !d.planned
+    })
+    if (!events.length) return null
+    const scheduled = workingDaysInMonth(year, month) * assetShiftHours.value
+    const downtime = assetMonthlyDowntime.value[idx]
+    return +Math.max(0, (scheduled - downtime) / events.length).toFixed(2)
+  })
+)
+
+const mttrLineOpts = computed(() => ({
+  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false } },
+  stroke: { width: 2, curve: 'smooth' },
+  colors: ['#f97316'],
+  markers: { size: 4 },
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: analysisMonths.value.map(m => m.label),
+    labels: { style: { fontSize: '11px' } },
+  },
+  yaxis: {
+    title: { text: 'Hours' },
+    labels: { formatter: (v: number) => v != null ? v.toFixed(1) + 'h' : '—' },
+  },
+  tooltip: { y: { formatter: (v: number) => v != null ? v.toFixed(2) + ' hrs' : 'No data' } },
+  grid: { borderColor: '#f1f5f9' },
+}))
+
+const mtbfLineOpts = computed(() => ({
+  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false } },
+  stroke: { width: 2, curve: 'smooth' },
+  colors: ['#8b5cf6'],
+  markers: { size: 4 },
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: analysisMonths.value.map(m => m.label),
+    labels: { style: { fontSize: '11px' } },
+  },
+  yaxis: {
+    title: { text: 'Hours' },
+    labels: { formatter: (v: number) => v != null ? v.toFixed(1) + 'h' : '—' },
+  },
+  tooltip: { y: { formatter: (v: number) => v != null ? v.toFixed(2) + ' hrs' : 'No data' } },
   grid: { borderColor: '#f1f5f9' },
 }))
 
@@ -1239,18 +1302,12 @@ function locTypLabel(typ: string) {
         </div>
 
         <!-- ── KPI cards ─────────────────────────────────────────── -->
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <!-- Lifetime WO cost -->
           <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
             <p class="text-xs font-medium text-slate-500">Lifetime WO Cost</p>
             <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtCurrency(lifetimeCostWO) }}</p>
             <p class="mt-1 text-xs text-slate-400">{{ assetWorkOrders.length }} work orders total</p>
-          </div>
-          <!-- Invoice spend -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Invoice Spend</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtCurrency(lifetimeCostInv) }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ assetInvoices.length }} invoices linked</p>
           </div>
           <!-- Lifetime downtime -->
           <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
@@ -1293,6 +1350,34 @@ function locTypLabel(typ: string) {
                 height="220"
                 :options="availLineOpts"
                 :series="[{ name: 'Availability %', data: assetMonthlyAvailability }]"
+              />
+            </ClientOnly>
+          </div>
+
+          <!-- MTTR -->
+          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <h3 class="mb-1 text-sm font-semibold text-slate-900">MTTR — Last 12 Months</h3>
+            <p class="mb-4 text-xs text-slate-400">Mean time to repair per failure event (unplanned only)</p>
+            <ClientOnly>
+              <apexchart
+                type="line"
+                height="220"
+                :options="mttrLineOpts"
+                :series="[{ name: 'MTTR (hrs)', data: assetMonthlyMTTR }]"
+              />
+            </ClientOnly>
+          </div>
+
+          <!-- MTBF -->
+          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+            <h3 class="mb-1 text-sm font-semibold text-slate-900">MTBF — Last 12 Months</h3>
+            <p class="mb-4 text-xs text-slate-400">Mean time between failures based on scheduled operating hours</p>
+            <ClientOnly>
+              <apexchart
+                type="line"
+                height="220"
+                :options="mtbfLineOpts"
+                :series="[{ name: 'MTBF (hrs)', data: assetMonthlyMTBF }]"
               />
             </ClientOnly>
           </div>
