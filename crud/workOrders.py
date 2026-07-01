@@ -89,6 +89,10 @@ def get_work_orders_by_asset(session: Session, asset_id: str) -> Sequence[WorkOr
     return session.exec(select(WorkOrder).where(WorkOrder.asset_id == asset_id)).all()
 
 
+def get_work_orders_by_supplier(session: Session, supplier_id: int) -> Sequence[WorkOrder]:
+    return session.exec(select(WorkOrder).where(WorkOrder.supplier_id == supplier_id)).all()
+
+
 def get_work_order(session: Session, work_order_id: int) -> Optional[WorkOrder]:
     return session.get(WorkOrder, work_order_id)
 

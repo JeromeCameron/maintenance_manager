@@ -5,6 +5,7 @@ export function useAssets() {
 
   const getAll = () => get<Asset[]>("/assets")
   const getOne = (id: string) => get<Asset>(`/assets/${id}`)
+  const getByLocation = (locationId: number) => get<Asset[]>(`/assets/location/${locationId}`)
   const create = (data: Asset) => post<Asset>("/assets", data)
   const update = (id: string, data: Asset) => put<Asset>(`/assets/${id}`, data)
   const remove = (id: string) => del(`/assets/${id}`)
@@ -22,7 +23,7 @@ export function useAssets() {
   const removeScore = (scoreId: number) => del(`/asset-scores/${scoreId}`)
 
   return {
-    getAll, getOne, create, update, remove,
+    getAll, getOne, getByLocation, create, update, remove,
     getDowntimes, getWorkOrders, getInspections, getPurchaseOrders, getAssetPMs,
     getScoreByAsset, createScore, updateScore, removeScore,
   }

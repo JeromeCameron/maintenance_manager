@@ -13,6 +13,11 @@ async def get_invoices(session: Session = Depends(get_session)):
     return invoices.get_invoices(session)
 
 
+@router.get("/supplier/{supplier_id}", status_code=status.HTTP_200_OK, response_model=list[Invoice])
+async def get_invoices_by_supplier(supplier_id: int, session: Session = Depends(get_session)):
+    return invoices.get_invoices_by_supplier(session, supplier_id)
+
+
 @router.get("/{invoice_id}", status_code=status.HTTP_200_OK, response_model=Invoice)
 async def get_invoice(invoice_id: int, session: Session = Depends(get_session)):
     invoice = invoices.get_invoice(session, invoice_id)

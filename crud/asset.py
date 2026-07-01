@@ -11,6 +11,10 @@ def get_assets(session: Session) -> Sequence[Asset]:
     return results
 
 
+def get_assets_by_location(session: Session, location_id: int) -> Sequence[Asset]:
+    return session.exec(select(Asset).where(Asset.location_id == location_id)).all()
+
+
 def get_asset(session: Session, asset_id: str) -> Optional[Asset]:
     asset = session.get(Asset, asset_id)
     return asset

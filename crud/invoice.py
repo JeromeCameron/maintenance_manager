@@ -11,6 +11,10 @@ def get_invoices(session: Session) -> Sequence[Invoice]:
     return results
 
 
+def get_invoices_by_supplier(session: Session, supplier_id: int) -> Sequence[Invoice]:
+    return session.exec(select(Invoice).where(Invoice.supplier_id == supplier_id)).all()
+
+
 def get_invoice(session: Session, id: int) -> Optional[Invoice]:
     invoice = session.get(Invoice, id)
     return invoice

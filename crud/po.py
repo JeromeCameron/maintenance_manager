@@ -13,6 +13,10 @@ def get_purchase_orders_by_asset(session: Session, asset_id: str) -> Sequence[Pu
     return session.exec(select(PurchaseOrder).where(PurchaseOrder.asset_id == asset_id)).all()
 
 
+def get_purchase_orders_by_supplier(session: Session, supplier_id: int) -> Sequence[PurchaseOrder]:
+    return session.exec(select(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)).all()
+
+
 def get_purchase_order(session: Session, po_no: str) -> Optional[PurchaseOrder]:
     po = session.get(PurchaseOrder, po_no)
     return po

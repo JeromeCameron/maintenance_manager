@@ -10,6 +10,7 @@ export function useWorkOrders() {
   const remove = (id: number) => del(`/work-orders/${id}`)
 
   const getByAsset = (assetId: string) => get<WorkOrder[]>(`/work-orders/asset/${assetId}`)
+  const getBySupplier = (supplierId: number) => get<WorkOrder[]>(`/work-orders/supplier/${supplierId}`)
 
   const getParts = () => get<WorkOrderPart[]>("/work-order-parts")
   const getPartsByWorkOrder = (workOrderId: number) => get<WorkOrderPart[]>(`/work-order-parts/work-order/${workOrderId}`)
@@ -17,5 +18,5 @@ export function useWorkOrders() {
   const updatePart = (id: number, data: WorkOrderPart) => put<WorkOrderPart>(`/work-order-parts/${id}`, data)
   const removePart = (id: number) => del(`/work-order-parts/${id}`)
 
-  return { getAll, getOne, getByAsset, create, update, remove, getParts, getPartsByWorkOrder, addPart, updatePart, removePart }
+  return { getAll, getOne, getByAsset, getBySupplier, create, update, remove, getParts, getPartsByWorkOrder, addPart, updatePart, removePart }
 }

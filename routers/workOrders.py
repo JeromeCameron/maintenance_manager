@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
 import crud.workOrders as work_orders
+
 import utils.cache as cache
 from schema.database import get_session
 from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
@@ -60,6 +61,11 @@ async def get_work_orders_by_asset(asset_id: str, session: Session = Depends(get
     result = list(work_orders.get_work_orders_by_asset(session, asset_id))
     cache.set(key, result, ttl_seconds=_WO_TTL)
     return result
+
+
+@router.get("/supplier/{supplier_id}", status_code=status.HTTP_200_OK, response_model=list[WorkOrder])
+async def get_work_orders_by_supplier(supplier_id: int, session: Session = Depends(get_session)):
+    return list(work_orders.get_work_orders_by_supplier(session, supplier_id))
 
 
 @router.get("/{work_order_id}", status_code=status.HTTP_200_OK, response_model=WorkOrder)

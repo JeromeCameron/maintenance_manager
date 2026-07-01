@@ -512,7 +512,18 @@ async function confirmDeleteBudget() {
       <template #content>
         <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
           <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ invoiceEditing ? `Edit Invoice #${invoiceEditing.id}` : "New Invoice" }}</h3>
+            <div class="flex items-center gap-3 min-w-0">
+              <h3 class="text-base font-semibold text-slate-900 shrink-0">{{ invoiceEditing ? `Edit Invoice #${invoiceEditing.id}` : "New Invoice" }}</h3>
+              <UBadge
+                :color="invoiceStatusColors[invoiceForm.status ?? ''] ?? 'neutral'"
+                variant="solid"
+                size="md"
+                class="capitalize shrink-0"
+              >{{ (invoiceForm.status ?? 'processing').replace('_', ' ') }}</UBadge>
+              <span class="rounded-lg bg-slate-800 px-3 py-1 text-sm font-bold text-white tracking-wide shrink-0">
+                ${{ (invoiceForm.subtotal ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+              </span>
+            </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showInvoiceModal = false" />
           </div>
           <div class="flex-1 overflow-y-auto px-6 py-5">

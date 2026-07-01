@@ -21,6 +21,11 @@ async def get_assets(session: Session = Depends(get_session)):
     return results
 
 
+@router.get("/location/{location_id}", status_code=status.HTTP_200_OK, response_model=list[Asset])
+async def get_assets_by_location(location_id: int, session: Session = Depends(get_session)):
+    return assets.get_assets_by_location(session, location_id)
+
+
 @router.get(
     "/{asset_id}",
     status_code=status.HTTP_200_OK,
