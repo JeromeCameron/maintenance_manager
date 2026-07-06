@@ -1,15 +1,16 @@
 from calendar import monthrange
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlmodel import Session, select as sql_select
 
+import crud.asset as assets_crud
 import crud.downtime as downtimes
 import utils.cache as cache
 from crud.utility import get_holidays
 from schema.database import get_session
 from schema.models import Asset, Downtime, DowntimeCause, Location
-from utils.down_hours import split_downtime_by_month
+from utils.down_hours import get_production_downtime_hours, split_downtime_by_month
 from utils.prod_metrics import availability as calc_availability
 from utils.prod_metrics import mtbf as calc_mtbf
 from utils.prod_metrics import mttr as calc_mttr
@@ -277,6 +278,152 @@ async def get_monthly_metrics_by_category(
 
     cache.set(cache_key, results, ttl_seconds=_METRICS_TTL)
     return results
+
+
+@router.get("/availability-30d/{asset_id}", status_code=status.HTTP_200_OK)
+async def get_availability_30d(
+    asset_id: str,
+    session: Session = Depends(get_session),
+) -> dict:
+    today = today_local()
+    window_start_date = today - timedelta(days=29)  # 30 days inclusive
+
+    holidays = {h.holiday_date for h in get_holidays(session)}
+    shift_history = sorted(
+        assets_crud.get_shift_history(session, asset_id),
+        key=lambda h: h.effective_from,
+        reverse=True,
+    )
+
+    asset = session.get(Asset, asset_id)
+    fallback_hours = 8
+    if asset and asset.location_id:
+        loc = session.get(Location, asset.location_id)
+        if loc and loc.shift_depot:
+            fallback_hours = 16
+
+    def daily_hours_for_date(d: date) -> int:
+        for entry in shift_history:
+            if entry.effective_from <= d:
+                return entry.daily_hours
+        return fallback_hours
+
+    scheduled_hours = 0.0
+    d = window_start_date
+    while d <= today:
+        if is_work_day(d, holidays):
+            scheduled_hours += daily_hours_for_date(d)
+        d += timedelta(days=1)
+
+    window_start_dt = datetime.combine(window_start_date, time(0, 0, 0))
+    window_end_dt = datetime.combine(today, time(23, 59, 59))
+
+    total_downtime = 0.0
+    for dt in downtimes.get_downtimes_by_asset(session, asset_id):
+        if dt.start_date is None or dt.start_time is None:
+            continue
+        dt_start = datetime.combine(dt.start_date, dt.start_time)
+        dt_end = datetime.combine(dt.end_date, dt.end_time) if dt.end_date and dt.end_time else window_end_dt
+        if dt_start >= window_end_dt or dt_end <= window_start_dt:
+            continue
+        clipped_start = max(dt_start, window_start_dt)
+        clipped_end = min(dt_end, window_end_dt)
+        total_downtime += get_production_downtime_hours(
+            clipped_start.date(), clipped_start.time(),
+            holidays,
+            clipped_end.date(), clipped_end.time(),
+            dt.shift_asset,
+        )
+
+    total_downtime = min(total_downtime, scheduled_hours)
+    avail = round(max(0.0, ((scheduled_hours - total_downtime) / scheduled_hours) * 100), 1) if scheduled_hours > 0 else 100.0
+
+    return {
+        "availability": avail,
+        "downtime_hours": round(total_downtime, 2),
+        "scheduled_hours": round(scheduled_hours, 2),
+    }
+
+
+@router.get("/monthly-by-asset/{asset_id}", status_code=status.HTTP_200_OK)
+async def get_monthly_downtime_by_asset(
+    asset_id: str,
+    months: int = Query(default=12, ge=1, le=24),
+    session: Session = Depends(get_session),
+) -> dict[str, float]:
+    today = today_local()
+    holidays = {h.holiday_date for h in get_holidays(session)}
+
+    month_set: set[str] = set()
+    for i in range(months):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_set.add(f"{y}-{m:02d}")
+
+    totals: dict[str, float] = {}
+    for dt in downtimes.get_downtimes_by_asset(session, asset_id):
+        if dt.start_date is None or dt.start_time is None:
+            continue
+        for seg in split_downtime_by_month(
+            session, dt.start_date, dt.start_time, dt.end_date, dt.end_time,
+            dt.shift_asset, holidays=holidays,
+        ):
+            try:
+                seg_date = datetime.strptime(seg["month"], "%B %Y").date()
+            except ValueError:
+                continue
+            key = seg_date.strftime("%Y-%m")
+            if key in month_set:
+                totals[key] = round(totals.get(key, 0.0) + seg["hours"], 2)
+
+    return totals
+
+
+@router.get("/monthly-by-location/{location_id}", status_code=status.HTTP_200_OK)
+async def get_monthly_downtime_by_location(
+    location_id: int,
+    months: int = Query(default=12, ge=1, le=24),
+    session: Session = Depends(get_session),
+) -> dict[str, float]:
+    today = today_local()
+    holidays = {h.holiday_date for h in get_holidays(session)}
+
+    month_set: set[str] = set()
+    for i in range(months):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_set.add(f"{y}-{m:02d}")
+
+    location_asset_ids = {
+        a.asset_id
+        for a in session.exec(sql_select(Asset).where(Asset.location_id == location_id)).all()
+    }
+
+    totals: dict[str, float] = {}
+    for dt in downtimes.get_downtimes(session):
+        if dt.asset_id not in location_asset_ids:
+            continue
+        if dt.start_date is None or dt.start_time is None:
+            continue
+        for seg in split_downtime_by_month(
+            session, dt.start_date, dt.start_time, dt.end_date, dt.end_time,
+            dt.shift_asset, holidays=holidays,
+        ):
+            try:
+                seg_date = datetime.strptime(seg["month"], "%B %Y").date()
+            except ValueError:
+                continue
+            key = seg_date.strftime("%Y-%m")
+            if key in month_set:
+                totals[key] = round(totals.get(key, 0.0) + seg["hours"], 2)
+
+    return totals
 
 
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[Downtime])

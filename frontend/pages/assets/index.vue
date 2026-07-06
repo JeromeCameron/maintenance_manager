@@ -2,7 +2,7 @@
 import type { Asset, AssetModel, AssetScores, WorkOrder, Downtime, Inspection, Issue } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAll, getOne, create, update, remove, getScoreByAsset, createScore, updateScore, getWorkOrders, getDowntimes, getInspections } = useAssets()
+const { getAll, getOne, create, update, remove, getScoreByAsset, createScore, updateScore, getWorkOrders, getDowntimes, getInspections, getAvailability30d } = useAssets()
 const { getOne: getModelOne } = useAssetModels()
 const { getByAsset: getIssuesByAsset } = useIssues()
 const { getAll: getLocations } = useLocations()
@@ -205,24 +205,11 @@ const workOrdersData = ref<WorkOrder[]>([])
 const downtimeData = ref<Downtime[]>([])
 const inspectionsData = ref<Inspection[]>([])
 const issuesData = ref<Issue[]>([])
+const availability30d = ref<number>(100)
 
 const isBaler = computed(() => form.value.category === "baler")
 
-const availabilityMTD = computed(() => {
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const dtHours = downtimeData.value
-    .filter(dt => !!dt.start_date && parseDateLocal(dt.start_date) >= monthStart)
-    .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
-  let workdays = 0
-  const c = new Date(monthStart)
-  while (c.getTime() <= now.getTime()) {
-    if (c.getDay() !== 0 && c.getDay() !== 6) workdays++
-    c.setDate(c.getDate() + 1)
-  }
-  const sched = workdays * 8
-  return sched > 0 ? Math.max(0, ((sched - dtHours) / sched) * 100) : 100
-})
+const availabilityMTD = computed(() => availability30d.value)
 
 const closedStatuses = ["completed", "cancelled", "closed"]
 const openWorkOrders = computed(() => workOrdersData.value.filter((w) => !closedStatuses.includes(w.status)))
@@ -258,13 +245,14 @@ async function openAsset(id: string) {
   const asset = await getOne(id)
   form.value = { ...asset }
 
-  const [scores, wos, downtimes, inspections, issues, model] = await Promise.all([
+  const [scores, wos, downtimes, inspections, issues, model, avail] = await Promise.all([
     getScoreByAsset(id).catch(() => null),
     getWorkOrders(id).catch(() => []),
     getDowntimes(id).catch(() => []),
     getInspections(id).catch(() => []),
     getIssuesByAsset(id).catch(() => []),
     (asset.category === "baler" && asset.model_no) ? getModelOne(asset.model_no).catch(() => null) : Promise.resolve(null),
+    getAvailability30d(id).catch(() => null),
   ])
 
   modelData.value = model
@@ -273,6 +261,7 @@ async function openAsset(id: string) {
   downtimeData.value = downtimes ?? []
   inspectionsData.value = inspections ?? []
   issuesData.value = issues ?? []
+  availability30d.value = avail?.availability ?? 100
   loadingAsset.value = false
 }
 
@@ -449,7 +438,7 @@ function fmtDateShort(v?: string | null) {
                 class="h-2 w-2 rounded-full"
                 :style="availabilityMTD >= 90 ? 'background:#22c55e' : availabilityMTD >= 75 ? 'background:#f59e0b' : 'background:#ef4444'"
               />
-              {{ availabilityMTD.toFixed(1) }}% MTD Avail.
+              {{ availabilityMTD.toFixed(1) }}% 30d Avail.
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showViewModal = false" />
           </div>

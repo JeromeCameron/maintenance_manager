@@ -6,11 +6,12 @@ from sqlmodel import Session
 
 import crud.asset as assets
 from schema.database import get_session
-from schema.models import Asset, AssetModel, AssetScores
+from schema.models import Asset, AssetModel, AssetScores, AssetShiftHistory
 
 router = APIRouter(prefix="/api/assets", tags=["Asset"])
 asset_model_router = APIRouter(prefix="/api/asset-models", tags=["AssetModel"])
 asset_scores_router = APIRouter(prefix="/api/asset-scores", tags=["AssetScores"])
+asset_shift_history_router = APIRouter(prefix="/api/asset-shift-history", tags=["AssetShiftHistory"])
 
 
 @router.get(
@@ -73,6 +74,35 @@ async def delete_asset(asset_id: str, session: Session = Depends(get_session)):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found"
         )
+
+
+# ------------------------------------------------------------------
+# Asset Shift History endpoints
+
+
+@router.get("/{asset_id}/shift-history", response_model=list[AssetShiftHistory])
+async def get_shift_history(asset_id: str, session: Session = Depends(get_session)):
+    return assets.get_shift_history(session, asset_id)
+
+
+@router.post("/{asset_id}/shift-history", status_code=status.HTTP_201_CREATED, response_model=AssetShiftHistory)
+async def add_shift_history(asset_id: str, entry: AssetShiftHistory, session: Session = Depends(get_session)):
+    entry.asset_id = asset_id
+    return assets.add_shift_history(session, entry)
+
+
+@asset_shift_history_router.put("/{entry_id}", response_model=AssetShiftHistory)
+async def update_shift_history(entry_id: int, data: AssetShiftHistory, session: Session = Depends(get_session)):
+    result = assets.update_shift_history(session, entry_id, data)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift history entry not found")
+    return result
+
+
+@asset_shift_history_router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_shift_history(entry_id: int, session: Session = Depends(get_session)):
+    if not assets.delete_shift_history(session, entry_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift history entry not found")
 
 
 # ------------------------------------------------------------------

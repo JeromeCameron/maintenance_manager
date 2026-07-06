@@ -276,6 +276,7 @@ class Asset(SQLModel, table=True):
     model: Optional["AssetModel"] = Relationship(back_populates="assets")
     inspections: List["Inspection"] = Relationship(back_populates="asset")
     issues: List["Issue"] = Relationship(back_populates="asset")
+    shift_history: List["AssetShiftHistory"] = Relationship(back_populates="asset")
 
     VALID_SUB_STATUSES: ClassVar[dict] = {
         AssetStatus.maintenance: [
@@ -306,6 +307,18 @@ class Asset(SQLModel, table=True):
                 f"Allowed: {[s.value for s in allowed]}"
             )
         return self
+
+
+class AssetShiftHistory(SQLModel, table=True):
+    """Records when an asset's scheduled daily hours changed.
+    The effective period for a row runs from effective_from up to (but not including)
+    the next row's effective_from for the same asset."""
+    id: Optional[int] = Field(primary_key=True, default=None)
+    asset_id: str = Field(foreign_key="asset.asset_id")
+    effective_from: date
+    daily_hours: int = Field(ge=1)
+
+    asset: Optional["Asset"] = Relationship(back_populates="shift_history")
 
 
 class AssetScores(SQLModel, table=True):

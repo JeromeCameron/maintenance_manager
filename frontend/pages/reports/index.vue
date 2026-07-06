@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkOrder, Downtime, Issue, AssetPM, Asset, AssetModel, Budget, Invoice, Location } from "~/types"
+import type { WorkOrder, Downtime, Issue, AssetPM, Asset, AssetModel, AssetShiftHistory, Budget, Invoice, Location } from "~/types"
 import type { CommodityRate } from "~/composables/useCommodityRates"
 
 interface MonthlyMetrics {
@@ -268,7 +268,7 @@ async function downloadWorkOrders() {
   triggerDownload(`work-orders-${slugDate(to)}.csv`, toCSV(["WO #", "Asset", "Priority", "Type", "Status", "Issue Date", "Expected Date", "Date Completed", "Est. Hours", "Actual Hours", "Est. Cost", "Actual Cost", "Description", "Notes"], rows))
 }
 async function downloadDowntime() {
-  const [dt, causes] = await Promise.all([get<Downtime[]>("/downtimes"), get<{ cause_id: number; name: string }[]>("/downtimes/causes")])
+  const [dt, causes] = await Promise.all([get<Downtime[]>("/downtimes"), get<{ cause_id: number; name: string }[]>("/downtime-causes")])
   const causeMap: Record<number, string> = {}; for (const c of causes ?? []) if (c.cause_id) causeMap[c.cause_id] = c.name
   const { from, to } = dateRange.value
   const rows = (dt ?? []).filter((d) => inRange(d.start_date ?? d.log_date, from, to)).map((d) => [d.downtime_id, d.asset_id, d.cause_id ? (causeMap[d.cause_id] ?? d.cause_id) : "", d.start_date, d.start_time, d.end_date, d.end_time, d.downtime_hours, d.planned ? "Yes" : "No", d.component_affected, d.root_cause, d.corrective_action, d.repeat_failure ? "Yes" : "No", d.work_order])
@@ -298,7 +298,7 @@ async function downloadReliability() {
   triggerDownload(`reliability-${slugDate(to)}.csv`, toCSV(["Month", "Failure Events", "Total Downtime (hrs)", "MTTR (hrs)", "MTBF (hrs)", "Availability"], rows))
 }
 async function downloadAssets() {
-  const [assets, locs] = await Promise.all([get<any[]>("/assets"), get<{ location_id: number; name: string }[]>("/locations")])
+  const [assets, locs] = await Promise.all([get<any[]>("/assets"), get<{ location_id: number; name: string }[]>("/depots")])
   const locMap: Record<number, string> = {}; for (const l of locs ?? []) if (l.location_id) locMap[l.location_id] = l.name
   const { from } = dateRange.value
   const rows = (assets ?? []).filter((a) => !from || inRange(a.date_in_service, from, dateRange.value.to)).map((a) => [a.asset_id, a.manufacturer, a.model_no, a.yr, a.serial_no, a.category, a.status, a.sub_status, a.owned, a.alias, a.date_in_service, a.location_id ? (locMap[a.location_id] ?? a.location_id) : "", a.notes])
@@ -334,6 +334,47 @@ async function downloadBalesLost() {
       return [month, bales, value.toFixed(2)]
     })
   triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
+}
+
+async function downloadBalerDowntimeDetail() {
+  const dt = await get<Downtime[]>("/downtimes")
+  const { from, to } = dateRange.value
+
+  const aliasMap: Record<string, string> = {}
+  for (const a of allAssets.value ?? []) aliasMap[a.asset_id] = a.alias ?? ""
+
+  const balerIds = new Set(
+    (allAssets.value ?? [])
+      .filter(a => a.category === "baler" && a.model_no && modelSpecMap.value[a.model_no])
+      .map(a => a.asset_id)
+  )
+
+  const rows = (dt ?? [])
+    .filter(d => d.asset_id && balerIds.has(d.asset_id) && inRange(d.start_date ?? d.log_date, from, to))
+    .sort((a, b) => (a.asset_id ?? "").localeCompare(b.asset_id ?? "") || (a.start_date ?? "").localeCompare(b.start_date ?? ""))
+    .map(d => {
+      const specs = modelSpecMap.value[assetModelNoMap.value[d.asset_id!]] ?? null
+      const balesLost = specs && d.downtime_hours ? d.downtime_hours * (60 / specs.bale_time) : 0
+      const rate = rateAtDate(d.start_date ?? d.log_date)
+      const valueLost = balesLost * (specs?.bale_weight ?? 0) * rate
+      return [
+        d.asset_id,
+        aliasMap[d.asset_id!] ?? "",
+        d.start_date ?? "",
+        d.start_time ?? "",
+        d.end_date ?? "",
+        d.end_time ?? "",
+        d.downtime_hours ?? "",
+        Math.round(balesLost),
+        rate.toFixed(4),
+        valueLost.toFixed(2),
+      ]
+    })
+
+  triggerDownload(
+    `baler-downtime-detail-${slugDate(to)}.csv`,
+    toCSV(["Asset ID", "Alias", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Bales Lost", "Rate ($/lb)", "Value Lost ($)"], rows)
+  )
 }
 
 async function downloadAvailabilityByCategory() {
@@ -467,7 +508,8 @@ const reports: ReportDef[] = [
   { id: "work-orders",  name: "Work Orders Summary",            description: "All work orders with status, priority, cost and hours.",                      category: "Operations",  categoryColor: "info",    icon: "i-heroicons-clipboard-document-list",    dateNote: "By issue date",       download: makeDownloader("work-orders",  downloadWorkOrders) },
   { id: "downtime",     name: "Downtime Log",                   description: "Downtime events with root cause, action and hours lost.",                     category: "Operations",  categoryColor: "info",    icon: "i-heroicons-exclamation-triangle",        dateNote: "By start date",       download: makeDownloader("downtime",     downloadDowntime) },
   { id: "issues",       name: "Issues Log",                     description: "Reported issues with severity, status and resolution.",                       category: "Operations",  categoryColor: "info",    icon: "i-heroicons-flag",                        dateNote: "By reported date",    download: makeDownloader("issues",       downloadIssues) },
-  { id: "bales-lost",   name: "Bales Lost",                     description: "Monthly bales lost and estimated value using historical commodity rates.",    category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",   downloadBalesLost) },
+  { id: "bales-lost",         name: "Bales Lost",                     description: "Monthly bales lost and estimated value using historical commodity rates.",                                              category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",         downloadBalesLost) },
+  { id: "baler-downtime-detail", name: "Baler Downtime Detail",          description: "Per-event downtime log for balers with start/end dates, hours lost, bales lost and commodity rate at time of event.", category: "Operations",  categoryColor: "info",    icon: "i-heroicons-circle-stack",                dateNote: "By start date",       download: makeDownloader("baler-downtime-detail", downloadBalerDowntimeDetail) },
   { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
   { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-wrench-screwdriver",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
   { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
@@ -504,6 +546,34 @@ async function exportAll() {
 const activeReportTab = ref<'reports' | 'asset' | 'location'>('reports')
 const selectedAssetId = ref<string | null>(null)
 
+const assetShiftHistory = ref<AssetShiftHistory[]>([])
+const assetMonthlyDowntimeData = ref<Record<string, number>>({})
+const assetAvailability30dValue = ref<number>(100)
+watch(selectedAssetId, async (id) => {
+  if (id) {
+    const [history, monthlyDt, avail30d] = await Promise.all([
+      get<AssetShiftHistory[]>(`/assets/${id}/shift-history`).catch(() => []),
+      get<Record<string, number>>(`/downtimes/monthly-by-asset/${id}?months=12`).catch(() => ({})),
+      get<{ availability: number }>(`/downtimes/availability-30d/${id}`).catch(() => null),
+    ])
+    assetShiftHistory.value = history
+    assetMonthlyDowntimeData.value = monthlyDt
+    assetAvailability30dValue.value = avail30d?.availability ?? 100
+  } else {
+    assetShiftHistory.value = []
+    assetMonthlyDowntimeData.value = {}
+    assetAvailability30dValue.value = 100
+  }
+}, { immediate: true })
+
+function resolvedDailyHours(date: Date, history: AssetShiftHistory[], fallback: number): number {
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const entry = [...history]
+    .filter(h => h.effective_from <= dateStr)
+    .sort((a, b) => b.effective_from.localeCompare(a.effective_from))[0]
+  return entry?.daily_hours ?? fallback
+}
+
 const locationMap = computed(() => {
   const m: Record<number, string> = {}
   for (const l of locations.value ?? []) if (l.location_id) m[l.location_id] = l.name
@@ -514,11 +584,24 @@ const holidaySet = computed(() =>
   new Set((holidays.value ?? []).map(h => h.holiday_date.slice(0, 10)))
 )
 
+function dtHoursInWindow(dt: Downtime, from: Date, to: Date): number {
+  if (!dt.start_date) return 0
+  const start = new Date(`${dt.start_date}T${dt.start_time ?? '00:00:00'}`)
+  const end = dt.end_date ? new Date(`${dt.end_date}T${dt.end_time ?? '23:59:59'}`) : to
+  if (start >= to || end <= from) return 0
+  const s = start < from ? from : start
+  const e = end > to ? to : end
+  return Math.max(0, (e.getTime() - s.getTime()) / 3_600_000)
+}
+
 function workingDaysInMonth(year: number, month: number): number {
-  // month is 0-based
+  // month is 0-based; cap at today for the current partial month
+  const now = new Date()
   const days = new Date(year, month + 1, 0).getDate()
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
+  const maxDay = isCurrentMonth ? now.getDate() : days
   let n = 0
-  for (let d = 1; d <= days; d++) {
+  for (let d = 1; d <= maxDay; d++) {
     const date = new Date(year, month, d)
     if (date.getDay() === 0 || date.getDay() === 6) continue
     const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
@@ -564,33 +647,53 @@ const assetInvoices = computed(() =>
   (invoices.value ?? []).filter(i => i.asset_id === selectedAssetId.value)
 )
 
-const assetShiftHours = computed(() => {
+const locationFallbackHours = computed(() => {
   const locId = selectedAssetObj.value?.location_id
   if (!locId) return 8
   const loc = (locations.value ?? []).find(l => l.location_id === locId)
   return loc?.shift_depot ? 16 : 8
 })
 
+const assetShiftHours = computed(() => {
+  if (assetShiftHistory.value.length) {
+    const sorted = [...assetShiftHistory.value].sort((a, b) => b.effective_from.localeCompare(a.effective_from))
+    return sorted[0].daily_hours
+  }
+  return locationFallbackHours.value
+})
+
 const assetMonthlyDowntime = computed(() =>
-  analysisMonths.value.map(({ year, month }) =>
-    +assetDowntimes.value
-      .filter(d => {
-        const dt = new Date(d.start_date ?? d.log_date ?? '')
-        return dt.getFullYear() === year && dt.getMonth() === month
-      })
-      .reduce((s, d) => s + (d.downtime_hours ?? 0), 0)
-      .toFixed(1)
+  analysisMonths.value.map(({ key }) =>
+    +(assetMonthlyDowntimeData.value[key] ?? 0).toFixed(1)
   )
 )
 
+function scheduledHoursForMonth(year: number, month: number): number {
+  let sched = 0
+  const now = new Date()
+  const days = new Date(year, month + 1, 0).getDate()
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
+  const maxDay = isCurrentMonth ? now.getDate() : days
+  for (let d = 1; d <= maxDay; d++) {
+    const date = new Date(year, month, d)
+    if (date.getDay() === 0 || date.getDay() === 6) continue
+    const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    if (holidaySet.value.has(key)) continue
+    sched += resolvedDailyHours(date, assetShiftHistory.value, locationFallbackHours.value)
+  }
+  return sched
+}
+
 const assetMonthlyAvailability = computed(() =>
   analysisMonths.value.map(({ year, month }, idx) => {
-    const scheduled = workingDaysInMonth(year, month) * assetShiftHours.value
+    const scheduled = scheduledHoursForMonth(year, month)
     if (!scheduled) return 100
     const dt = assetMonthlyDowntime.value[idx]
     return +Math.max(0, ((scheduled - dt) / scheduled) * 100).toFixed(1)
   })
 )
+
+const assetAvailability30d = computed(() => assetAvailability30dValue.value)
 
 const lifetimeDowntimeHrs = computed(() =>
   assetDowntimes.value.reduce((s, d) => s + (d.downtime_hours ?? 0), 0)
@@ -748,7 +851,7 @@ const assetMonthlyMTBF = computed(() =>
       return dt.getFullYear() === year && dt.getMonth() === month && !d.planned
     })
     if (!events.length) return null
-    const scheduled = workingDaysInMonth(year, month) * assetShiftHours.value
+    const scheduled = scheduledHoursForMonth(year, month)
     const downtime = assetMonthlyDowntime.value[idx]
     return +Math.max(0, (scheduled - downtime) / events.length).toFixed(2)
   })
@@ -792,6 +895,12 @@ const mtbfLineOpts = computed(() => ({
 
 // ── Location Analysis ──────────────────────────────────────────
 const selectedLocationId = ref<number | null>(null)
+const locationMonthlyDowntimeData = ref<Record<string, number>>({})
+watch(selectedLocationId, async (id) => {
+  locationMonthlyDowntimeData.value = id
+    ? await get<Record<string, number>>(`/downtimes/monthly-by-location/${id}?months=12`).catch(() => ({}))
+    : {}
+}, { immediate: true })
 
 const selectedLocationObj = computed(() =>
   (locations.value ?? []).find(l => l.location_id === selectedLocationId.value) ?? null
@@ -838,14 +947,8 @@ const locationScheduledHoursPerDay = computed(() =>
 )
 
 const locationMonthlyDowntime = computed(() =>
-  analysisMonths.value.map(({ year, month }) =>
-    +locationDowntimes.value
-      .filter(d => {
-        const dt = new Date(d.start_date ?? d.log_date ?? '')
-        return dt.getFullYear() === year && dt.getMonth() === month
-      })
-      .reduce((s, d) => s + (d.downtime_hours ?? 0), 0)
-      .toFixed(1)
+  analysisMonths.value.map(({ key }) =>
+    +(locationMonthlyDowntimeData.value[key] ?? 0).toFixed(1)
   )
 )
 
@@ -1285,9 +1388,9 @@ function locTypLabel(typ: string) {
               <p class="mt-0.5 text-sm text-slate-700">{{ locationMap[selectedAssetObj.location_id] ?? selectedAssetObj.location_id }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Current Availability</p>
-              <p class="mt-0.5 text-sm font-semibold" :class="assetMonthlyAvailability[11] >= 90 ? 'text-green-600' : assetMonthlyAvailability[11] >= 75 ? 'text-amber-600' : 'text-red-600'">
-                {{ assetMonthlyAvailability[11] }}%
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Availability (30d)</p>
+              <p class="mt-0.5 text-sm font-semibold" :class="assetAvailability30d >= 90 ? 'text-green-600' : assetAvailability30d >= 75 ? 'text-amber-600' : 'text-red-600'">
+                {{ assetAvailability30d }}%
               </p>
             </div>
             <div v-if="selectedAssetModel?.bale_time" class="sm:col-span-2">

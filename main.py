@@ -5,7 +5,7 @@ from slowapi.errors import RateLimitExceeded
 
 from auth.dependencies import admin_on_write, get_current_user, write_on_write
 from auth.rate_limit import limiter
-from routers.asset import asset_model_router, asset_scores_router
+from routers.asset import asset_model_router, asset_scores_router, asset_shift_history_router
 from routers.asset import router as asset_router
 from routers.auth import router as auth_router
 from routers.commodity_rates import router as commodity_rate_router
@@ -64,6 +64,7 @@ app.include_router(user_self_router, dependencies=[Depends(get_current_user)])
 app.include_router(asset_router, dependencies=[Depends(admin_on_write)])
 app.include_router(asset_model_router, dependencies=[Depends(admin_on_write)])
 app.include_router(asset_scores_router, dependencies=[Depends(admin_on_write)])
+app.include_router(asset_shift_history_router, dependencies=[Depends(admin_on_write)])
 app.include_router(depot_router, dependencies=[Depends(admin_on_write)])
 app.include_router(supplier_router, dependencies=[Depends(admin_on_write)])
 app.include_router(budget_router, dependencies=[Depends(admin_on_write)])

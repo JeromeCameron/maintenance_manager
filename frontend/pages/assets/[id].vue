@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Asset, AssetModel, AssetScores, WorkOrder, Downtime, Inspection } from "~/types"
+import type { Asset, AssetModel, AssetScores, AssetShiftHistory, WorkOrder, Downtime, Inspection } from "~/types"
 
 const route = useRoute()
 const router = useRouter()
 const { getOne, create, update, getWorkOrders, getDowntimes, getInspections,
-  getScoreByAsset, createScore, updateScore, removeScore } = useAssets()
+  getScoreByAsset, createScore, updateScore, removeScore, getShiftHistory, getAvailability30d } = useAssets()
 const { getOne: getModelOne } = useAssetModels()
+const { getAll: getAllLocations } = useLocations()
 
 const isNew = route.params.id === "new"
 const assetId = isNew ? null : (route.params.id as string)
@@ -35,6 +36,16 @@ const { data: downtimes } = !isNew && assetId
 const { data: inspections } = !isNew && assetId
   ? await useAsyncData(`ins-${assetId}`, () => getInspections(assetId))
   : { data: ref([]) }
+
+const { data: locations } = await useAsyncData("locations-select", () => getAllLocations())
+
+const { data: shiftHistory } = !isNew && assetId
+  ? await useAsyncData(`sh-${assetId}`, () => getShiftHistory(assetId))
+  : { data: ref<AssetShiftHistory[]>([]) }
+
+const { data: avail30dData } = !isNew && assetId
+  ? await useAsyncData(`avail30d-${assetId}`, () => getAvailability30d(assetId).catch(() => null))
+  : { data: ref(null) }
 
 // ── Baler model specs (read-only) ─────────────────────────────
 const modelData = ref<AssetModel | null>(null)
@@ -112,22 +123,8 @@ function parseDateLocal(v: string): Date {
   return new Date(y, m - 1, d)
 }
 
-// ── MTD Availability ──────────────────────────────────────────
-const availabilityMTD = computed(() => {
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const dtHours = (downtimes.value ?? [])
-    .filter(dt => !!dt.start_date && parseDateLocal(dt.start_date) >= monthStart)
-    .reduce((sum, dt) => sum + (dt.downtime_hours ?? 0), 0)
-  let workdays = 0
-  const c = new Date(monthStart)
-  while (c.getTime() <= now.getTime()) {
-    if (c.getDay() !== 0 && c.getDay() !== 6) workdays++
-    c.setDate(c.getDate() + 1)
-  }
-  const sched = workdays * 8
-  return sched > 0 ? Math.max(0, ((sched - dtHours) / sched) * 100) : 100
-})
+// ── Rolling 30-day Availability ───────────────────────────────
+const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
 </script>
 
 <template>
@@ -146,7 +143,7 @@ const availabilityMTD = computed(() => {
             style="width:8px;height:8px;border-radius:50%;flex-shrink:0;"
             :style="availabilityMTD >= 90 ? 'background:#22c55e' : availabilityMTD >= 75 ? 'background:#f59e0b' : 'background:#ef4444'"
           />
-          {{ availabilityMTD.toFixed(1) }}% <span style="font-weight:400;opacity:0.65;margin-left:2px">MTD Avail.</span>
+          {{ availabilityMTD.toFixed(1) }}% <span style="font-weight:400;opacity:0.65;margin-left:2px">30d Avail.</span>
         </div>
       </template>
     </div>

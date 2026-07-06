@@ -2,7 +2,7 @@ from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from schema.models import Asset, AssetModel, AssetScores
+from schema.models import Asset, AssetModel, AssetScores, AssetShiftHistory
 
 
 def get_assets(session: Session) -> Sequence[Asset]:
@@ -48,6 +48,46 @@ def delete_asset(session: Session, asset_id: str) -> bool:
     if asset is None:
         return False
     session.delete(asset)
+    session.commit()
+    return True
+
+
+# ------------------------------------------------------------------
+# Asset Shift History
+
+
+def get_shift_history(session: Session, asset_id: str) -> Sequence[AssetShiftHistory]:
+    return session.exec(
+        select(AssetShiftHistory)
+        .where(AssetShiftHistory.asset_id == asset_id)
+        .order_by(AssetShiftHistory.effective_from)
+    ).all()
+
+
+def add_shift_history(session: Session, entry: AssetShiftHistory) -> AssetShiftHistory:
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+def update_shift_history(session: Session, entry_id: int, data: AssetShiftHistory) -> Optional[AssetShiftHistory]:
+    entry = session.get(AssetShiftHistory, entry_id)
+    if entry is None:
+        return None
+    for key, value in data.model_dump(exclude_unset=True).items():
+        setattr(entry, key, value)
+    session.add(entry)
+    session.commit()
+    session.refresh(entry)
+    return entry
+
+
+def delete_shift_history(session: Session, entry_id: int) -> bool:
+    entry = session.get(AssetShiftHistory, entry_id)
+    if entry is None:
+        return False
+    session.delete(entry)
     session.commit()
     return True
 

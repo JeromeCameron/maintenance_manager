@@ -1,4 +1,4 @@
-import type { Asset, AssetScores, Downtime, Inspection, AssetPM, PurchaseOrder, WorkOrder } from "~/types"
+import type { Asset, AssetScores, AssetShiftHistory, Downtime, Inspection, AssetPM, PurchaseOrder, WorkOrder } from "~/types"
 
 export function useAssets() {
   const { get, post, put, del } = useApi()
@@ -22,9 +22,20 @@ export function useAssets() {
   const updateScore = (scoreId: number, data: AssetScores) => put<AssetScores>(`/asset-scores/${scoreId}`, data)
   const removeScore = (scoreId: number) => del(`/asset-scores/${scoreId}`)
 
+  interface Availability30d { availability: number; downtime_hours: number; scheduled_hours: number }
+  const getAvailability30d = (assetId: string) => get<Availability30d>(`/downtimes/availability-30d/${assetId}`)
+
+  // Asset Shift History
+  const getShiftHistory = (assetId: string) => get<AssetShiftHistory[]>(`/assets/${assetId}/shift-history`)
+  const createShiftHistory = (assetId: string, data: AssetShiftHistory) => post<AssetShiftHistory>(`/assets/${assetId}/shift-history`, data)
+  const updateShiftHistory = (id: number, data: AssetShiftHistory) => put<AssetShiftHistory>(`/asset-shift-history/${id}`, data)
+  const removeShiftHistory = (id: number) => del(`/asset-shift-history/${id}`)
+
   return {
     getAll, getOne, getByLocation, create, update, remove,
     getDowntimes, getWorkOrders, getInspections, getPurchaseOrders, getAssetPMs,
     getScoreByAsset, createScore, updateScore, removeScore,
+    getShiftHistory, createShiftHistory, updateShiftHistory, removeShiftHistory,
+    getAvailability30d,
   }
 }

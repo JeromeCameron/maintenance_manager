@@ -77,6 +77,13 @@ export interface Location {
   typ: LocationType
 }
 
+export interface AssetShiftHistory {
+  id?: number
+  asset_id: string
+  effective_from: string
+  daily_hours: number
+}
+
 export interface Downtime {
   downtime_id?: number
   log_date?: string
