@@ -26,6 +26,7 @@ const { data: monthlyMetricsData } = useAsyncData("rpt-monthly-metrics",   () =>
 const { data: commodityRates }     = await useAsyncData("rpt-commodity-rates", () => getCommodityRates())
 const { data: holidays }           = useAsyncData("rpt-holidays",          () => get<{ holiday_date: string }[]>("/holidays"))
 const { data: locations }          = useAsyncData("rpt-locations",         () => get<Location[]>("/depots"))
+const { data: downtimeCauses }     = useAsyncData("rpt-downtime-causes",   () => get<{ cause_id: number; name: string }[]>("/downtime-causes"))
 
 // ── Timeline filter ────────────────────────────────────────────
 const timelineOptions = [
@@ -543,7 +544,7 @@ async function exportAll() {
 }
 
 // ── Asset Analysis ─────────────────────────────────────────────
-const activeReportTab = ref<'reports' | 'asset' | 'location'>('reports')
+const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime'>('reports')
 const selectedAssetId = ref<string | null>(null)
 
 const assetShiftHistory = ref<AssetShiftHistory[]>([])
@@ -1045,6 +1046,92 @@ const locationAvg12mAvailability = computed(() => {
 function locTypLabel(typ: string) {
   return typ === 'depot' ? 'Depot' : 'Redemption Centre'
 }
+
+// ── Downtime Analysis tab ──────────────────────────────────────
+const dtCauseMap = computed(() => {
+  const m: Record<number, string> = {}
+  for (const c of downtimeCauses.value ?? []) if (c.cause_id != null) m[c.cause_id] = c.name
+  return m
+})
+
+const paretoDtData = computed(() => {
+  const hours: Record<number, number> = {}
+  const events: Record<number, number> = {}
+  for (const d of filteredDowntimes.value) {
+    if (d.cause_id == null || d.planned) continue
+    hours[d.cause_id] = (hours[d.cause_id] ?? 0) + (d.downtime_hours ?? 0)
+    events[d.cause_id] = (events[d.cause_id] ?? 0) + 1
+  }
+  const sorted = Object.entries(hours)
+    .map(([id, h]) => ({ id: Number(id), name: dtCauseMap.value[Number(id)] ?? `Cause ${id}`, hours: h, events: events[Number(id)] ?? 0 }))
+    .sort((a, b) => b.hours - a.hours)
+  const total = sorted.reduce((s, r) => s + r.hours, 0)
+  let cumulative = 0
+  return sorted.map((r) => {
+    cumulative += r.hours
+    return { ...r, cumPct: total > 0 ? Math.round((cumulative / total) * 100) : 0 }
+  })
+})
+
+const paretoDtSeries = computed(() => [
+  { name: "Downtime Hours", type: "bar",  data: paretoDtData.value.map((r) => +r.hours.toFixed(1)) },
+  { name: "Cumulative %",   type: "line", data: paretoDtData.value.map((r) => r.cumPct) },
+])
+
+const paretoDtOptions = computed(() => ({
+  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  plotOptions: { bar: { columnWidth: "55%", borderRadius: 4 } },
+  stroke: { width: [0, 2], curve: "straight" },
+  colors: ["#f97316", "#64748b"],
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: paretoDtData.value.map((r) => r.name),
+    labels: { style: { fontSize: "11px", colors: "#94a3b8" }, rotate: -30 },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  yaxis: [
+    {
+      title: { text: "Hours", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => v.toFixed(0) + "h" },
+    },
+    {
+      opposite: true, min: 0, max: 100, tickAmount: 4,
+      title: { text: "%", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => Math.round(v) + "%" },
+    },
+  ],
+  grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+  legend: { show: false },
+  tooltip: { shared: true },
+}))
+
+const topOffendingAssets = computed(() => {
+  const assetHours: Record<string, { hours: number; events: number; repeats: number }> = {}
+  for (const d of filteredDowntimes.value) {
+    if (!d.asset_id || d.planned) continue
+    if (!assetHours[d.asset_id]) assetHours[d.asset_id] = { hours: 0, events: 0, repeats: 0 }
+    assetHours[d.asset_id].hours += d.downtime_hours ?? 0
+    assetHours[d.asset_id].events++
+    if (d.repeat_failure) assetHours[d.asset_id].repeats++
+  }
+  const total = Object.values(assetHours).reduce((s, v) => s + v.hours, 0)
+  return Object.entries(assetHours)
+    .map(([id, { hours, events, repeats }]) => ({
+      id,
+      hours: +hours.toFixed(1),
+      events,
+      repeats,
+      pct: total > 0 ? +((hours / total) * 100).toFixed(1) : 0,
+    }))
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 10)
+})
+
+const dtTotalHours = computed(() => filteredDowntimes.value.reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
+const dtUnplannedHours = computed(() => filteredDowntimes.value.filter(d => !d.planned).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
+const dtUnplannedEvents = computed(() => filteredDowntimes.value.filter(d => !d.planned).length)
+const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.repeat_failure).length)
 </script>
 
 <template>
@@ -1067,6 +1154,11 @@ function locTypLabel(typ: string) {
         :class="activeReportTab === 'location' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
         @click="activeReportTab = 'location'"
       >Location Analysis</button>
+      <button
+        class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+        :class="activeReportTab === 'downtime' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        @click="activeReportTab = 'downtime'"
+      >Downtime Analysis</button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -1770,6 +1862,141 @@ function locTypLabel(typ: string) {
         </div>
 
       </template>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Downtime Analysis tab                                        -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <template v-else-if="activeReportTab === 'downtime'">
+
+      <!-- Date filter row (reuses existing selectedDays) -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400" />
+          <select v-model="selectedDays" class="bg-transparent text-sm text-slate-700 focus:outline-none">
+            <option v-for="opt in timelineOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <span class="text-xs text-slate-400">{{ selectedLabel }}</span>
+      </div>
+
+      <!-- ── KPI row ─────────────────────────────────────────────── -->
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Total Downtime</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ dtTotalHours.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400">h</span></p>
+          <p class="mt-1 text-xs text-slate-400">Planned + unplanned</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Unplanned Downtime</p>
+          <p class="mt-1.5 text-2xl font-bold text-red-600">{{ dtUnplannedHours.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-red-300">h</span></p>
+          <p class="mt-1 text-xs text-slate-400">{{ dtUnplannedEvents }} failure events</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Repeat Failures</p>
+          <p class="mt-1.5 text-2xl font-bold text-amber-600">{{ dtRepeatFailures }}</p>
+          <p class="mt-1 text-xs text-slate-400">Same-cause recurrences</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Avg Time to Repair</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900">
+            {{ dtUnplannedEvents > 0 ? (dtUnplannedHours / dtUnplannedEvents).toFixed(1) : '—' }}<span v-if="dtUnplannedEvents > 0" class="ml-0.5 text-sm font-medium text-slate-400">h</span>
+          </p>
+          <p class="mt-1 text-xs text-slate-400">MTTR (unplanned)</p>
+        </div>
+      </div>
+
+      <!-- ── Pareto + Top Assets ────────────────────────────────── -->
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+        <!-- Pareto chart (2/3 width) -->
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 lg:col-span-2">
+          <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-700">Failure Drivers — Pareto Analysis</h2>
+              <p class="text-xs text-slate-400">Unplanned downtime hours by cause, sorted by impact</p>
+            </div>
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
+              <UIcon name="i-heroicons-chart-bar-square" class="h-4 w-4 text-orange-500" />
+            </div>
+          </div>
+          <div class="p-5">
+            <div v-if="paretoDtData.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+              No unplanned downtime events in this period.
+            </div>
+            <ClientOnly v-else>
+              <apexchart type="line" height="260" :options="paretoDtOptions" :series="paretoDtSeries" />
+              <template #fallback>
+                <div class="flex h-[260px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+              </template>
+            </ClientOnly>
+          </div>
+          <!-- Cause breakdown table -->
+          <div v-if="paretoDtData.length" class="border-t border-slate-100">
+            <div class="divide-y divide-slate-50">
+              <div v-for="(row, i) in paretoDtData" :key="row.id" class="flex items-center gap-4 px-5 py-2.5">
+                <span class="w-5 shrink-0 text-center text-xs font-bold text-slate-400">{{ i + 1 }}</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-slate-800">{{ row.name }}</p>
+                  <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div class="h-1.5 rounded-full bg-orange-400" :style="{ width: row.cumPct - (i > 0 ? paretoDtData[i-1].cumPct : 0) + '%' }" />
+                  </div>
+                </div>
+                <div class="shrink-0 text-right">
+                  <p class="text-sm font-semibold text-slate-800">{{ row.hours.toFixed(1) }}h</p>
+                  <p class="text-xs text-slate-400">{{ row.events }} event{{ row.events !== 1 ? 's' : '' }}</p>
+                </div>
+                <span class="w-10 shrink-0 text-right text-xs font-medium text-slate-400">{{ row.cumPct }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Offending Assets (1/3 width) -->
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <div class="border-b border-slate-100 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700">Top Offending Assets</h2>
+            <p class="text-xs text-slate-400">By unplanned downtime hours</p>
+          </div>
+          <div v-if="topOffendingAssets.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+            No data in this period.
+          </div>
+          <div v-else class="divide-y divide-slate-50">
+            <button
+              v-for="(asset, i) in topOffendingAssets"
+              :key="asset.id"
+              class="flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-blue-50"
+              @click="selectedAssetId = asset.id; activeReportTab = 'asset'"
+            >
+              <!-- Rank -->
+              <span
+                class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                :class="i === 0 ? 'bg-red-100 text-red-600' : i === 1 ? 'bg-orange-100 text-orange-600' : i === 2 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'"
+              >{{ i + 1 }}</span>
+              <!-- Info -->
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-800">{{ asset.id }}</p>
+                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    class="h-1.5 rounded-full"
+                    :class="i === 0 ? 'bg-red-400' : i === 1 ? 'bg-orange-400' : 'bg-amber-300'"
+                    :style="{ width: asset.pct + '%' }"
+                  />
+                </div>
+                <p class="mt-0.5 text-xs text-slate-400">{{ asset.events }} event{{ asset.events !== 1 ? 's' : '' }}<span v-if="asset.repeats"> · {{ asset.repeats }} repeat{{ asset.repeats !== 1 ? 's' : '' }}</span></p>
+              </div>
+              <!-- Hours -->
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-semibold text-slate-800">{{ asset.hours }}h</p>
+                <p class="text-xs text-slate-400">{{ asset.pct }}%</p>
+              </div>
+              <UIcon name="i-heroicons-arrow-right" class="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+
     </template>
 
   </div>

@@ -17,6 +17,7 @@ export function useAssets() {
   const getAssetPMs = (assetId: string) => get<AssetPM[]>(`/maintenance/asset-pms/asset/${assetId}`)
 
   // Asset Scores
+  const getAllScores = () => get<AssetScores[]>("/asset-scores")
   const getScoreByAsset = (assetId: string) => get<AssetScores | null>(`/asset-scores/asset/${assetId}`)
   const createScore = (data: AssetScores) => post<AssetScores>("/asset-scores", data)
   const updateScore = (scoreId: number, data: AssetScores) => put<AssetScores>(`/asset-scores/${scoreId}`, data)
@@ -34,7 +35,7 @@ export function useAssets() {
   return {
     getAll, getOne, getByLocation, create, update, remove,
     getDowntimes, getWorkOrders, getInspections, getPurchaseOrders, getAssetPMs,
-    getScoreByAsset, createScore, updateScore, removeScore,
+    getAllScores, getScoreByAsset, createScore, updateScore, removeScore,
     getShiftHistory, createShiftHistory, updateShiftHistory, removeShiftHistory,
     getAvailability30d,
   }

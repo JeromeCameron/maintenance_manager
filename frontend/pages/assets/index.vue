@@ -2,16 +2,49 @@
 import type { Asset, AssetModel, AssetScores, WorkOrder, Downtime, Inspection, Issue } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAll, getOne, create, update, remove, getScoreByAsset, createScore, updateScore, getWorkOrders, getDowntimes, getInspections, getAvailability30d } = useAssets()
+const { getAll, getOne, create, update, remove, getAllScores, getScoreByAsset, createScore, updateScore, getWorkOrders, getDowntimes, getInspections, getAvailability30d } = useAssets()
 const { getOne: getModelOne } = useAssetModels()
 const { getByAsset: getIssuesByAsset } = useIssues()
 const { getAll: getLocations } = useLocations()
 
 const { data: assets, refresh } = await useAsyncData("assets", () => getAll())
 const { data: locations } = await useAsyncData("locations-select", () => getLocations())
+const { data: allScores } = await useAsyncData("asset-scores-all", () => getAllScores())
+
+const scoresMap = computed(() => {
+  const m: Record<string, AssetScores> = {}
+  for (const s of allScores.value ?? []) { if (s.asset_id) m[s.asset_id] = s }
+  return m
+})
+
+function criticalityTotal(s: AssetScores): number {
+  return (s.safety_score ?? 0) + (s.operational_score ?? 0) + (s.backup_score ?? 0) + (s.repair_score ?? 0) + (s.usage_score ?? 0)
+}
 
 const statusColors: Record<string, string> = {
   operational: "success", maintenance: "warning", out_of_service: "error", disposed: "neutral", retired: "neutral",
+}
+
+const assetStatusStyles: Record<string, string> = {
+  operational:    "bg-green-50 text-green-600 ring-1 ring-green-200",
+  maintenance:    "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
+  out_of_service: "bg-red-50 text-red-600 ring-1 ring-red-200",
+  disposed:       "bg-gray-100 text-gray-500 ring-1 ring-gray-200",
+  retired:        "bg-slate-100 text-slate-500 ring-1 ring-slate-200",
+}
+
+const categoryStyles: Record<string, string> = {
+  baler:    "bg-blue-50 text-blue-600",
+  conveyor: "bg-purple-50 text-purple-600",
+  bobcat:   "bg-orange-50 text-orange-600",
+  forklift: "bg-teal-50 text-teal-700",
+  scale:    "bg-indigo-50 text-indigo-600",
+}
+
+const ownershipStyles: Record<string, string> = {
+  owned:  "bg-emerald-50 text-emerald-600",
+  rented: "bg-amber-50 text-amber-700",
+  leased: "bg-violet-50 text-violet-600",
 }
 const severityColors: Record<string, string> = { low: "success", medium: "warning", high: "error", critical: "error" }
 const woStatusColors: Record<string, string> = { requested: "neutral", approved: "info", in_progress: "warning", completed: "success", cancelled: "neutral" }
@@ -309,42 +342,114 @@ function fmtDateShort(v?: string | null) {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <UCard>
+  <div class="flex min-h-full flex-col gap-4">
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Asset</UButton>
         </div>
       </template>
-      <UTable
-        :data="filtered"
-        :columns="columns"
-        :ui="{
-          root: 'relative overflow-auto max-h-[calc(100vh-22rem)]',
-          th: 'bg-slate-100 text-slate-500 font-semibold',
-          tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors',
-        }"
-      >
-        <template #status-cell="{ row: { original: row } }">
-          <UBadge :color="statusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status.replace(/_/g, " ") }}</UBadge>
-        </template>
-        <template #category-cell="{ row: { original: row } }">
-          <span class="capitalize">{{ row.category }}</span>
-        </template>
-        <template #owned-cell="{ row: { original: row } }">
-          <span class="capitalize">{{ row.owned }}</span>
-        </template>
-        <template #location_id-cell="{ row: { original: row } }">
-          {{ row.location_id ? locationMap[row.location_id] ?? row.location_id : "—" }}
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openAsset(row.asset_id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+      <!-- Asset card list -->
+      <div class="divide-y divide-gray-100 overflow-auto h-full">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No assets found.
+        </div>
+        <div
+          v-for="asset in filtered"
+          :key="asset.asset_id"
+          class="flex items-start gap-4 px-5 py-4 hover:bg-blue-50/40 transition-colors border-l-4"
+          :class="asset.status === 'out_of_service' ? 'border-l-red-400' : asset.status === 'maintenance' ? 'border-l-yellow-400' : 'border-l-transparent'"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-wrench-screwdriver" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ asset.asset_id }}</span>
+              <span v-if="asset.alias" class="text-xs text-slate-400">· {{ asset.alias }}</span>
+              <span
+                class="h-2 w-2 shrink-0 rounded-full"
+                :class="asset.status === 'operational' ? 'bg-green-500' : asset.status === 'maintenance' ? 'bg-yellow-400' : asset.status === 'out_of_service' ? 'bg-red-500' : 'bg-gray-300'"
+              />
+            </div>
+            <!-- Manufacturer + year -->
+            <p class="mt-0.5 text-xs text-gray-500">
+              {{ asset.manufacturer }}<span v-if="asset.yr"> · {{ asset.yr }}</span>
+            </p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
+                :class="categoryStyles[asset.category] ?? 'bg-gray-100 text-gray-500'"
+              >{{ asset.category }}</span>
+              <span v-if="asset.location_id" class="flex items-center gap-1 text-[11px] text-gray-500">
+                <UIcon name="i-heroicons-map-pin" class="h-3 w-3" />
+                {{ locationMap[asset.location_id] ?? asset.location_id }}
+              </span>
+              <span
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
+                :class="ownershipStyles[asset.owned] ?? 'bg-gray-100 text-gray-500'"
+              >{{ asset.owned }}</span>
+              <span v-if="asset.model_no" class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-tag" class="h-3 w-3" />
+                {{ asset.model_no }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Criticality (centre column) -->
+          <div class="w-44 shrink-0 self-center mr-6">
+            <template v-if="scoresMap[asset.asset_id]">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[11px] text-gray-400">Criticality</span>
+                <div class="flex items-center gap-1">
+                  <span class="text-xs font-bold" :class="getCriticalityTier(criticalityTotal(scoresMap[asset.asset_id])).color">
+                    {{ criticalityTotal(scoresMap[asset.asset_id]) }}/12
+                  </span>
+                  <span class="text-[11px]" :class="getCriticalityTier(criticalityTotal(scoresMap[asset.asset_id])).color">
+                    · {{ getCriticalityTier(criticalityTotal(scoresMap[asset.asset_id])).label }}
+                  </span>
+                </div>
+              </div>
+              <div class="h-1.5 w-full rounded-full bg-gray-100">
+                <div
+                  class="h-1.5 rounded-full transition-all"
+                  :class="criticalityTotal(scoresMap[asset.asset_id]) >= 10 ? 'bg-red-500' : criticalityTotal(scoresMap[asset.asset_id]) >= 7 ? 'bg-orange-400' : criticalityTotal(scoresMap[asset.asset_id]) >= 4 ? 'bg-amber-400' : 'bg-green-400'"
+                  :style="{ width: (criticalityTotal(scoresMap[asset.asset_id]) / 12 * 100) + '%' }"
+                />
+              </div>
+              <span
+                class="mt-1.5 inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-semibold"
+                :class="[getRiskFlag(scoresMap[asset.asset_id]).bg, getRiskFlag(scoresMap[asset.asset_id]).color]"
+              >{{ getRiskFlag(scoresMap[asset.asset_id]).label }}</span>
+            </template>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <!-- Status pill -->
+            <span
+              class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize"
+              :class="assetStatusStyles[asset.status] ?? 'bg-gray-100 text-gray-500'"
+            >{{ asset.status.replace(/_/g, ' ') }}</span>
+            <!-- Sub-status if any -->
+            <span v-if="asset.sub_status" class="text-[11px] text-gray-400 capitalize">
+              {{ asset.sub_status.replace(/_/g, ' ') }}
+            </span>
+            <!-- Actions -->
+            <div class="flex items-center gap-1">
+              <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openAsset(asset.asset_id)" />
+              <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = asset" />
+            </div>
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Create Modal -->

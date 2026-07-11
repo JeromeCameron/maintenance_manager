@@ -71,7 +71,7 @@ const navGroups = [
   {
     label: "Resources",
     items: [
-      { label: "Inventory", icon: "i-heroicons-archive-box", to: "/inventory" },
+      { label: "Parts Inventory", icon: "i-heroicons-archive-box", to: "/inventory" },
       { label: "Finance", icon: "i-heroicons-banknotes", to: "/finance" },
       { label: "Reports", icon: "i-heroicons-document-chart-bar", to: "/reports" },
     ],
@@ -97,7 +97,7 @@ const pageMap: Record<string, { title: string; caption: string }> = {
   "/downtime":    { title: "Downtime",    caption: "Record and analyse equipment downtime events." },
   "/maintenance": { title: "PM Schedule", caption: "Plan and track preventative maintenance." },
   "/inspections": { title: "Inspections", caption: "Conduct and review equipment inspections." },
-  "/inventory":   { title: "Inventory",   caption: "Manage parts, stock levels and transactions." },
+  "/inventory":   { title: "Parts Inventory", caption: "Manage parts, stock levels and transactions." },
   "/finance":     { title: "Finance",     caption: "Purchase orders, invoices and budget tracking." },
   "/reports":     { title: "Reports",     caption: "Generate and download operational reports." },
   "/locations":   { title: "Locations",   caption: "Manage depots and redemption centres." },
@@ -296,7 +296,7 @@ const pageInfo = computed(() => {
       </Transition>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-y-auto bg-slate-50 p-6">
+      <main class="flex flex-col flex-1 overflow-y-auto bg-slate-50 p-6">
         <slot />
       </main>
     </div>

@@ -56,8 +56,8 @@ const pmOptions = computed(() =>
   [{ label: "None", value: undefined }, ...assetPMs.value.map((p) => ({ label: `${p.pm_plan_id} — next: ${p.next_service ?? "—"}`, value: p.id }))]
 )
 
-watch(() => form.value.asset_id, async (id) => {
-  form.value.asset_pm_id = undefined
+watch(() => form.value.asset_id, async (id, oldId) => {
+  if (oldId !== undefined) form.value.asset_pm_id = undefined
   assetPMs.value = id ? (await getPMsByAsset(id) ?? []) : []
 })
 
@@ -107,15 +107,20 @@ async function deletePart(id: number) {
 }
 
 // ── Load when opened ──────────────────────────────────────────
-watch(open, async (val) => {
-  if (!val || !props.workOrderId) return
+watch([open, () => props.workOrderId], async ([isOpen, id]) => {
+  if (!isOpen || !id) {
+    if (!isOpen) { form.value = {}; parts.value = []; error.value = null }
+    return
+  }
   loading.value = true
   error.value = null
   try {
-    const full = await getOne(props.workOrderId)
+    const full = await getOne(id as number)
     form.value = { ...full }
     if (full?.asset_id) assetPMs.value = await getPMsByAsset(full.asset_id) ?? []
-    parts.value = await getPartsByWorkOrder(props.workOrderId) ?? []
+    parts.value = await getPartsByWorkOrder(id as number) ?? []
+  } catch (e: unknown) {
+    error.value = (e as { message?: string }).message ?? "Failed to load work order"
   } finally { loading.value = false }
 })
 

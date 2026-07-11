@@ -25,86 +25,31 @@ const workOrderOptions = computed(() =>
     .map(w => ({ label: `#${w.work_order_id}${w.description ? ' — ' + w.description.slice(0, 50) : ''}`, value: String(w.work_order_id) }))
 )
 
-const columns = [
-  { accessorKey: "downtime_id", header: "ID" },
-  { accessorKey: "asset_id", header: "Asset" },
-  { accessorKey: "cause_id", header: "Cause" },
-  { accessorKey: "details", header: "Details" },
-  { accessorKey: "start_date", header: "Start" },
-  { accessorKey: "downtime_hours", header: "Hours" },
-  { accessorKey: "planned", header: "Planned" },
-  { id: "actions", header: "" },
-]
-
 const search = ref("")
 const filtered = computed(() =>
   (downtimes.value ?? [])
     .filter((d) => {
       const q = search.value.toLowerCase()
-      return !q || (d.asset_id ?? "").toLowerCase().includes(q) || String(d.downtime_id).includes(q)
+      return !q || (d.asset_id ?? "").toLowerCase().includes(q) || String(d.downtime_id).includes(q) || (causeMap.value[d.cause_id] ?? "").toLowerCase().includes(q)
     })
     .sort((a, b) => new Date(b.start_date ?? "").getTime() - new Date(a.start_date ?? "").getTime())
 )
 
 const totalHours = computed(() => (downtimes.value ?? []).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
+const openCount = computed(() => (downtimes.value ?? []).filter(d => !d.end_date).length)
 
-// ── Pareto chart ─────────────────────────────────────────────
-const paretoData = computed(() => {
-  const hours: Record<number, number> = {}
-  const events: Record<number, number> = {}
-  for (const d of downtimes.value ?? []) {
-    if (d.cause_id == null || d.planned) continue
-    hours[d.cause_id] = (hours[d.cause_id] ?? 0) + (d.downtime_hours ?? 0)
-    events[d.cause_id] = (events[d.cause_id] ?? 0) + 1
-  }
-  const sorted = Object.entries(hours)
-    .map(([id, h]) => ({ id: Number(id), name: causeMap.value[Number(id)] ?? `Cause ${id}`, hours: h, events: events[Number(id)] ?? 0 }))
-    .sort((a, b) => b.hours - a.hours)
+// ── Helpers ───────────────────────────────────────────────────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+function formatDate(value: string | null | undefined): string {
+  if (!value) return '—'
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return '—'
+  return `${String(day).padStart(2,'0')}-${MONTHS[month - 1]}-${String(year).slice(-2)}`
+}
 
-  const total = sorted.reduce((s, r) => s + r.hours, 0)
-  let cumulative = 0
-  return sorted.map((r) => {
-    cumulative += r.hours
-    return { ...r, cumPct: total > 0 ? Math.round((cumulative / total) * 100) : 0 }
-  })
-})
-
-const paretoCategories = computed(() => paretoData.value.map((r) => r.name))
-const paretoBarData = computed(() => paretoData.value.map((r) => +r.hours.toFixed(1)))
-const paretoCumData = computed(() => paretoData.value.map((r) => r.cumPct))
-
-const paretoSeries = computed(() => [
-  { name: "Downtime Hours", type: "bar",  data: paretoBarData.value },
-  { name: "Cumulative %",   type: "line", data: paretoCumData.value },
-])
-
-const paretoOptions = computed(() => ({
-  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
-  plotOptions: { bar: { columnWidth: "55%", borderRadius: 4 } },
-  stroke: { width: [0, 2], curve: "straight" },
-  colors: ["#f97316", "#64748b"],
-  dataLabels: { enabled: false },
-  xaxis: {
-    categories: paretoCategories.value,
-    labels: { style: { fontSize: "11px", colors: "#94a3b8" }, rotate: -30 },
-    axisBorder: { show: false },
-    axisTicks: { show: false },
-  },
-  yaxis: [
-    {
-      title: { text: "Hours", style: { fontSize: "11px", color: "#94a3b8" } },
-      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => v.toFixed(0) + "h" },
-    },
-    {
-      opposite: true, min: 0, max: 100, tickAmount: 4,
-      title: { text: "%", style: { fontSize: "11px", color: "#94a3b8" } },
-      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => Math.round(v) + "%" },
-    },
-  ],
-  grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
-  legend: { show: false },
-  tooltip: { shared: true },
-}))
+function isOpen(d: Downtime): boolean {
+  return !d.end_date
+}
 
 // ── Form modal ───────────────────────────────────────────────
 const showModal = ref(false)
@@ -169,59 +114,107 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="rounded-lg bg-red-50 px-4 py-2 text-sm inline-flex items-center gap-1.5">
-      <span class="text-red-600">Total: </span>
-      <span class="font-bold text-red-700">{{ totalHours.toFixed(1) }}h</span>
-    </div>
+  <div class="flex min-h-full flex-col gap-4">
 
-    <!-- Pareto Chart -->
-    <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div class="mb-4 flex items-center justify-between">
-        <div>
-          <h2 class="text-sm font-semibold text-slate-700">Failure Drivers — Pareto Analysis</h2>
-          <p class="text-xs text-slate-400">Unplanned downtime hours by cause, sorted by impact</p>
-        </div>
-        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
-          <UIcon name="i-heroicons-chart-bar-square" class="h-4 w-4 text-orange-500" />
-        </div>
+    <!-- KPI strip -->
+    <div class="flex items-center gap-3">
+      <div class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-4 py-2 text-sm">
+        <span class="text-red-500">Total downtime:</span>
+        <span class="font-bold text-red-700">{{ totalHours.toFixed(1) }}h</span>
       </div>
-      <ClientOnly>
-        <apexchart type="line" height="220" :options="paretoOptions" :series="paretoSeries" />
-        <template #fallback>
-          <div class="flex h-[280px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
-        </template>
-      </ClientOnly>
+      <div v-if="openCount > 0" class="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-4 py-2 text-sm">
+        <UIcon name="i-heroicons-exclamation-circle" class="h-4 w-4 text-orange-500" />
+        <span class="font-semibold text-orange-700">{{ openCount }} open</span>
+        <span class="text-orange-500">— no end date recorded</span>
+      </div>
     </div>
 
-    <UCard>
+    <!-- List card -->
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
-          <UInput v-model="search" placeholder="Search by asset..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+          <UInput v-model="search" placeholder="Search by asset, cause..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">Log Downtime</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #cause_id-cell="{ row: { original: row } }">{{ causeMap[row.cause_id] ?? "—" }}</template>
-        <template #start_date-cell="{ row: { original: row } }">
-          {{ row.start_date ? (() => { const d = new Date(row.start_date); return `${String(d.getUTCDate()).padStart(2,'0')}-${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]}-${String(d.getUTCFullYear()).slice(-2)}` })() : "—" }}
-        </template>
-        <template #details-cell="{ row: { original: row } }">
-          <span class="text-slate-500">{{ row.details ? (row.details.length > 60 ? row.details.slice(0, 60) + '…' : row.details) : '—' }}</span>
-        </template>
-        <template #planned-cell="{ row: { original: row } }">
-          <UBadge :color="row.planned ? 'info' : 'error'" variant="soft" size="sm">{{ row.planned ? "Planned" : "Unplanned" }}</UBadge>
-        </template>
-        <template #downtime_hours-cell="{ row: { original: row } }">
-          <span class="font-medium">{{ row.downtime_hours?.toFixed(1) ?? "—" }}h</span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.downtime_id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+      <div class="divide-y divide-gray-100 overflow-auto h-full">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No downtime records found.
+        </div>
+        <template v-else>
+          <div
+            v-for="d in filtered"
+            :key="d.downtime_id"
+            class="flex items-center gap-4 px-5 py-3.5 hover:bg-red-50/20 transition-colors border-l-4"
+            :class="isOpen(d) ? 'border-l-red-400' : 'border-l-transparent'"
+          >
+            <!-- Icon -->
+            <div
+              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+              :class="d.planned ? 'bg-blue-50' : 'bg-red-50'"
+            >
+              <UIcon
+                :name="d.planned ? 'i-heroicons-calendar' : 'i-heroicons-exclamation-triangle'"
+                class="h-4 w-4"
+                :class="d.planned ? 'text-blue-400' : 'text-red-400'"
+              />
+            </div>
+
+            <!-- Asset + cause (fixed) -->
+            <div class="w-52 shrink-0 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-semibold text-slate-800 truncate">{{ d.asset_id ?? '—' }}</span>
+                <span v-if="isOpen(d)" class="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+              </div>
+              <p class="text-xs text-slate-500 truncate">{{ causeMap[d.cause_id] ?? 'Unknown cause' }}</p>
+            </div>
+
+            <!-- Details (fills remaining space) -->
+            <p class="flex-1 min-w-0 truncate text-xs text-gray-400">{{ d.details ?? '—' }}</p>
+
+            <!-- Pills + date -->
+            <div class="flex shrink-0 items-center gap-2">
+              <span
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ring-1"
+                :class="d.planned ? 'bg-blue-50 text-blue-600 ring-blue-200' : 'bg-red-50 text-red-600 ring-red-200'"
+              >{{ d.planned ? 'Planned' : 'Unplanned' }}</span>
+              <span v-if="d.repeat_failure" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200">Repeat</span>
+              <span v-if="d.temporary_fix" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-purple-50 text-purple-600 ring-1 ring-purple-200">Temp fix</span>
+            </div>
+
+            <!-- Start date -->
+            <div class="w-28 shrink-0 text-center">
+              <p class="text-xs text-gray-500">{{ formatDate(d.start_date) }}</p>
+              <p v-if="d.start_time" class="text-[11px] text-gray-400">{{ d.start_time.slice(0, 5) }}</p>
+            </div>
+
+            <!-- Hours (prominent) -->
+            <div class="w-16 shrink-0 text-right">
+              <span class="text-lg font-bold leading-tight" :class="isOpen(d) ? 'text-red-600' : 'text-slate-700'">
+                {{ d.downtime_hours != null ? d.downtime_hours.toFixed(1) : '—' }}
+              </span>
+              <span class="block text-[11px] font-medium text-gray-400 -mt-0.5">hours</span>
+            </div>
+
+            <!-- Open / closed + ID -->
+            <div class="w-24 shrink-0 text-right">
+              <span v-if="isOpen(d)" class="flex items-center justify-end gap-1 text-[11px] font-semibold text-red-500">
+                <UIcon name="i-heroicons-exclamation-circle" class="h-3.5 w-3.5" />
+                Open
+              </span>
+              <p v-else class="text-[11px] text-gray-400">Closed {{ formatDate(d.end_date) }}</p>
+              <p class="text-[11px] text-gray-400 mt-0.5">#{{ d.downtime_id }}<template v-if="d.work_order"> · WO {{ d.work_order }}</template></p>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex shrink-0 items-center gap-1">
+              <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(d.downtime_id)" />
+              <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = d" />
+            </div>
           </div>
         </template>
-      </UTable>
+      </div>
     </UCard>
 
     <!-- Create / Edit Modal -->
