@@ -8,14 +8,6 @@ const { getInvoicesBySupplier, getPOsBySupplier } = useFinance()
 
 const { data: suppliers, refresh } = await useAsyncData("suppliers", () => getAll())
 
-const columns = [
-  { accessorKey: "supplier_id", header: "ID" },
-  { accessorKey: "name", header: "Name" },
-  { accessorKey: "contact_number", header: "Contact #" },
-  { id: "categories", header: "Categories" },
-  { id: "actions", header: "" },
-]
-
 const CATEGORY_OPTIONS = [
   { label: "Parts", value: "parts" },
   { label: "Services", value: "services" },
@@ -188,30 +180,56 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <UCard>
+  <div class="flex min-h-full flex-col gap-4">
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <UInput v-model="search" placeholder="Search by name or contact number..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Supplier</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]', th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #categories-cell="{ row: { original: row } }">
-          <div v-if="row.categories?.length" class="flex flex-wrap gap-1">
-            <UBadge v-for="cat in row.categories" :key="cat" variant="soft" color="primary" class="capitalize">
-              {{ cat.replace(/_/g, " ") }}
-            </UBadge>
+
+      <!-- Supplier card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No suppliers found.
+        </div>
+        <div
+          v-for="sup in filtered"
+          :key="sup.supplier_id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          @click="openEdit(sup.supplier_id!)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-building-storefront" class="h-4 w-4 text-gray-400" />
           </div>
-          <span v-else class="text-gray-400">—</span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.supplier_id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ sup.name }}</span>
+            </div>
+            <!-- Contact -->
+            <p v-if="sup.contact_number" class="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+              <UIcon name="i-heroicons-phone" class="h-3 w-3" />
+              {{ sup.contact_number }}
+            </p>
+            <!-- Meta row -->
+            <div v-if="sup.categories?.length" class="mt-1.5 flex flex-wrap gap-1">
+              <UBadge v-for="cat in sup.categories" :key="cat" variant="soft" color="primary" size="xs" class="capitalize">
+                {{ cat.replace(/_/g, " ") }}
+              </UBadge>
+            </div>
           </div>
-        </template>
-      </UTable>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex items-center gap-1">
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = sup" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Create / Edit Modal -->

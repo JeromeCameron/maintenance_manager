@@ -70,18 +70,6 @@ const filtered = computed(() =>
 )
 const lowStock = computed(() => (parts.value ?? []).filter(p => (stockMap.value[p.part_no] ?? 0) <= p.reorder_level))
 
-const columns = [
-  { accessorKey: "part_no", header: "Part No" },
-  { accessorKey: "part_name", header: "Name" },
-  { accessorKey: "manufacturer", header: "Manufacturer" },
-  { accessorKey: "category_id", header: "Category" },
-  { accessorKey: "unit_of_measure", header: "UOM" },
-  { id: "stock", header: "Stock" },
-  { accessorKey: "reorder_level", header: "Reorder At" },
-  { accessorKey: "is_critical", header: "Critical" },
-  { id: "actions", header: "" },
-]
-
 // ── Part modal ────────────────────────────────────────────────
 const showModal = ref(false)
 const isEditing = ref(false)
@@ -363,35 +351,67 @@ function deletePart(part: Part) {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="flex min-h-full flex-col gap-4">
     <UAlert v-if="lowStock.length" color="warning" variant="soft" icon="i-heroicons-exclamation-triangle"
       :title="`${lowStock.length} part${lowStock.length > 1 ? 's' : ''} at or below reorder level`" />
 
-    <UCard>
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Part</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ root: 'relative overflow-auto max-h-[calc(100vh-22rem)]', th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #category_id-cell="{ row: { original: row } }">{{ catMap[row.category_id] ?? "—" }}</template>
-        <template #stock-cell="{ row: { original: row } }">
-          <span :class="(stockMap[row.part_no] ?? 0) <= row.reorder_level ? 'font-semibold text-amber-600' : 'font-medium'">
-            {{ stockMap[row.part_no] ?? 0 }}
-          </span>
-        </template>
-        <template #is_critical-cell="{ row: { original: row } }">
-          <UBadge v-if="row.is_critical" color="error" variant="soft" size="sm">Critical</UBadge>
-          <span v-else class="text-slate-400">—</span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.part_no)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePart(row)" />
+
+      <!-- Part card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No parts found.
+        </div>
+        <div
+          v-for="part in filtered"
+          :key="part.part_no"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          :class="(stockMap[part.part_no] ?? 0) <= part.reorder_level ? 'border-l-amber-400' : 'border-l-transparent'"
+          @click="openEdit(part.part_no)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-archive-box" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ part.part_no }}</span>
+              <span class="text-xs text-slate-400">· {{ part.part_name }}</span>
+              <UBadge v-if="part.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
+            </div>
+            <!-- Manufacturer -->
+            <p class="mt-0.5 text-xs text-gray-500">{{ part.manufacturer ?? "—" }}</p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span v-if="part.category_id" class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                {{ catMap[part.category_id] ?? "—" }}
+              </span>
+              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-scale" class="h-3 w-3" />
+                {{ part.unit_of_measure }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <span class="text-sm font-semibold" :class="(stockMap[part.part_no] ?? 0) <= part.reorder_level ? 'text-amber-600' : 'text-slate-700'">
+              {{ stockMap[part.part_no] ?? 0 }} in stock
+            </span>
+            <span class="text-[11px] text-gray-400">Reorder at {{ part.reorder_level }}</span>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deletePart(part)" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Part Modal -->

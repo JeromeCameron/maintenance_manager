@@ -106,6 +106,9 @@ async function deletePart(id: number) {
   if (editingPart.value?.id === id) cancelEditPart()
 }
 
+// ── Modal tab ─────────────────────────────────────────────────
+const modalTab = ref<'details' | 'parts' | 'notes'>('details')
+
 // ── Load when opened ──────────────────────────────────────────
 watch([open, () => props.workOrderId], async ([isOpen, id]) => {
   if (!isOpen || !id) {
@@ -114,6 +117,7 @@ watch([open, () => props.workOrderId], async ([isOpen, id]) => {
   }
   loading.value = true
   error.value = null
+  modalTab.value = 'details'
   try {
     const full = await getOne(id as number)
     form.value = { ...full }
@@ -164,66 +168,93 @@ async function save() {
           <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-gray-400" />
         </div>
 
-        <!-- Scrollable body -->
-        <div v-else class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          <div class="grid grid-cols-2 gap-x-5 gap-y-4">
-            <UFormField label="Asset" class="col-span-2">
-              <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset…" class="w-full" />
-            </UFormField>
-            <UFormField label="Supplier">
-              <USelect v-model="form.supplier_id" :items="supplierOptions" placeholder="Select supplier…" class="w-full" />
-            </UFormField>
-            <UFormField label="PM Plan">
-              <USelect v-model="form.asset_pm_id" :items="pmOptions" placeholder="Link to PM (optional)" class="w-full" />
-            </UFormField>
-            <UFormField label="Priority">
-              <USelect v-model="form.priority" :items="priorityOptions" class="w-full" />
-            </UFormField>
-            <UFormField label="Type">
-              <USelect v-model="form.typ" :items="typeOptions" class="w-full" />
-            </UFormField>
-            <UFormField label="Planned / Unplanned">
-              <USelect v-model="form.planned" :items="plannedOptions" placeholder="Select…" class="w-full" />
-            </UFormField>
-            <UFormField label="Status">
-              <USelect v-model="form.status" :items="woStatusOptions" class="w-full" />
-            </UFormField>
-            <UFormField label="Issue Date">
-              <UInput v-model="form.issue_date" type="date" class="w-full" />
-            </UFormField>
-            <UFormField label="Expected Date">
-              <UInput v-model="form.expected_date" type="date" class="w-full" />
-            </UFormField>
-            <UFormField label="Date Completed">
-              <UInput v-model="form.date_completed" type="date" class="w-full" />
-            </UFormField>
-            <UFormField label="Estimated Hours">
-              <UInput v-model.number="form.estimated_hours" type="number" step="0.5" class="w-full" />
-            </UFormField>
-            <UFormField label="Actual Hours">
-              <UInput v-model.number="form.actual_hours" type="number" step="0.5" class="w-full" />
-            </UFormField>
-            <UFormField label="Estimated Cost ($)">
-              <UInput v-model.number="form.estimated_cost" type="number" step="0.01" class="w-full" />
-            </UFormField>
-            <UFormField label="Actual Cost ($)">
-              <UInput v-model.number="form.actual_cost" type="number" step="0.01" class="w-full" />
-            </UFormField>
-            <UFormField label="Description" class="col-span-2">
-              <UTextarea v-model="form.description" :rows="3" class="w-full" />
-            </UFormField>
-            <UFormField label="Notes" class="col-span-2">
-              <UTextarea v-model="form.notes" :rows="2" class="w-full" />
-            </UFormField>
+        <template v-else>
+          <!-- Tab bar -->
+          <div class="flex shrink-0 gap-1 border-b border-gray-100 px-6">
+            <button
+              v-for="tab in [
+                { key: 'details', label: 'Details' },
+                { key: 'parts',   label: `Parts${parts.length ? ` (${parts.length})` : ''}` },
+                { key: 'notes',   label: 'Notes' },
+              ]"
+              :key="tab.key"
+              class="border-b-2 px-3 py-3 text-sm font-medium transition-colors"
+              :class="modalTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-800'"
+              @click="modalTab = tab.key as typeof modalTab"
+            >{{ tab.label }}</button>
           </div>
 
-          <!-- Parts section -->
-          <div>
-            <div class="mb-3 flex items-center gap-3">
-              <span class="text-xs font-semibold uppercase tracking-wider text-gray-400">Parts Used</span>
-              <div class="flex-1 border-t border-gray-100" />
+          <!-- Details tab -->
+          <div v-if="modalTab === 'details'" class="flex-1 overflow-y-auto px-6 py-5">
+            <div class="grid grid-cols-2 gap-x-5 gap-y-5">
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Asset</label>
+                <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset…" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Supplier</label>
+                <USelect v-model="form.supplier_id" :items="supplierOptions" placeholder="Select supplier…" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">PM Plan</label>
+                <USelect v-model="form.asset_pm_id" :items="pmOptions" placeholder="Link to PM (optional)" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Type</label>
+                <USelect v-model="form.typ" :items="typeOptions" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Priority</label>
+                <USelect v-model="form.priority" :items="priorityOptions" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Planned / Unplanned</label>
+                <USelect v-model="form.planned" :items="plannedOptions" placeholder="Select…" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Status</label>
+                <USelect v-model="form.status" :items="woStatusOptions" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Issue Date</label>
+                <UInput v-model="form.issue_date" type="date" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Expected Date</label>
+                <UInput v-model="form.expected_date" type="date" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Date Completed</label>
+                <UInput v-model="form.date_completed" type="date" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Estimated Hours</label>
+                <UInput v-model.number="form.estimated_hours" type="number" step="0.5" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Actual Hours</label>
+                <UInput v-model.number="form.actual_hours" type="number" step="0.5" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Estimated Cost ($)</label>
+                <UInput v-model.number="form.estimated_cost" type="number" step="0.01" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div>
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Actual Cost ($)</label>
+                <UInput v-model.number="form.actual_cost" type="number" step="0.01" class="w-full" size="lg" :ui="{ base: 'bg-slate-50' }" />
+              </div>
+              <div class="col-span-2">
+                <label class="mb-1.5 block text-sm font-semibold text-slate-700">Description</label>
+                <UTextarea v-model="form.description" :rows="4" class="w-full" placeholder="Describe the work to be done…" :ui="{ base: 'bg-slate-50' }" />
+              </div>
             </div>
+            <UAlert v-if="error" color="error" variant="soft" :description="error" class="mt-5" />
+          </div>
 
+          <!-- Parts tab -->
+          <div v-else-if="modalTab === 'parts'" class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
             <UTable :data="parts" :columns="partColumns">
               <template #part-actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -233,7 +264,7 @@ async function save() {
               </template>
             </UTable>
 
-            <div v-if="editingPart" class="mt-3 grid grid-cols-5 gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
+            <div v-if="editingPart" class="grid grid-cols-5 gap-3 rounded-lg border border-primary-200 bg-primary-50 p-3">
               <UFormField label="Part No" class="col-span-2">
                 <USelect v-model="editPartDraft.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
@@ -249,7 +280,7 @@ async function save() {
               </div>
             </div>
 
-            <div v-else class="mt-3 grid grid-cols-5 gap-3 border-t pt-3">
+            <div v-else class="grid grid-cols-5 gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
               <UFormField label="Part No" class="col-span-2">
                 <USelect v-model="newPart.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
@@ -265,14 +296,20 @@ async function save() {
             </div>
           </div>
 
-          <UAlert v-if="error" color="error" variant="soft" :description="error" />
-        </div>
+          <!-- Notes tab -->
+          <div v-else-if="modalTab === 'notes'" class="flex-1 overflow-y-auto px-6 py-5">
+            <UFormField label="Notes">
+              <UTextarea v-model="form.notes" :rows="12" class="w-full" placeholder="Add notes here…" />
+            </UFormField>
+            <UAlert v-if="error" color="error" variant="soft" :description="error" class="mt-4" />
+          </div>
 
-        <!-- Footer -->
-        <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
-          <UButton variant="ghost" color="neutral" @click="open = false">Cancel</UButton>
-          <UButton :loading="saving" @click="save">Save Changes</UButton>
-        </div>
+          <!-- Footer -->
+          <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="open = false">Cancel</UButton>
+            <UButton v-if="modalTab !== 'parts'" :loading="saving" @click="save">Save Changes</UButton>
+          </div>
+        </template>
       </div>
     </template>
   </UModal>

@@ -8,17 +8,6 @@ const { getAll: getAllModels } = useAssetModels()
 
 const { data: locations, refresh } = await useAsyncData("locations", () => getAll())
 
-const columns = [
-  { accessorKey: "location_id", header: "ID" },
-  { accessorKey: "name", header: "Name" },
-  { accessorKey: "parish", header: "Parish" },
-  { accessorKey: "typ", header: "Type" },
-  { accessorKey: "supervisor", header: "Supervisor" },
-  { accessorKey: "contact_no", header: "Contact" },
-  { accessorKey: "shift_depot", header: "Shift Depot" },
-  { id: "actions", header: "" },
-]
-
 const search = ref("")
 const filtered = computed(() =>
   (locations.value ?? []).filter((l) => {
@@ -192,29 +181,60 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <UCard>
+  <div class="flex min-h-full flex-col gap-4">
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <UInput v-model="search" placeholder="Search by name, parish or supervisor..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Location</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #typ-cell="{ row: { original: row } }">
-          <UBadge :color="row.typ === 'depot' ? 'info' : 'neutral'" variant="soft" size="sm">{{ row.typ.replace(/_/g, " ") }}</UBadge>
-        </template>
-        <template #shift_depot-cell="{ row: { original: row } }">
-          <UBadge v-if="row.shift_depot" color="success" variant="soft" size="sm">Yes</UBadge>
-          <span v-else class="text-slate-400">—</span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.location_id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+      <!-- Location card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No locations found.
+        </div>
+        <div
+          v-for="loc in filtered"
+          :key="loc.location_id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          @click="openEdit(loc.location_id!)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-map-pin" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ loc.name }}</span>
+              <UBadge :color="loc.typ === 'depot' ? 'info' : 'neutral'" variant="soft" size="xs" class="capitalize">{{ loc.typ.replace(/_/g, " ") }}</UBadge>
+              <UBadge v-if="loc.shift_depot" color="success" variant="soft" size="xs">Shift Depot</UBadge>
+            </div>
+            <!-- Parish -->
+            <p class="mt-0.5 text-xs text-gray-500">{{ loc.parish }}</p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span class="flex items-center gap-1 text-[11px] text-gray-500">
+                <UIcon name="i-heroicons-user" class="h-3 w-3" />
+                {{ loc.supervisor }}
+              </span>
+              <span v-if="loc.contact_no" class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-phone" class="h-3 w-3" />
+                {{ loc.contact_no }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex items-center gap-1">
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = loc" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Create / Edit Modal -->

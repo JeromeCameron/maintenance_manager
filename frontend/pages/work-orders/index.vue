@@ -284,7 +284,7 @@ async function confirmDelete() {
       <!-- Tabs -->
       <UTabs v-model="activeTab" :items="tabs" :ui="{ root: 'flex flex-col flex-1 min-h-0 w-full', list: 'border-b border-gray-100 px-5 pt-1 rounded-none bg-white shrink-0', content: 'flex-1 min-h-0' }">
         <template #todo>
-          <div class="divide-y divide-gray-100 overflow-auto h-full">
+          <div class="overflow-auto h-full p-4 space-y-2">
             <div v-if="filteredTodo.length === 0" class="py-12 text-center text-sm text-gray-400">
               No open work orders found.
             </div>
@@ -292,8 +292,9 @@ async function confirmDelete() {
               <div
                 v-for="wo in filteredTodo"
                 :key="wo.work_order_id"
-                class="flex items-start gap-4 px-5 py-4 hover:bg-blue-50/40 transition-colors"
-                :class="isOverdue(wo) ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'"
+                class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+                :class="isOverdue(wo) ? 'border-l-blue-500' : 'border-l-transparent'"
+                @click="openEdit(wo)"
               >
                 <!-- Left icon -->
                 <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -332,6 +333,7 @@ async function confirmDelete() {
                   <div class="mt-2 flex items-center gap-2">
                     <UDropdownMenu
                       :items="woStatusOptions.map(s => ({ label: s.replace(/_/g, ' '), onSelect: () => quickStatusChange(wo, s) }))"
+                      @click.stop
                     >
                       <span
                         class="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize transition-opacity hover:opacity-80"
@@ -342,8 +344,7 @@ async function confirmDelete() {
                         <UIcon name="i-heroicons-chevron-down" class="h-3 w-3" />
                       </span>
                     </UDropdownMenu>
-                    <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(wo)" />
-                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = wo" />
+                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = wo" />
                   </div>
                 </div>
 
@@ -373,7 +374,7 @@ async function confirmDelete() {
         </template>
 
         <template #done>
-          <div class="divide-y divide-gray-100 overflow-auto h-full">
+          <div class="overflow-auto h-full p-4 space-y-2">
             <div v-if="filteredDone.length === 0" class="py-12 text-center text-sm text-gray-400">
               No completed work orders found.
             </div>
@@ -381,7 +382,8 @@ async function confirmDelete() {
               <div
                 v-for="wo in filteredDone"
                 :key="wo.work_order_id"
-                class="flex items-start gap-4 border-l-4 border-l-transparent px-5 py-4 hover:bg-slate-50/60 transition-colors"
+                class="flex cursor-pointer items-start gap-4 rounded-lg border-l-4 border-l-transparent px-5 py-4 ring-1 ring-gray-200 hover:bg-slate-50/60 transition-colors"
+                @click="openEdit(wo)"
               >
                 <!-- Left icon -->
                 <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
@@ -425,8 +427,7 @@ async function confirmDelete() {
                       class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize"
                       :class="statusStyles[wo.status] ?? 'bg-gray-100 text-gray-500'"
                     >{{ wo.status.replace(/_/g, ' ') }}</span>
-                    <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(wo)" />
-                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = wo" />
+                    <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = wo" />
                   </div>
                 </div>
 

@@ -352,19 +352,20 @@ function fmtDateShort(v?: string | null) {
       </template>
 
       <!-- Asset card list -->
-      <div class="divide-y divide-gray-100 overflow-auto h-full">
+      <div class="overflow-auto h-full p-4 space-y-2">
         <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
           No assets found.
         </div>
         <div
           v-for="asset in filtered"
           :key="asset.asset_id"
-          class="flex items-start gap-4 px-5 py-4 hover:bg-blue-50/40 transition-colors border-l-4"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
           :class="asset.status === 'out_of_service' ? 'border-l-red-400' : asset.status === 'maintenance' ? 'border-l-yellow-400' : 'border-l-transparent'"
+          @click="openAsset(asset.asset_id)"
         >
           <!-- Left icon -->
           <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-wrench-screwdriver" class="h-4 w-4 text-gray-400" />
+            <UIcon name="i-heroicons-cube" class="h-4 w-4 text-gray-400" />
           </div>
 
           <!-- Main content -->
@@ -443,9 +444,8 @@ function fmtDateShort(v?: string | null) {
               {{ asset.sub_status.replace(/_/g, ' ') }}
             </span>
             <!-- Actions -->
-            <div class="flex items-center gap-1">
-              <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openAsset(asset.asset_id)" />
-              <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = asset" />
+            <div v-if="isAdmin" class="flex items-center gap-1">
+              <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = asset" />
             </div>
           </div>
         </div>
@@ -458,7 +458,7 @@ function fmtDateShort(v?: string | null) {
         <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
           <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-wrench-screwdriver" class="h-5 w-5 text-blue-600" />
+              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
             </div>
             <div class="flex-1">
               <h3 class="text-base font-semibold text-slate-900">New Asset</h3>
@@ -524,7 +524,7 @@ function fmtDateShort(v?: string | null) {
           <!-- Header -->
           <div class="flex shrink-0 items-center gap-4 border-b border-slate-100 px-6 py-4">
             <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-wrench-screwdriver" class="h-5 w-5 text-blue-600" />
+              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
             </div>
             <div class="flex-1">
               <div class="flex items-center gap-2">

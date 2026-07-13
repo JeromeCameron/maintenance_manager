@@ -14,6 +14,8 @@ interface MonthlyMetrics {
 
 const { get } = useApi()
 const { getAll: getCommodityRates } = useCommodityRates()
+const { getPOs, getCostCentres } = useFinance()
+const { getAll: getSuppliers } = useSuppliers()
 
 // ── Data fetches ───────────────────────────────────────────────
 const { data: allAssets }          = useAsyncData("rpt-assets",            () => get<Asset[]>("/assets"))
@@ -22,6 +24,9 @@ const { data: downtimes }          = useAsyncData("rpt-downtimes",         () =>
 const { data: workOrders }         = useAsyncData("rpt-wos",               () => get<WorkOrder[]>("/work-orders"))
 const { data: budgets }            = useAsyncData("rpt-budgets",           () => get<Budget[]>("/budgets"))
 const { data: invoices }           = useAsyncData("rpt-invoices",          () => get<Invoice[]>("/invoices"))
+const { data: purchaseOrders }     = useAsyncData("rpt-pos",               () => getPOs())
+const { data: costCentres }        = useAsyncData("rpt-cost-centres",      () => getCostCentres())
+const { data: suppliers }          = useAsyncData("rpt-suppliers",         () => getSuppliers())
 const { data: monthlyMetricsData } = useAsyncData("rpt-monthly-metrics",   () => get<MonthlyMetrics[]>("/downtimes/monthly-metrics?months=12"))
 const { data: commodityRates }     = await useAsyncData("rpt-commodity-rates", () => getCommodityRates())
 const { data: holidays }           = useAsyncData("rpt-holidays",          () => get<{ holiday_date: string }[]>("/holidays"))
@@ -512,7 +517,7 @@ const reports: ReportDef[] = [
   { id: "bales-lost",         name: "Bales Lost",                     description: "Monthly bales lost and estimated value using historical commodity rates.",                                              category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",         downloadBalesLost) },
   { id: "baler-downtime-detail", name: "Baler Downtime Detail",          description: "Per-event downtime log for balers with start/end dates, hours lost, bales lost and commodity rate at time of event.", category: "Operations",  categoryColor: "info",    icon: "i-heroicons-circle-stack",                dateNote: "By start date",       download: makeDownloader("baler-downtime-detail", downloadBalerDowntimeDetail) },
   { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
-  { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-wrench-screwdriver",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
+  { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-cube",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
   { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
   { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.).", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
   { id: "dt-by-cat",    name: "Downtime by Equipment Category", description: "Unplanned downtime hours and failure events aggregated by equipment category per month.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-squares-2x2",                 dateNote: "Monthly aggregation", download: makeDownloader("dt-by-cat",    downloadDowntimeByCategory) },
@@ -544,7 +549,7 @@ async function exportAll() {
 }
 
 // ── Asset Analysis ─────────────────────────────────────────────
-const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime'>('reports')
+const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime' | 'budget'>('reports')
 const selectedAssetId = ref<string | null>(null)
 
 const assetShiftHistory = ref<AssetShiftHistory[]>([])
@@ -1132,6 +1137,162 @@ const dtTotalHours = computed(() => filteredDowntimes.value.reduce((s, d) => s +
 const dtUnplannedHours = computed(() => filteredDowntimes.value.filter(d => !d.planned).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
 const dtUnplannedEvents = computed(() => filteredDowntimes.value.filter(d => !d.planned).length)
 const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.repeat_failure).length)
+
+// ── Budget & Spend tab ──────────────────────────────────────────
+function fmtMoney(n: number) {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
+  if (Math.abs(n) >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
+  return `$${n.toFixed(0)}`
+}
+
+// Financial year runs Apr–Mar; FY label is the calendar year it ends in (e.g. Apr'25–Mar'26 = FY26)
+function dateToFY(dateStr: string): string {
+  const d = new Date(dateStr)
+  const fyEnd = d.getUTCMonth() >= 3 ? d.getUTCFullYear() + 1 : d.getUTCFullYear()
+  return `FY${String(fyEnd).slice(-2)}`
+}
+function fyToRange(fy: string): { from: Date; to: Date } {
+  const endYear = 2000 + Number(fy.replace("FY", ""))
+  return { from: new Date(endYear - 1, 3, 1), to: new Date(endYear, 2, 31, 23, 59, 59) }
+}
+
+const currentFY = dateToFY(new Date().toISOString())
+const selectedFY = ref(currentFY)
+
+const fyOptions = computed(() => {
+  const set = new Set<string>([currentFY])
+  for (const b of budgets.value ?? []) if (b.financial_year) set.add(b.financial_year)
+  for (const i of invoices.value ?? []) { const ds = i.rec_date ?? i.job_date; if (ds) set.add(dateToFY(ds)) }
+  for (const p of purchaseOrders.value ?? []) if (p.po_date) set.add(dateToFY(p.po_date))
+  return [...set].sort().reverse()
+})
+
+const selectedFYRange = computed(() => fyToRange(selectedFY.value))
+
+const fyFilteredPOs = computed(() => {
+  const { from, to } = selectedFYRange.value
+  return (purchaseOrders.value ?? []).filter((p) => inRange(p.po_date, from, to))
+})
+const fyFilteredInvoices = computed(() => {
+  const { from, to } = selectedFYRange.value
+  return (invoices.value ?? []).filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+})
+const fyFilteredBudgets = computed(() => {
+  const { from, to } = selectedFYRange.value
+  return (budgets.value ?? []).filter((b) => inRange(b.month, from, to))
+})
+
+const periodPOValue      = computed(() => fyFilteredPOs.value.reduce((s, p) => s + p.subtotal, 0))
+const periodInvoiceValue = computed(() => fyFilteredInvoices.value.reduce((s, i) => s + i.subtotal, 0))
+const periodBudgetTotal  = computed(() => fyFilteredBudgets.value.reduce((s, b) => s + b.amount, 0))
+const periodVariance     = computed(() => periodBudgetTotal.value - periodInvoiceValue.value)
+const periodUtilizationPct = computed(() => periodBudgetTotal.value ? (periodInvoiceValue.value / periodBudgetTotal.value) * 100 : null)
+
+// Monthly buckets for the selected FY (Apr–Mar)
+const spendChartMonths = computed(() => {
+  const { from } = selectedFYRange.value
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(from.getFullYear(), from.getMonth() + i, 1)
+    return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString("default", { month: "short", year: "2-digit" }) }
+  })
+})
+
+const spendSeries = computed(() => [
+  {
+    name: "Budget",
+    data: spendChartMonths.value.map(({ year, month }) =>
+      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, b) => s + b.amount, 0)
+    ),
+  },
+  {
+    name: "Actual Spend",
+    data: spendChartMonths.value.map(({ year, month }) =>
+      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
+    ),
+  },
+])
+
+const spendChartOptions = computed(() => ({
+  chart: { type: "line", height: 220, toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  stroke: { width: [2, 2], curve: "smooth", dashArray: [6, 0] },
+  markers: { size: 3, strokeWidth: 0 },
+  xaxis: { categories: spendChartMonths.value.map((m) => m.label), labels: { style: { fontSize: "10px", colors: "#94a3b8" } }, axisBorder: { show: false }, axisTicks: { show: false } },
+  yaxis: { tickAmount: 4, labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}k` : `$${v.toFixed(0)}` }, min: 0 },
+  grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 2, right: 2 } },
+  colors: ["#94a3b8", "#3b82f6"],
+  legend: { show: false },
+  dataLabels: { enabled: false },
+  tooltip: { y: { formatter: (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2 })}` } },
+}))
+
+// Cost-centre budget vs actual (resolves invoice → PO → cost centre)
+const poCostCentreMap = computed(() => {
+  const m: Record<string, string> = {}
+  for (const p of purchaseOrders.value ?? []) if (p.cost_centre_id) m[p.po_no] = p.cost_centre_id
+  return m
+})
+
+const costCentreBreakdown = computed(() => {
+  const budgetByGL: Record<string, number> = {}
+  for (const b of fyFilteredBudgets.value) {
+    if (!b.gl_code) continue
+    budgetByGL[b.gl_code] = (budgetByGL[b.gl_code] ?? 0) + b.amount
+  }
+
+  const actualByGL: Record<string, number> = {}
+  for (const i of fyFilteredInvoices.value) {
+    const gl = i.po_no ? poCostCentreMap.value[i.po_no] : undefined
+    if (!gl) continue
+    actualByGL[gl] = (actualByGL[gl] ?? 0) + i.subtotal
+  }
+
+  const glCodes = new Set([...Object.keys(budgetByGL), ...Object.keys(actualByGL)])
+  const ccMap: Record<string, string> = {}
+  for (const c of costCentres.value ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? c.gl_code
+
+  return [...glCodes]
+    .map((gl) => {
+      const budget = budgetByGL[gl] ?? 0
+      const actual = actualByGL[gl] ?? 0
+      return {
+        gl_code: gl,
+        description: ccMap[gl] ?? gl,
+        budget,
+        actual,
+        variance: budget - actual,
+        pctUsed: budget ? (actual / budget) * 100 : null,
+      }
+    })
+    .sort((a, b) => b.actual - a.actual)
+})
+
+// Top suppliers by invoice spend (selected FY)
+const supplierMap = computed(() => {
+  const m: Record<number, string> = {}
+  for (const s of suppliers.value ?? []) if (s.supplier_id != null) m[s.supplier_id] = s.name
+  return m
+})
+
+const topSuppliersBySpend = computed(() => {
+  const spend: Record<number, { total: number; count: number }> = {}
+  for (const i of fyFilteredInvoices.value) {
+    if (i.supplier_id == null) continue
+    if (!spend[i.supplier_id]) spend[i.supplier_id] = { total: 0, count: 0 }
+    spend[i.supplier_id].total += i.subtotal
+    spend[i.supplier_id].count++
+  }
+  const total = Object.values(spend).reduce((s, v) => s + v.total, 0)
+  return Object.entries(spend)
+    .map(([id, { total: t, count }]) => ({
+      id: Number(id),
+      name: supplierMap.value[Number(id)] ?? `Supplier ${id}`,
+      total: t,
+      count,
+      pct: total > 0 ? +((t / total) * 100).toFixed(1) : 0,
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 8)
+})
 </script>
 
 <template>
@@ -1159,6 +1320,11 @@ const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.re
         :class="activeReportTab === 'downtime' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
         @click="activeReportTab = 'downtime'"
       >Downtime Analysis</button>
+      <button
+        class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+        :class="activeReportTab === 'budget' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        @click="activeReportTab = 'budget'"
+      >Budget & Spend</button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -1422,7 +1588,7 @@ const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.re
 
       <!-- Asset selector -->
       <div class="flex items-center gap-4">
-        <UIcon name="i-heroicons-wrench-screwdriver" class="h-5 w-5 shrink-0 text-slate-400" />
+        <UIcon name="i-heroicons-cube" class="h-5 w-5 shrink-0 text-slate-400" />
         <div class="w-full max-w-sm">
           <USelect
             v-model="selectedAssetId"
@@ -1450,7 +1616,7 @@ const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.re
         <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
           <div class="flex items-start gap-5 border-b border-slate-100 px-6 py-5">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600">
-              <UIcon name="i-heroicons-wrench-screwdriver" class="h-6 w-6 text-white" />
+              <UIcon name="i-heroicons-cube" class="h-6 w-6 text-white" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
@@ -1992,6 +2158,147 @@ const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.re
               </div>
               <UIcon name="i-heroicons-arrow-right" class="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
             </button>
+          </div>
+        </div>
+
+      </div>
+
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Budget & Spend tab                                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <template v-else-if="activeReportTab === 'budget'">
+
+      <!-- Financial year filter -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400" />
+          <select v-model="selectedFY" class="bg-transparent text-sm text-slate-700 focus:outline-none">
+            <option v-for="fy in fyOptions" :key="fy" :value="fy">{{ fy }}</option>
+          </select>
+        </div>
+        <span class="text-xs text-slate-400">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</span>
+      </div>
+
+      <!-- ── KPI row ─────────────────────────────────────────────── -->
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">PO Value</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtMoney(periodPOValue) }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ fyFilteredPOs.length }} purchase order{{ fyFilteredPOs.length !== 1 ? 's' : '' }}</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Invoice Value</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtMoney(periodInvoiceValue) }}</p>
+          <p class="mt-1 text-xs text-slate-400">{{ fyFilteredInvoices.length }} invoice{{ fyFilteredInvoices.length !== 1 ? 's' : '' }}</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Budget Utilisation</p>
+          <p class="mt-1.5 text-2xl font-bold" :class="periodUtilizationPct !== null && periodUtilizationPct > 100 ? 'text-red-600' : 'text-slate-900'">
+            {{ periodUtilizationPct !== null ? periodUtilizationPct.toFixed(1) + '%' : '—' }}
+          </p>
+          <p class="mt-1 text-xs text-slate-400">{{ fmtMoney(periodInvoiceValue) }} of {{ fmtMoney(periodBudgetTotal) }} budget</p>
+        </div>
+        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs font-medium text-slate-500">Variance</p>
+          <p class="mt-1.5 text-2xl font-bold" :class="periodVariance >= 0 ? 'text-green-600' : 'text-red-600'">
+            {{ periodVariance >= 0 ? 'Under ' : 'Over ' }}{{ fmtMoney(Math.abs(periodVariance)) }}
+          </p>
+          <p class="mt-1 text-xs text-slate-400">Budget minus actual, {{ selectedFY }}</p>
+        </div>
+      </div>
+
+      <!-- ── Budget vs Actual chart ──────────────────────────────── -->
+      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-700">Budget vs Actual Spend</h2>
+            <p class="text-xs text-slate-400">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</p>
+          </div>
+          <div class="flex items-center gap-4 text-xs text-slate-500">
+            <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300" />Budget</span>
+            <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 bg-blue-500" />Actual</span>
+          </div>
+        </div>
+        <div class="p-5">
+          <ClientOnly>
+            <apexchart type="line" height="220" :options="spendChartOptions" :series="spendSeries" />
+            <template #fallback>
+              <div class="flex h-[220px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+            </template>
+          </ClientOnly>
+        </div>
+      </div>
+
+      <!-- ── Cost Centre breakdown + Top Suppliers ───────────────── -->
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+        <!-- Cost centre budget vs actual (2/3 width) -->
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 lg:col-span-2">
+          <div class="border-b border-slate-100 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700">Budget vs Actual by Cost Centre</h2>
+            <p class="text-xs text-slate-400">{{ selectedFY }} · actual resolved via invoice → PO → GL code</p>
+          </div>
+          <div v-if="costCentreBreakdown.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+            No budget or cost-centre-linked spend recorded in {{ selectedFY }}.
+          </div>
+          <div v-else class="divide-y divide-slate-50">
+            <div v-for="cc in costCentreBreakdown" :key="cc.gl_code" class="px-5 py-3">
+              <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-slate-800">{{ cc.gl_code }}</p>
+                  <p class="truncate text-xs text-slate-400">{{ cc.description }}</p>
+                </div>
+                <div class="shrink-0 text-right">
+                  <p class="text-sm font-semibold text-slate-800">{{ fmtMoney(cc.actual) }}<span class="font-normal text-slate-400"> / {{ fmtMoney(cc.budget) }}</span></p>
+                  <p class="text-xs" :class="cc.variance >= 0 ? 'text-green-600' : 'text-red-600'">
+                    {{ cc.variance >= 0 ? 'Under' : 'Over' }} {{ fmtMoney(Math.abs(cc.variance)) }}
+                  </p>
+                </div>
+              </div>
+              <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  class="h-1.5 rounded-full"
+                  :class="cc.pctUsed == null ? 'bg-slate-300' : cc.pctUsed > 100 ? 'bg-red-500' : cc.pctUsed > 85 ? 'bg-amber-400' : 'bg-blue-500'"
+                  :style="{ width: Math.min(cc.pctUsed ?? 0, 100) + '%' }"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top suppliers by spend (1/3 width) -->
+        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <div class="border-b border-slate-100 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700">Top Suppliers by Spend</h2>
+            <p class="text-xs text-slate-400">By invoice value, {{ selectedFY }}</p>
+          </div>
+          <div v-if="topSuppliersBySpend.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+            No invoices recorded in {{ selectedFY }}.
+          </div>
+          <div v-else class="divide-y divide-slate-50">
+            <div v-for="(s, i) in topSuppliersBySpend" :key="s.id" class="flex items-start gap-3 px-5 py-3">
+              <span
+                class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                :class="i === 0 ? 'bg-red-100 text-red-600' : i === 1 ? 'bg-orange-100 text-orange-600' : i === 2 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'"
+              >{{ i + 1 }}</span>
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-slate-800">{{ s.name }}</p>
+                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    class="h-1.5 rounded-full"
+                    :class="i === 0 ? 'bg-red-400' : i === 1 ? 'bg-orange-400' : 'bg-amber-300'"
+                    :style="{ width: s.pct + '%' }"
+                  />
+                </div>
+                <p class="mt-0.5 text-xs text-slate-400">{{ s.count }} invoice{{ s.count !== 1 ? 's' : '' }}</p>
+              </div>
+              <div class="shrink-0 text-right">
+                <p class="text-sm font-semibold text-slate-800">{{ fmtMoney(s.total) }}</p>
+                <p class="text-xs text-slate-400">{{ s.pct }}%</p>
+              </div>
+            </div>
           </div>
         </div>
 

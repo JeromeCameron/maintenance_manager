@@ -11,19 +11,15 @@ const { data: assets } = await useAsyncData("assets-select", () => getAssets())
 
 const resultColors: Record<string, string> = { pass: "success", fail: "error", na: "neutral" }
 
+function fmtDate(v?: string | null) {
+  if (!v) return "—"
+  const [y, m, d] = v.slice(0, 10).split("-").map(Number)
+  return new Date(y, m - 1, d).toLocaleDateString()
+}
+
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const templateOptions = computed(() => (templates.value ?? []).map((t) => ({ label: t.name, value: t.id })))
 const resultOptions = ["pass", "fail", "na"]
-
-const columns = [
-  { accessorKey: "id", header: "ID" },
-  { accessorKey: "inspection_no", header: "Inspection No" },
-  { accessorKey: "asset_id", header: "Asset" },
-  { accessorKey: "inspection_date", header: "Date" },
-  { accessorKey: "overall_result", header: "Result" },
-  { accessorKey: "submitted", header: "Submitted" },
-  { id: "actions", header: "" },
-]
 
 const search = ref("")
 const resultFilter = ref<string | null>(null)
@@ -271,8 +267,8 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <UCard>
+  <div class="flex min-h-full flex-col gap-4">
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div class="flex flex-wrap gap-3">
@@ -282,20 +278,49 @@ async function confirmDelete() {
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Inspection</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #overall_result-cell="{ row: { original: row } }">
-          <UBadge :color="resultColors[row.overall_result] ?? 'neutral'" variant="soft">{{ row.overall_result }}</UBadge>
-        </template>
-        <template #submitted-cell="{ row: { original: row } }">
-          <UBadge :color="row.submitted ? 'success' : 'neutral'" variant="soft" size="sm">{{ row.submitted ? "Submitted" : "Draft" }}</UBadge>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+      <!-- Inspection card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No inspections found.
+        </div>
+        <div
+          v-for="insp in filtered"
+          :key="insp.id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          :class="insp.overall_result === 'fail' ? 'border-l-red-400' : 'border-l-transparent'"
+          @click="openEdit(insp.id)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-magnifying-glass" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ insp.inspection_no }}</span>
+            </div>
+            <!-- Asset -->
+            <p class="mt-0.5 text-xs text-gray-500">Asset: {{ insp.asset_id ?? "—" }}</p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                {{ fmtDate(insp.inspection_date) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <UBadge :color="resultColors[insp.overall_result] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ insp.overall_result }}</UBadge>
+            <UBadge :color="insp.submitted ? 'success' : 'neutral'" variant="soft" size="xs">{{ insp.submitted ? "Submitted" : "Draft" }}</UBadge>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = insp" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Inspection Modal -->

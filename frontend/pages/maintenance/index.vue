@@ -33,16 +33,6 @@ const tabs = [
   { label: "PM Plans", value: "plans" },
 ]
 
-const columns = [
-  { accessorKey: "id", header: "ID" },
-  { accessorKey: "asset_id", header: "Asset" },
-  { accessorKey: "pm_plan_id", header: "PM Plan" },
-  { accessorKey: "last_service", header: "Last Service" },
-  { accessorKey: "next_service", header: "Next Service" },
-  { accessorKey: "active", header: "Active" },
-  { id: "actions", header: "" },
-]
-
 function byNextService(a: AssetPM, b: AssetPM) {
   if (!a.next_service && !b.next_service) return 0
   if (!a.next_service) return 1
@@ -118,7 +108,7 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="flex min-h-full flex-col gap-4">
     <UAlert v-if="pmsDueSoon.length" color="warning" variant="soft" icon="i-heroicons-clock"
       :title="`${pmsDueSoon.length} PM${pmsDueSoon.length > 1 ? 's' : ''} due in the next 30 days`" />
 
@@ -131,36 +121,64 @@ async function confirmDelete() {
       </button>
     </div>
 
-    <UCard v-if="activeTab !== 'plans'">
+    <UCard v-if="activeTab !== 'plans'" :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex justify-end">
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New PM Schedule</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #asset_id-cell="{ row: { original: row } }">
-          <span class="font-medium text-slate-700">{{ row.asset_id }}</span>
-        </template>
-        <template #pm_plan_id-cell="{ row: { original: row } }">
-          <span class="block max-w-[180px] truncate" :title="planMap[row.pm_plan_id] ?? row.pm_plan_id">
-            {{ planMap[row.pm_plan_id] ?? row.pm_plan_id ?? "—" }}
-          </span>
-        </template>
-        <template #active-cell="{ row: { original: row } }">
-          <UBadge :color="row.active ? 'success' : 'neutral'" variant="soft" size="sm">{{ row.active ? "Active" : "Inactive" }}</UBadge>
-        </template>
-        <template #next_service-cell="{ row: { original: row } }">
-          <span :class="row.next_service && new Date(row.next_service) <= in30Days ? 'font-semibold text-amber-600' : ''">
-            {{ row.next_service ?? "—" }}
-          </span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(row.id)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+
+      <!-- PM schedule card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No PM schedules found.
+        </div>
+        <div
+          v-for="pm in filtered"
+          :key="pm.id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          :class="pm.next_service && new Date(pm.next_service) <= in30Days && pm.active ? 'border-l-amber-400' : 'border-l-transparent'"
+          @click="openEdit(pm.id!)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-calendar-days" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ pm.asset_id }}</span>
+            </div>
+            <!-- PM Plan -->
+            <p class="mt-0.5 truncate text-xs text-gray-500" :title="planMap[pm.pm_plan_id] ?? pm.pm_plan_id">
+              {{ planMap[pm.pm_plan_id] ?? pm.pm_plan_id ?? "—" }}
+            </p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span v-if="pm.last_service" class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-check" class="h-3 w-3" />
+                Last {{ pm.last_service }}
+              </span>
+              <span
+                v-if="pm.next_service"
+                class="flex items-center gap-1 text-[11px]"
+                :class="new Date(pm.next_service) <= in30Days ? 'font-semibold text-amber-600' : 'text-gray-400'"
+              >
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                Next {{ pm.next_service }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <UBadge :color="pm.active ? 'success' : 'neutral'" variant="soft" size="xs">{{ pm.active ? "Active" : "Inactive" }}</UBadge>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = pm" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <UCard v-else>

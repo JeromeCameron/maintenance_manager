@@ -185,7 +185,7 @@ const pmsDueSoon = computed(() => {
 
 // ── KPI cards ──────────────────────────────────────────────────
 const kpiCards = computed(() => [
-  { label: "Total Assets",       value: assets.value?.length ?? 0,         suffix: "",   icon: "i-heroicons-wrench-screwdriver",     color: "text-blue-500",   bg: "bg-blue-50" },
+  { label: "Total Assets",       value: assets.value?.length ?? 0,         suffix: "",   icon: "i-heroicons-cube",     color: "text-blue-500",   bg: "bg-blue-50" },
   { label: "Assets Down",        value: assetsDown.value,                   suffix: "",   icon: "i-heroicons-x-circle",               color: "text-red-500",    bg: "bg-red-50" },
   { label: "Availability (30d)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50" },
   { label: "Open Work Orders",   value: openWorkOrders.value.length,        suffix: "",   icon: "i-heroicons-clipboard-document-list", color: "text-amber-500", bg: "bg-amber-50" },

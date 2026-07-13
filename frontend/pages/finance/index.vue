@@ -21,35 +21,23 @@ const [{ data: pos, refresh: refreshPOs }, { data: invoices, refresh: refreshInv
 
 const activeTab = ref("pos")
 
-const poColumns = [
-  { accessorKey: "po_no", header: "PO No" },
-  { accessorKey: "po_date", header: "Date" },
-  { accessorKey: "description", header: "Description" },
-  { accessorKey: "po_type", header: "Type" },
-  { accessorKey: "subtotal", header: "Subtotal" },
-  { id: "actions", header: "" },
-]
-
-const invoiceColumns = [
-  { accessorKey: "invoice_no", header: "Invoice No" },
-  { accessorKey: "invoice_date", header: "Date" },
-  { accessorKey: "description", header: "Description" },
-  { accessorKey: "invoice_type", header: "Type" },
-  { accessorKey: "status", header: "Status" },
-  { accessorKey: "subtotal", header: "Subtotal" },
-  { id: "actions", header: "" },
-]
-
-const budgetColumns = [
-  { accessorKey: "gl_code", header: "GL Code" },
-  { accessorKey: "financial_year", header: "FY" },
-  { accessorKey: "month", header: "Month" },
-  { accessorKey: "amount", header: "Amount" },
-  { accessorKey: "notes", header: "Notes" },
-  { id: "actions", header: "" },
-]
-
 const invoiceStatusColors: Record<string, string> = { processing: "info", submitted: "success", on_hold: "warning" }
+
+const poTypeStyles: Record<string, string> = {
+  corrective:   "bg-red-50 text-red-600",
+  predictive:   "bg-purple-50 text-purple-600",
+  preventative: "bg-teal-50 text-teal-700",
+  consumables:  "bg-amber-50 text-amber-700",
+  rental:       "bg-indigo-50 text-indigo-600",
+}
+
+const invoiceTypeStyles: Record<string, string> = {
+  parts:             "bg-blue-50 text-blue-600",
+  parts_and_labour:  "bg-violet-50 text-violet-600",
+  labour:            "bg-orange-50 text-orange-600",
+  consumables:       "bg-amber-50 text-amber-700",
+  services:          "bg-sky-50 text-sky-600",
+}
 
 const _MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 
@@ -71,73 +59,6 @@ const filteredInvoices = computed(() =>
     .filter((i) => !search.value || i.invoice_no.toLowerCase().includes(search.value.toLowerCase()) || (i.description ?? "").toLowerCase().includes(search.value.toLowerCase()))
     .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""))
 )
-// ── Month helpers ─────────────────────────────────────────────
-const _now = new Date()
-const _cy = _now.getFullYear(), _cm = _now.getMonth()
-const _py = _cm === 0 ? _cy - 1 : _cy, _pm = _cm === 0 ? 11 : _cm - 1
-
-function inMonth(dateStr: string | null | undefined, year: number, month: number) {
-  if (!dateStr) return false
-  const d = new Date(dateStr)
-  return d.getFullYear() === year && d.getMonth() === month
-}
-
-const currentMonthName = _now.toLocaleString("default", { month: "long" })
-const prevMonthName = new Date(_py, _pm, 1).toLocaleString("default", { month: "long" })
-
-function fmtMoney(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`
-  return `$${n.toFixed(0)}`
-}
-
-const thisMonthPOValue   = computed(() => (pos.value ?? []).filter((p) => inMonth(p.po_date, _cy, _cm)).reduce((s, p) => s + p.subtotal, 0))
-const prevMonthPOValue   = computed(() => (pos.value ?? []).filter((p) => inMonth(p.po_date, _py, _pm)).reduce((s, p) => s + p.subtotal, 0))
-const thisMonthInvValue  = computed(() => (invoices.value ?? []).filter((i) => inMonth(i.rec_date ?? i.job_date, _cy, _cm)).reduce((s, i) => s + i.subtotal, 0))
-const prevMonthInvValue  = computed(() => (invoices.value ?? []).filter((i) => inMonth(i.rec_date ?? i.job_date, _py, _pm)).reduce((s, i) => s + i.subtotal, 0))
-
-const poMoMPct  = computed(() => prevMonthPOValue.value  ? ((thisMonthPOValue.value  - prevMonthPOValue.value)  / prevMonthPOValue.value)  * 100 : null)
-const invMoMPct = computed(() => prevMonthInvValue.value ? ((thisMonthInvValue.value - prevMonthInvValue.value) / prevMonthInvValue.value) * 100 : null)
-
-// ── Budget vs Actual chart (current financial year Apr–Mar) ───
-const chartMonths = (() => {
-  const now = new Date()
-  // FY starts in April (month index 3); if we're before April, the FY started last year
-  const fyStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(fyStartYear, 3 + i, 1)
-    return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString("default", { month: "short", year: "2-digit" }) }
-  })
-})()
-
-const spendSeries = computed(() => [
-  {
-    name: "Budget",
-    data: chartMonths.map(({ year, month }) =>
-      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, b) => s + b.amount, 0)
-    ),
-  },
-  {
-    name: "Actual Spend",
-    data: chartMonths.map(({ year, month }) =>
-      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
-    ),
-  },
-])
-
-const spendChartOptions = {
-  chart: { type: "line", height: 200, toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
-  stroke: { width: [2, 2], curve: "smooth", dashArray: [6, 0] },
-  markers: { size: 3, strokeWidth: 0 },
-  xaxis: { categories: chartMonths.map((m) => m.label), labels: { style: { fontSize: "10px", colors: "#94a3b8" } }, axisBorder: { show: false }, axisTicks: { show: false } },
-  yaxis: { tickAmount: 3, labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}k` : `$${v.toFixed(0)}` }, min: 0 },
-  grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 2, right: 2 } },
-  colors: ["#94a3b8", "#3b82f6"],
-  legend: { show: false },
-  dataLabels: { enabled: false },
-  tooltip: { y: { formatter: (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2 })}` } },
-}
-
 // ── Shared options ────────────────────────────────────────────
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const supplierOptions = computed(() => (suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id })))
@@ -319,77 +240,6 @@ async function confirmDeleteBudget() {
 
 <template>
   <div class="space-y-4">
-    <!-- KPIs + Chart -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <!-- Stacked badges -->
-      <div class="flex flex-col gap-4">
-        <UCard>
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <p class="text-xs text-gray-500">PO Value — {{ currentMonthName }}</p>
-              <p class="mt-1 text-xl font-bold">{{ fmtMoney(thisMonthPOValue) }}</p>
-            </div>
-            <UIcon name="i-heroicons-document-text" class="h-7 w-7 shrink-0 text-blue-500" />
-          </div>
-          <div class="mt-2 flex items-center gap-1 text-xs">
-            <template v-if="poMoMPct !== null">
-              <UIcon
-                :name="poMoMPct >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
-                class="h-3.5 w-3.5"
-                :class="poMoMPct >= 0 ? 'text-red-500' : 'text-green-500'"
-              />
-              <span :class="poMoMPct >= 0 ? 'text-red-500' : 'text-green-500'">{{ Math.abs(poMoMPct).toFixed(1) }}%</span>
-              <span class="text-gray-400">vs {{ prevMonthName }} ({{ fmtMoney(prevMonthPOValue) }})</span>
-            </template>
-            <span v-else class="text-gray-400">No POs in {{ prevMonthName }}</span>
-          </div>
-        </UCard>
-        <UCard>
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <p class="text-xs text-gray-500">Invoice Value — {{ currentMonthName }}</p>
-              <p class="mt-1 text-xl font-bold">{{ fmtMoney(thisMonthInvValue) }}</p>
-            </div>
-            <UIcon name="i-heroicons-banknotes" class="h-7 w-7 shrink-0 text-green-500" />
-          </div>
-          <div class="mt-2 flex items-center gap-1 text-xs">
-            <template v-if="invMoMPct !== null">
-              <UIcon
-                :name="invMoMPct >= 0 ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
-                class="h-3.5 w-3.5"
-                :class="invMoMPct >= 0 ? 'text-red-500' : 'text-green-500'"
-              />
-              <span :class="invMoMPct >= 0 ? 'text-red-500' : 'text-green-500'">{{ Math.abs(invMoMPct).toFixed(1) }}%</span>
-              <span class="text-gray-400">vs {{ prevMonthName }} ({{ fmtMoney(prevMonthInvValue) }})</span>
-            </template>
-            <span v-else class="text-gray-400">No invoices in {{ prevMonthName }}</span>
-          </div>
-        </UCard>
-      </div>
-
-      <!-- Budget vs Actual chart -->
-      <div class="lg:col-span-2">
-        <UCard class="h-full">
-          <div class="mb-2 flex items-center justify-between">
-            <div>
-              <p class="text-sm font-semibold text-slate-700">Budget vs Actual Spend</p>
-              <p class="text-xs text-slate-400">{{ chartMonths[0].label }} – {{ chartMonths[11].label }}</p>
-            </div>
-            <div class="flex items-center gap-4 text-xs text-slate-500">
-              <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300" />Budget</span>
-              <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 bg-blue-500" />Actual</span>
-            </div>
-          </div>
-          <ClientOnly>
-            <apexchart type="line" height="160" :options="spendChartOptions" :series="spendSeries" />
-            <template #fallback>
-              <div class="flex h-[160px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
-            </template>
-          </ClientOnly>
-        </UCard>
-      </div>
-    </div>
-
     <!-- Tabs -->
     <div class="flex gap-2 border-b border-gray-200">
       <button v-for="tab in [{ value: 'pos', label: 'Purchase Orders' }, { value: 'invoices', label: 'Invoices' }, { value: 'budgets', label: 'Budgets' }]" :key="tab.value"
@@ -413,48 +263,116 @@ async function confirmDeleteBudget() {
         </div>
       </template>
 
-      <UTable v-if="activeTab === 'pos'" :data="filteredPOs" :columns="poColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #po_date-cell="{ row: { original: row } }">{{ fmtDate(row.po_date) }}</template>
-        <template #description-cell="{ row: { original: row } }">
-          <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
-        </template>
-        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditPO(row)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePOTarget = row" />
+      <!-- Purchase Orders card list -->
+      <div v-if="activeTab === 'pos'" class="space-y-2">
+        <div v-if="filteredPOs.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No purchase orders found.
+        </div>
+        <div
+          v-for="po in filteredPOs"
+          :key="po.po_no"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          @click="openEditPO(po)"
+        >
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-document-text" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ po.po_no }}</span>
+            </div>
+            <p class="mt-0.5 truncate text-xs text-gray-500" :title="po.description ?? ''">{{ po.description ?? "—" }}</p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span
+                v-if="po.po_type"
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
+                :class="poTypeStyles[po.po_type] ?? 'bg-gray-100 text-gray-500'"
+              >{{ po.po_type }}</span>
+              <span v-if="po.po_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                {{ fmtDate(po.po_date) }}
+              </span>
+            </div>
+          </div>
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <span class="text-sm font-semibold text-slate-700">${{ po.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deletePOTarget = po" />
+          </div>
+        </div>
+      </div>
 
-      <UTable v-else-if="activeTab === 'invoices'" :data="filteredInvoices" :columns="invoiceColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #invoice_date-cell="{ row: { original: row } }">{{ fmtDate(row.invoice_date) }}</template>
-        <template #description-cell="{ row: { original: row } }">
-          <span class="block max-w-[260px] truncate" :title="row.description ?? ''">{{ row.description ?? "—" }}</span>
-        </template>
-        <template #status-cell="{ row: { original: row } }">
-          <UBadge :color="invoiceStatusColors[row.status] ?? 'neutral'" variant="soft">{{ row.status }}</UBadge>
-        </template>
-        <template #subtotal-cell="{ row: { original: row } }">${{ row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditInvoice(row)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteInvoiceTarget = row" />
+      <!-- Invoices card list -->
+      <div v-else-if="activeTab === 'invoices'" class="space-y-2">
+        <div v-if="filteredInvoices.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No invoices found.
+        </div>
+        <div
+          v-for="inv in filteredInvoices"
+          :key="inv.id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          @click="openEditInvoice(inv)"
+        >
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ inv.invoice_no }}</span>
+            </div>
+            <p class="mt-0.5 truncate text-xs text-gray-500" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span
+                v-if="inv.invoice_type"
+                class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
+                :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 text-gray-500'"
+              >{{ inv.invoice_type.replace(/_/g, " ") }}</span>
+              <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                {{ fmtDate(inv.invoice_date) }}
+              </span>
+            </div>
+          </div>
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <UBadge :color="invoiceStatusColors[inv.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ inv.status }}</UBadge>
+            <span class="text-sm font-semibold text-slate-700">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteInvoiceTarget = inv" />
+          </div>
+        </div>
+      </div>
 
-      <UTable v-else :data="budgets ?? []" :columns="budgetColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #month-cell="{ row: { original: row } }">{{ fmtDate(row.month) }}</template>
-        <template #amount-cell="{ row: { original: row } }">${{ row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</template>
-        <template #notes-cell="{ row: { original: row } }"><span class="text-slate-500">{{ row.notes ?? "—" }}</span></template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEditBudget(row)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteBudgetTarget = row" />
+      <!-- Budgets card list -->
+      <div v-else class="space-y-2">
+        <div v-if="(budgets ?? []).length === 0" class="py-12 text-center text-sm text-gray-400">
+          No budget entries found.
+        </div>
+        <div
+          v-for="b in budgets ?? []"
+          :key="b.id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          @click="openEditBudget(b)"
+        >
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-chart-pie" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800">{{ b.gl_code }}</span>
+              <span class="text-xs text-slate-400">· {{ b.financial_year }}</span>
+            </div>
+            <p class="mt-0.5 truncate text-xs text-gray-500">{{ b.notes ?? "—" }}</p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                {{ fmtDate(b.month) }}
+              </span>
+            </div>
+          </div>
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <span class="text-sm font-semibold text-slate-700">${{ b.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteBudgetTarget = b" />
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- PO Modal -->

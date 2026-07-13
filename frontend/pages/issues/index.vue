@@ -60,17 +60,6 @@ const filtered = computed(() =>
   })
 )
 
-const columns = [
-  { accessorKey: "id", header: "ID" },
-  { accessorKey: "asset_id", header: "Asset" },
-  { accessorKey: "severity", header: "Severity" },
-  { accessorKey: "status", header: "Status" },
-  { accessorKey: "reported_by", header: "Reported By" },
-  { accessorKey: "reported_at", header: "Reported" },
-  { accessorKey: "description", header: "Description" },
-  { id: "actions", header: "" },
-]
-
 // ── Create / Edit modal ───────────────────────────────────────
 const showFormModal = ref(false)
 const isEditing = ref(false)
@@ -183,7 +172,7 @@ function formatDate(val: string | undefined) {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="flex min-h-full flex-col gap-4">
     <!-- Summary badges -->
     <div class="flex flex-wrap gap-3">
       <div v-for="sev in severityOptions" :key="sev"
@@ -195,7 +184,7 @@ function formatDate(val: string | undefined) {
       </div>
     </div>
 
-    <UCard>
+    <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
         <div class="flex items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-3">
@@ -207,39 +196,60 @@ function formatDate(val: string | undefined) {
         </div>
       </template>
 
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
-        <template #severity-cell="{ row: { original: row } }">
-          <UBadge :color="severityColors[row.severity]" variant="soft" class="capitalize">
-            {{ row.severity }}
-          </UBadge>
-        </template>
-        <template #status-cell="{ row: { original: row } }">
-          <UBadge :color="statusColors[row.status]" variant="soft" class="capitalize">
-            {{ row.status.replace(/_/g, " ") }}
-          </UBadge>
-        </template>
-        <template #reported_by-cell="{ row: { original: row } }">
-          {{ row.reported_by ? userMap[row.reported_by] ?? `User ${row.reported_by}` : "—" }}
-        </template>
-        <template #reported_at-cell="{ row: { original: row } }">
-          {{ formatDate(row.reported_at) }}
-        </template>
-        <template #description-cell="{ row: { original: row } }">
-          <span class="line-clamp-1 max-w-xs text-slate-600">{{ row.description }}</span>
-        </template>
-        <template #actions-cell="{ row: { original: row } }">
-          <div class="flex items-center gap-1">
-            <UButton
-              v-if="row.status === 'open' || row.status === 'in_review'"
-              variant="ghost" size="xs" icon="i-heroicons-arrow-path"
-              color="success" title="Convert to Work Order"
-              @click="openConvert(row)"
-            />
-            <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEdit(row)" />
-            <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = row" />
+      <!-- Issue card list -->
+      <div class="overflow-auto h-full p-4 space-y-2">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+          No issues found.
+        </div>
+        <div
+          v-for="issue in filtered"
+          :key="issue.id"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          :class="issue.severity === 'critical' || issue.severity === 'high' ? 'border-l-red-400' : issue.severity === 'medium' ? 'border-l-yellow-400' : 'border-l-transparent'"
+          @click="openEdit(issue)"
+        >
+          <!-- Left icon -->
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
+            <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-gray-400" />
           </div>
-        </template>
-      </UTable>
+
+          <!-- Main content -->
+          <div class="min-w-0 flex-1">
+            <!-- Title -->
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-semibold text-slate-800 truncate">{{ issue.description }}</span>
+            </div>
+            <!-- Asset -->
+            <p class="mt-0.5 text-xs text-gray-500">Asset: {{ issue.asset_id ?? "—" }}</p>
+            <!-- Meta row -->
+            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <UBadge :color="severityColors[issue.severity]" variant="soft" size="xs" class="capitalize">{{ issue.severity }}</UBadge>
+              <span class="flex items-center gap-1 text-[11px] text-gray-500">
+                <UIcon name="i-heroicons-user" class="h-3 w-3" />
+                {{ issue.reported_by ? (userMap[issue.reported_by] ?? `User ${issue.reported_by}`) : "Unknown" }}
+              </span>
+              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+                <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                {{ formatDate(issue.reported_at) }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Right side -->
+          <div class="shrink-0 flex flex-col items-end gap-2">
+            <UBadge :color="statusColors[issue.status]" variant="soft" size="xs" class="capitalize">{{ issue.status.replace(/_/g, " ") }}</UBadge>
+            <div class="flex items-center gap-1">
+              <UButton
+                v-if="issue.status === 'open' || issue.status === 'in_review'"
+                variant="ghost" size="xs" icon="i-heroicons-arrow-path"
+                color="success" title="Convert to Work Order"
+                @click.stop="openConvert(issue)"
+              />
+              <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = issue" />
+            </div>
+          </div>
+        </div>
+      </div>
     </UCard>
 
     <!-- Create / Edit Modal -->

@@ -55,7 +55,7 @@ const navGroups = [
     label: "Operations",
     items: [
       { label: "Dashboard", icon: "i-heroicons-squares-2x2", to: "/" },
-      { label: "Assets", icon: "i-heroicons-wrench-screwdriver", to: "/assets" },
+      { label: "Assets", icon: "i-heroicons-cube", to: "/assets" },
       { label: "Work Orders", icon: "i-heroicons-clipboard-document-list", to: "/work-orders" },
       { label: "Issues", icon: "i-heroicons-flag", to: "/issues" },
       { label: "Downtime", icon: "i-heroicons-exclamation-triangle", to: "/downtime" },

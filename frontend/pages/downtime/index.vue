@@ -138,7 +138,7 @@ async function confirmDelete() {
         </div>
       </template>
 
-      <div class="divide-y divide-gray-100 overflow-auto h-full">
+      <div class="overflow-auto h-full p-4 space-y-2">
         <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
           No downtime records found.
         </div>
@@ -146,8 +146,9 @@ async function confirmDelete() {
           <div
             v-for="d in filtered"
             :key="d.downtime_id"
-            class="flex items-center gap-4 px-5 py-3.5 hover:bg-red-50/20 transition-colors border-l-4"
+            class="flex cursor-pointer items-center gap-4 rounded-lg px-5 py-3.5 ring-1 ring-gray-200 hover:bg-red-50/20 transition-colors border-l-4"
             :class="isOpen(d) ? 'border-l-red-400' : 'border-l-transparent'"
+            @click="openEdit(d.downtime_id)"
           >
             <!-- Icon -->
             <div
@@ -208,9 +209,8 @@ async function confirmDelete() {
             </div>
 
             <!-- Actions -->
-            <div class="flex shrink-0 items-center gap-1">
-              <UButton variant="ghost" size="xs" icon="i-heroicons-eye" @click="openEdit(d.downtime_id)" />
-              <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTarget = d" />
+            <div v-if="isAdmin" class="flex shrink-0 items-center gap-1">
+              <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = d" />
             </div>
           </div>
         </template>
