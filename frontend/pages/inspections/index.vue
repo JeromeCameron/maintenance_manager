@@ -19,6 +19,11 @@ function fmtDate(v?: string | null) {
 
 const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const templateOptions = computed(() => (templates.value ?? []).map((t) => ({ label: t.name, value: t.id })))
+const templateMap = computed(() => {
+  const m: Record<number, string> = {}
+  for (const t of templates.value ?? []) if (t.id != null) m[t.id] = t.name
+  return m
+})
 const resultOptions = ["pass", "fail", "na"]
 
 const search = ref("")
@@ -306,6 +311,13 @@ async function confirmDelete() {
             <p class="mt-0.5 text-xs text-gray-500">Asset: {{ insp.asset_id ?? "—" }}</p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
+              <span
+                v-if="insp.template_id && templateMap[insp.template_id]"
+                class="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-600"
+              >
+                <UIcon name="i-heroicons-clipboard-document-check" class="h-3 w-3" />
+                {{ templateMap[insp.template_id] }}
+              </span>
               <span class="flex items-center gap-1 text-[11px] text-gray-400">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(insp.inspection_date) }}
@@ -315,8 +327,8 @@ async function confirmDelete() {
 
           <!-- Right side -->
           <div class="shrink-0 flex flex-col items-end gap-2">
-            <UBadge :color="resultColors[insp.overall_result] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ insp.overall_result }}</UBadge>
-            <UBadge :color="insp.submitted ? 'success' : 'neutral'" variant="soft" size="xs">{{ insp.submitted ? "Submitted" : "Draft" }}</UBadge>
+            <UBadge :color="resultColors[insp.overall_result] ?? 'neutral'" variant="solid" size="md" class="capitalize font-semibold">{{ insp.overall_result }}</UBadge>
+            <UBadge :color="insp.submitted ? 'success' : 'neutral'" variant="solid" size="md" class="font-semibold">{{ insp.submitted ? "Submitted" : "Draft" }}</UBadge>
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = insp" />
           </div>
         </div>
