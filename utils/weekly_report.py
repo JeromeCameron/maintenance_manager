@@ -101,6 +101,17 @@ def _in_range(v, start: date, end: date) -> bool:
     return d is not None and start <= d <= end
 
 
+def _downtime_overlaps(dt: "Downtime", range_start: date, range_end: date, today: date) -> bool:
+    """True if the downtime event overlaps [range_start, range_end] at all, not just if
+    it started inside the range — so events that started earlier and are still ongoing
+    (or ended) inside/after the range are still counted."""
+    event_start = _to_date(dt.start_date or dt.log_date)
+    if event_start is None:
+        return False
+    event_end = dt.end_date or today  # no end_date yet means still ongoing as of today
+    return event_start <= range_end and event_end >= range_start
+
+
 def _prev_week() -> WeekRange:
     today = today_local()
     last_sun = today - timedelta(days=today.weekday() + 1)
@@ -344,9 +355,9 @@ def _gather(session: Session) -> dict:
     prev_like_day = min(today.day, monthrange(p_s.year, p_s.month)[1])
     prev_like_end = date(p_s.year, p_s.month, prev_like_day)
 
-    week_dts  = [d for d in downtimes   if week.contains(d.start_date or d.log_date)]
-    month_dts = [d for d in downtimes   if _in_range(d.start_date or d.log_date, m_s, m_e)]
-    prev_dts  = [d for d in downtimes   if _in_range(d.start_date or d.log_date, p_s, p_e)]
+    week_dts  = [d for d in downtimes   if _downtime_overlaps(d, week.start, week.end, today)]
+    month_dts = [d for d in downtimes   if _downtime_overlaps(d, m_s, m_e, today)]
+    prev_dts  = [d for d in downtimes   if _downtime_overlaps(d, p_s, p_e, today)]
     week_wos  = [w for w in work_orders if week.contains(w.issue_date) or week.contains(w.date_completed)]
     open_wos  = [w for w in work_orders if w.status in open_statuses]
     month_inv = [i for i in invoices    if _in_range(i.rec_date or i.job_date, m_s, m_e)]

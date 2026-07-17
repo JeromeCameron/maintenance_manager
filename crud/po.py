@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import PurchaseOrder
+from utils.utils import clean_update_payload
 
 
 def get_purchase_orders(session: Session) -> Sequence[PurchaseOrder]:
@@ -37,7 +38,7 @@ def update_purchase_order(
     if db_po is None:
         return None
 
-    po = data.model_dump(exclude_unset=True)
+    po = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in po.items():
         setattr(db_po, key, value)
 

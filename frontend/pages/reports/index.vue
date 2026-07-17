@@ -472,6 +472,94 @@ async function downloadFailureDrivers() {
   triggerDownload(`failure-drivers-${slugDate(to)}.csv`, toCSV(["Cause", "Events", "Downtime Hours", "% of Total Downtime"], rows))
 }
 
+async function downloadPurchaseOrders() {
+  const [pos, poSuppliers, poLocs, poCCs] = await Promise.all([
+    getPOs(),
+    get<{ supplier_id: number; name: string }[]>("/suppliers"),
+    get<{ location_id: number; name: string }[]>("/depots"),
+    getCostCentres(),
+  ])
+  const supMap: Record<number, string> = {}; for (const s of poSuppliers ?? []) if (s.supplier_id != null) supMap[s.supplier_id] = s.name
+  const locMap: Record<number, string> = {}; for (const l of poLocs ?? []) if (l.location_id != null) locMap[l.location_id] = l.name
+  const ccMap: Record<string, string> = {}; for (const c of poCCs ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? c.gl_code
+  const { from, to } = dateRange.value
+  const rows = (pos ?? [])
+    .filter((p) => !from || inRange(p.po_date, from, to))
+    .sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? ""))
+    .map((p) => [
+      p.po_no, p.po_date ?? "",
+      p.supplier_id != null ? (supMap[p.supplier_id] ?? p.supplier_id) : "",
+      p.asset_id ?? "",
+      p.location_id != null ? (locMap[p.location_id] ?? p.location_id) : "",
+      p.po_type, p.cost_centre_id ? (ccMap[p.cost_centre_id] ?? p.cost_centre_id) : "",
+      p.subtotal.toFixed(2), p.description ?? "",
+    ])
+  triggerDownload(`purchase-orders-${slugDate(to)}.csv`, toCSV(["PO No", "Date", "Supplier", "Asset", "Location", "Type", "Cost Centre", "Subtotal", "Description"], rows))
+}
+
+async function downloadPOBalances() {
+  const [pos, invs, poSuppliers] = await Promise.all([
+    getPOs(),
+    get<Invoice[]>("/invoices"),
+    get<{ supplier_id: number; name: string }[]>("/suppliers"),
+  ])
+  const supMap: Record<number, string> = {}; for (const s of poSuppliers ?? []) if (s.supplier_id != null) supMap[s.supplier_id] = s.name
+  const invoicedByPO: Record<string, number> = {}
+  for (const i of invs ?? []) { if (i.po_no) invoicedByPO[i.po_no] = (invoicedByPO[i.po_no] ?? 0) + i.subtotal }
+  const { from, to } = dateRange.value
+  const rows = (pos ?? [])
+    .filter((p) => !from || inRange(p.po_date, from, to))
+    .sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? ""))
+    .map((p) => {
+      const invoiced = invoicedByPO[p.po_no] ?? 0
+      const balance = p.subtotal - invoiced
+      return [
+        p.po_no, p.po_date ?? "",
+        p.supplier_id != null ? (supMap[p.supplier_id] ?? p.supplier_id) : "",
+        p.subtotal.toFixed(2), invoiced.toFixed(2), balance.toFixed(2),
+        p.subtotal > 0 ? ((invoiced / p.subtotal) * 100).toFixed(1) + "%" : "—",
+      ]
+    })
+  triggerDownload(`po-balances-${slugDate(to)}.csv`, toCSV(["PO No", "Date", "Supplier", "PO Value", "Invoiced", "Balance", "% Invoiced"], rows))
+}
+
+async function downloadInvoices() {
+  const [invs, invSuppliers, invLocs] = await Promise.all([
+    get<Invoice[]>("/invoices"),
+    get<{ supplier_id: number; name: string }[]>("/suppliers"),
+    get<{ location_id: number; name: string }[]>("/depots"),
+  ])
+  const supMap: Record<number, string> = {}; for (const s of invSuppliers ?? []) if (s.supplier_id != null) supMap[s.supplier_id] = s.name
+  const locMap: Record<number, string> = {}; for (const l of invLocs ?? []) if (l.location_id != null) locMap[l.location_id] = l.name
+  const { from, to } = dateRange.value
+  const rows = (invs ?? [])
+    .filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+    .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""))
+    .map((i) => [
+      i.invoice_no, i.invoice_date ?? "", i.job_date ?? "", i.rec_date ?? "",
+      i.supplier_id != null ? (supMap[i.supplier_id] ?? i.supplier_id) : "",
+      i.asset_id ?? "",
+      i.location_id != null ? (locMap[i.location_id] ?? i.location_id) : "",
+      i.po_no ?? "", i.work_order_id ?? "",
+      i.invoice_type, i.status, i.subtotal.toFixed(2), i.tax_cert ? "Yes" : "No", i.description ?? "",
+    ])
+  triggerDownload(`invoices-${slugDate(to)}.csv`, toCSV(["Invoice No", "Invoice Date", "Job Date", "Received Date", "Supplier", "Asset", "Location", "PO No", "Work Order ID", "Type", "Status", "Subtotal", "Tax Cert", "Description"], rows))
+}
+
+async function downloadBudgets() {
+  const [buds, budCCs] = await Promise.all([get<Budget[]>("/budgets"), getCostCentres()])
+  const ccMap: Record<string, string> = {}; for (const c of budCCs ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? c.gl_code
+  const { from, to } = dateRange.value
+  const rows = (buds ?? [])
+    .filter((b) => !from || inRange(b.month, from, to))
+    .sort((a, b) => (b.month ?? "").localeCompare(a.month ?? ""))
+    .map((b) => [
+      b.gl_code ?? "", b.gl_code ? (ccMap[b.gl_code] ?? "") : "",
+      b.financial_year, b.month, b.amount.toFixed(2), b.notes ?? "",
+    ])
+  triggerDownload(`budgets-${slugDate(to)}.csv`, toCSV(["GL Code", "Cost Centre", "Financial Year", "Month", "Amount", "Notes"], rows))
+}
+
 // ── Weekly HTML report ────────────────────────────────────────
 const { token } = useAuth()
 const config = useRuntimeConfig()
@@ -522,6 +610,10 @@ const reports: ReportDef[] = [
   { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.).", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
   { id: "dt-by-cat",    name: "Downtime by Equipment Category", description: "Unplanned downtime hours and failure events aggregated by equipment category per month.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-squares-2x2",                 dateNote: "Monthly aggregation", download: makeDownloader("dt-by-cat",    downloadDowntimeByCategory) },
   { id: "failure-drv",  name: "Failure Drivers",                description: "Downtime events and hours grouped by root cause, sorted by highest impact.",  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-exclamation-circle",           dateNote: "By start date",       download: makeDownloader("failure-drv",  downloadFailureDrivers) },
+  { id: "purchase-orders", name: "Purchase Orders",             description: "All purchase orders with supplier, cost centre and subtotal.",                category: "Finance",     categoryColor: "primary", icon: "i-heroicons-document-text",               dateNote: "By PO date",          download: makeDownloader("purchase-orders", downloadPurchaseOrders) },
+  { id: "po-balances",  name: "PO Balances",                    description: "Purchase order value, amount invoiced to date and remaining balance.",         category: "Finance",     categoryColor: "primary", icon: "i-heroicons-scale",                       dateNote: "By PO date",          download: makeDownloader("po-balances", downloadPOBalances) },
+  { id: "invoices",     name: "Invoices",                       description: "All invoices with supplier, PO/work order links, type and status.",           category: "Finance",     categoryColor: "primary", icon: "i-heroicons-banknotes",                    dateNote: "By received date",    download: makeDownloader("invoices", downloadInvoices) },
+  { id: "budgets",      name: "Budgets",                        description: "Budget entries by GL code, financial year and month.",                        category: "Finance",     categoryColor: "primary", icon: "i-heroicons-chart-pie",                    dateNote: "By budget month",     download: makeDownloader("budgets", downloadBudgets) },
 ]
 
 const filteredReports = computed(() =>
@@ -1501,8 +1593,8 @@ const topSuppliersBySpend = computed(() => {
                 :class="categoryFilter === cat.name ? 'bg-blue-50' : ''"
                 @click="categoryFilter = categoryFilter === cat.name ? null : cat.name"
               >
-                <div :class="`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : 'slate'}-50`">
-                  <UIcon :name="cat.icon" :class="`h-4 w-4 text-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : 'slate'}-500`" />
+                <div :class="`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : cat.color === 'primary' ? 'indigo' : 'slate'}-50`">
+                  <UIcon :name="cat.icon" :class="`h-4 w-4 text-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : cat.color === 'primary' ? 'indigo' : 'slate'}-500`" />
                 </div>
                 <div class="flex-1">
                   <p class="text-sm font-medium text-slate-800">{{ cat.name }}</p>

@@ -110,22 +110,35 @@ async function deletePart(id: number) {
 const modalTab = ref<'details' | 'parts' | 'notes'>('details')
 
 // ── Load when opened ──────────────────────────────────────────
+// Guards against a stale response: if the modal is closed or switched to a
+// different work order before this fetch resolves, its result is discarded
+// instead of overwriting the form with the wrong work order's data.
 watch([open, () => props.workOrderId], async ([isOpen, id]) => {
   if (!isOpen || !id) {
-    if (!isOpen) { form.value = {}; parts.value = []; error.value = null }
+    if (!isOpen) { form.value = {}; parts.value = []; error.value = null; loading.value = false }
     return
   }
   loading.value = true
   error.value = null
   modalTab.value = 'details'
+  const isStale = () => !open.value || props.workOrderId !== id
   try {
     const full = await getOne(id as number)
+    if (isStale()) return
     form.value = { ...full }
-    if (full?.asset_id) assetPMs.value = await getPMsByAsset(full.asset_id) ?? []
-    parts.value = await getPartsByWorkOrder(id as number) ?? []
+    const [pms, woParts] = await Promise.all([
+      full?.asset_id ? getPMsByAsset(full.asset_id) : Promise.resolve([]),
+      getPartsByWorkOrder(id as number),
+    ])
+    if (isStale()) return
+    assetPMs.value = pms ?? []
+    parts.value = woParts ?? []
   } catch (e: unknown) {
+    if (isStale()) return
     error.value = (e as { message?: string }).message ?? "Failed to load work order"
-  } finally { loading.value = false }
+  } finally {
+    if (!isStale()) loading.value = false
+  }
 })
 
 // ── Save ──────────────────────────────────────────────────────

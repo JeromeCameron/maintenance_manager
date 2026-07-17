@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Location
+from utils.utils import clean_update_payload
 
 
 def get_depots(session: Session) -> Sequence[Location]:
@@ -31,7 +32,7 @@ def update_depot(
     if db_location is None:
         return None
 
-    location = data.model_dump(exclude_unset=True)
+    location = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in location.items():
         setattr(db_location, key, value)
 

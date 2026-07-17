@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import CommodityRate
+from utils.utils import clean_update_payload
 
 
 def get_rates(session: Session) -> Sequence[CommodityRate]:
@@ -34,7 +35,7 @@ def update_rate(session: Session, rate_id: int, data: CommodityRate) -> Optional
     rec = session.get(CommodityRate, rate_id)
     if rec is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(rec, key, value)
     session.add(rec)
     session.commit()

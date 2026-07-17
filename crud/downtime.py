@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from crud.utility import get_holidays
 from schema.models import Downtime, DowntimeCause
 from utils.down_hours import get_production_downtime_hours
+from utils.utils import clean_update_payload
 
 
 def _parse_date(v) -> Optional[date]:
@@ -63,7 +64,7 @@ def update_downtime_cause(
     db_cause: Optional[DowntimeCause] = session.get(DowntimeCause, cause_id)
     if db_cause is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_cause, key, value)
     session.add(db_cause)
     session.commit()
@@ -110,7 +111,7 @@ def update_downtime(
     db_downtime: Optional[Downtime] = session.get(Downtime, downtime_id)
     if db_downtime is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_downtime, key, value)
     _calculate_downtime_hours(session, db_downtime)
     session.add(db_downtime)

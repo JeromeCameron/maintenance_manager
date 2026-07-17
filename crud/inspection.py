@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Inspection, InspectionResult, InspectionTemplate, InspectionTemplateItem
+from utils.utils import clean_update_payload
 
 
 def generate_inspection_no(session: Session) -> str:
@@ -50,7 +51,7 @@ def update_inspection_template(
     db_template: Optional[InspectionTemplate] = session.get(InspectionTemplate, template_id)
     if db_template is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_template, key, value)
     session.add(db_template)
     session.commit()
@@ -106,7 +107,7 @@ def update_inspection_template_item(
     db_item: Optional[InspectionTemplateItem] = session.get(InspectionTemplateItem, item_id)
     if db_item is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_item, key, value)
     session.add(db_item)
     session.commit()
@@ -154,7 +155,7 @@ def update_inspection(
     db_inspection: Optional[Inspection] = session.get(Inspection, inspection_id)
     if db_inspection is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_inspection, key, value)
     session.add(db_inspection)
     session.commit()
@@ -204,7 +205,7 @@ def update_inspection_result(
     db_result: Optional[InspectionResult] = session.get(InspectionResult, result_id)
     if db_result is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_result, key, value)
     session.add(db_result)
     session.commit()

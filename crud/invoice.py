@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Invoice
+from utils.utils import clean_update_payload
 
 
 def get_invoices(session: Session) -> Sequence[Invoice]:
@@ -33,7 +34,7 @@ def update_invoice(session: Session, id: int, data: Invoice) -> Optional[Invoice
     if db_invoice is None:
         return None
 
-    invoice = data.model_dump(exclude_unset=True)
+    invoice = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in invoice.items():
         setattr(db_invoice, key, value)
 

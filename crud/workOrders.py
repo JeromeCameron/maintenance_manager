@@ -4,6 +4,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 
 from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
+from utils.utils import clean_update_payload
 
 
 def _next_work_order_id(session: Session) -> int:
@@ -111,7 +112,7 @@ def update_work_order(
     db_work_order: Optional[WorkOrder] = session.get(WorkOrder, work_order_id)
     if db_work_order is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_work_order, key, value)
     session.add(db_work_order)
     session.commit()
@@ -157,7 +158,7 @@ def update_work_order_part(
     db_wop: Optional[WorkOrderPart] = session.get(WorkOrderPart, work_order_part_id)
     if db_wop is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_wop, key, value)
     session.add(db_wop)
     session.commit()

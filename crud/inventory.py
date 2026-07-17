@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import EquipmentPart, Part, PartCategory, PartSupplier, StockLevel, StockTransaction, TransactionType
+from utils.utils import clean_update_payload
 
 
 def _apply_transaction(session: Session, tx: StockTransaction, reverse: bool = False) -> None:
@@ -56,7 +57,7 @@ def update_part_category(
     db_category: Optional[PartCategory] = session.get(PartCategory, category_id)
     if db_category is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_category, key, value)
     session.add(db_category)
     session.commit()
@@ -96,7 +97,7 @@ def update_part(session: Session, part_no: str, data: Part) -> Optional[Part]:
     db_part: Optional[Part] = session.get(Part, part_no)
     if db_part is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_part, key, value)
     session.add(db_part)
     session.commit()
@@ -142,7 +143,7 @@ def update_equipment_part(
     db_ep: Optional[EquipmentPart] = session.get(EquipmentPart, equipment_part_id)
     if db_ep is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_ep, key, value)
     session.add(db_ep)
     session.commit()
@@ -188,7 +189,7 @@ def update_part_supplier(
     db_ps: Optional[PartSupplier] = session.get(PartSupplier, part_supplier_id)
     if db_ps is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_ps, key, value)
     session.add(db_ps)
     session.commit()
@@ -230,7 +231,7 @@ def update_stock_level(
     db_sl: Optional[StockLevel] = session.get(StockLevel, stock_level_id)
     if db_sl is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_sl, key, value)
     session.add(db_sl)
     session.commit()
@@ -274,7 +275,7 @@ def update_stock_transaction(
     if db_tx is None:
         return None
     _apply_transaction(session, db_tx, reverse=True)  # undo old
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_tx, key, value)
     _apply_transaction(session, db_tx)  # apply new
     session.add(db_tx)

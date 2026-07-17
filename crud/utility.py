@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Holidays
+from utils.utils import clean_update_payload
 
 
 def get_holidays(session: Session) -> Sequence[Holidays]:
@@ -24,7 +25,7 @@ def update_holiday(session: Session, holiday_id: int, data: Holidays) -> Optiona
     db_holiday: Optional[Holidays] = session.get(Holidays, holiday_id)
     if db_holiday is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_holiday, key, value)
     session.add(db_holiday)
     session.commit()

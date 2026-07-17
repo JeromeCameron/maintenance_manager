@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 
 from auth.security import hash_password, verify_password
 from schema.models import User
+from utils.utils import clean_update_payload
 
 
 def get_users(session: Session) -> Sequence[User]:
@@ -31,7 +32,7 @@ def update_user(session: Session, id: int, data: User) -> Optional[User]:
     if db_user is None:
         return None
 
-    updates = data.model_dump(exclude_unset=True)
+    updates = clean_update_payload(data.model_dump(exclude_unset=True))
     # Re-hash if password is being changed
     if "password" in updates and updates["password"]:
         updates["password"] = hash_password(updates["password"])

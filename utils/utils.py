@@ -28,3 +28,9 @@ def get_shift_overlap(start1, end1, start2, end2):
     earliest_end = min(end1, end2)
     delta = (earliest_end - latest_start).total_seconds()
     return max(delta, 0) / 3600
+
+
+def clean_update_payload(data: dict) -> dict:
+    """Treat '' as "clear this field" so optional date/numeric columns don't get sent
+    an empty string on update (e.g. a cleared HTML date input), which the DB rejects."""
+    return {k: (None if v == "" else v) for k, v in data.items()}

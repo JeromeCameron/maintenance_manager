@@ -87,11 +87,21 @@ const poEditing = ref<PurchaseOrder | null>(null)
 const poForm = ref<Partial<PurchaseOrder>>({ po_type: "corrective", subtotal: 0 })
 const savingPO = ref(false)
 const poError = ref<string | null>(null)
+const poModalTab = ref<"details" | "invoices">("details")
+
+const poRelatedInvoices = computed(() =>
+  poEditing.value
+    ? (invoices.value ?? []).filter((i) => i.po_no === poEditing.value!.po_no)
+    : []
+)
+const poInvoicedTotal = computed(() => poRelatedInvoices.value.reduce((s, i) => s + i.subtotal, 0))
+const poBalance = computed(() => (poForm.value.subtotal ?? 0) - poInvoicedTotal.value)
 
 function openCreatePO() {
   poEditing.value = null
   poForm.value = { po_type: "corrective", subtotal: 0 }
   poError.value = null
+  poModalTab.value = "details"
   showPOModal.value = true
 }
 
@@ -99,7 +109,13 @@ async function openEditPO(row: PurchaseOrder) {
   poEditing.value = row
   poForm.value = { ...await getPO(row.po_no) }
   poError.value = null
+  poModalTab.value = "details"
   showPOModal.value = true
+}
+
+function openInvoiceFromPO(inv: Invoice) {
+  showPOModal.value = false
+  openEditInvoice(inv)
 }
 
 async function savePO() {
@@ -379,47 +395,129 @@ async function confirmDeleteBudget() {
     <UModal v-model:open="showPOModal" :ui="{ content: 'max-w-2xl' }">
       <template #content>
         <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ poEditing ? `Edit PO: ${poEditing.po_no}` : "New Purchase Order" }}</h3>
-            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showPOModal = false" />
-          </div>
-          <div class="flex-1 overflow-y-auto px-6 py-5">
-            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
-              <UFormField label="PO No" required>
-                <UInput v-model="poForm.po_no" placeholder="e.g. PO-2025-001" :disabled="!!poEditing" class="w-full" />
-              </UFormField>
-              <UFormField label="PO Date">
-                <UInput v-model="poForm.po_date" type="date" class="w-full" />
-              </UFormField>
-              <UFormField label="Supplier">
-                <USelect v-model="poForm.supplier_id" :items="supplierOptions" placeholder="Select supplier" class="w-full" />
-              </UFormField>
-              <UFormField label="Asset">
-                <USelect v-model="poForm.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
-              </UFormField>
-              <UFormField label="Location">
-                <USelect v-model="poForm.location_id" :items="locationOptions" placeholder="Select location" class="w-full" />
-              </UFormField>
-              <UFormField label="PO Type">
-                <USelect v-model="poForm.po_type" :items="poTypeOptions" class="w-full" />
-              </UFormField>
-              <UFormField label="Cost Centre">
-                <USelect v-model="poForm.cost_centre_id" :items="costCentreOptions" placeholder="Select cost centre" class="w-full" />
-              </UFormField>
-              <UFormField label="Subtotal" required>
-                <UInput v-model.number="poForm.subtotal" type="number" step="0.01" class="w-full">
-                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
-                </UInput>
-              </UFormField>
-              <UFormField label="Description" class="col-span-2">
-                <UTextarea v-model="poForm.description" :rows="3" class="w-full" />
-              </UFormField>
+          <div class="flex shrink-0 items-center gap-3 border-b border-slate-100 px-6 py-5">
+            <div class="flex-1 min-w-0">
+              <h3 class="text-base font-semibold text-slate-900 truncate">{{ poEditing ? `Edit PO: ${poEditing.po_no}` : "New Purchase Order" }}</h3>
             </div>
-            <UAlert v-if="poError" color="error" variant="soft" :description="poError" class="mt-4" />
+            <span
+              v-if="poEditing"
+              class="rounded-lg px-3 py-1 text-sm font-bold tracking-wide shrink-0"
+              :class="poBalance < 0 ? 'bg-red-600 text-white' : 'bg-slate-800 text-white'"
+            >
+              Balance: ${{ poBalance.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+            </span>
+            <div class="flex-1 flex justify-end">
+              <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showPOModal = false" />
+            </div>
           </div>
+
+          <!-- Tab bar (edit mode only) -->
+          <div v-if="poEditing" class="flex shrink-0 gap-0 border-b border-gray-200 px-6">
+            <button
+              v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'invoices', label: `Invoices (${poRelatedInvoices.length})` }]"
+              :key="tab.value"
+              class="border-b-2 px-4 py-3 text-sm font-medium transition-colors"
+              :class="poModalTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+              @click="poModalTab = tab.value as 'details' | 'invoices'"
+            >{{ tab.label }}</button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-6 py-5">
+            <!-- Details tab -->
+            <template v-if="!poEditing || poModalTab === 'details'">
+              <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+                <UFormField label="PO No" required>
+                  <UInput v-model="poForm.po_no" placeholder="e.g. PO-2025-001" :disabled="!!poEditing" class="w-full" />
+                </UFormField>
+                <UFormField label="PO Date">
+                  <UInput v-model="poForm.po_date" type="date" class="w-full" />
+                </UFormField>
+                <UFormField label="Supplier">
+                  <USelect v-model="poForm.supplier_id" :items="supplierOptions" placeholder="Select supplier" class="w-full" />
+                </UFormField>
+                <UFormField label="Asset">
+                  <USelect v-model="poForm.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
+                </UFormField>
+                <UFormField label="Location">
+                  <USelect v-model="poForm.location_id" :items="locationOptions" placeholder="Select location" class="w-full" />
+                </UFormField>
+                <UFormField label="PO Type">
+                  <USelect v-model="poForm.po_type" :items="poTypeOptions" class="w-full" />
+                </UFormField>
+                <UFormField label="Cost Centre">
+                  <USelect v-model="poForm.cost_centre_id" :items="costCentreOptions" placeholder="Select cost centre" class="w-full" />
+                </UFormField>
+                <UFormField label="Subtotal" required>
+                  <UInput v-model.number="poForm.subtotal" type="number" step="0.01" class="w-full">
+                    <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                  </UInput>
+                </UFormField>
+                <UFormField label="Description" class="col-span-2">
+                  <UTextarea v-model="poForm.description" :rows="3" class="w-full" />
+                </UFormField>
+              </div>
+              <UAlert v-if="poError" color="error" variant="soft" :description="poError" class="mt-4" />
+            </template>
+
+            <!-- Invoices tab -->
+            <template v-else-if="poModalTab === 'invoices'">
+              <div class="mb-4 flex items-center gap-4 rounded-lg bg-slate-50 px-4 py-3">
+                <div>
+                  <p class="text-xs text-slate-400">PO Value</p>
+                  <p class="text-sm font-semibold text-slate-800">${{ (poForm.subtotal ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-slate-400">Invoiced</p>
+                  <p class="text-sm font-semibold text-slate-800">${{ poInvoicedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-slate-400">Balance</p>
+                  <p class="text-sm font-semibold" :class="poBalance < 0 ? 'text-red-600' : 'text-slate-800'">
+                    ${{ poBalance.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="poRelatedInvoices.length === 0" class="py-10 text-center text-sm text-slate-400">
+                No invoices linked to this PO yet.
+              </div>
+              <div v-else class="space-y-2">
+                <div
+                  v-for="inv in poRelatedInvoices"
+                  :key="inv.id"
+                  class="flex cursor-pointer items-start gap-4 rounded-lg px-4 py-3 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors"
+                  @click="openInvoiceFromPO(inv)"
+                >
+                  <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400" />
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <span class="text-sm font-semibold text-slate-800">{{ inv.invoice_no }}</span>
+                    <p class="mt-0.5 truncate text-xs text-gray-500" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
+                    <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                      <span
+                        v-if="inv.invoice_type"
+                        class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
+                        :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 text-gray-500'"
+                      >{{ inv.invoice_type.replace(/_/g, " ") }}</span>
+                      <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+                        <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                        {{ fmtDate(inv.invoice_date) }}
+                      </span>
+                    </div>
+                  </div>
+                  <div class="shrink-0 flex flex-col items-end gap-2">
+                    <UBadge :color="invoiceStatusColors[inv.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ inv.status }}</UBadge>
+                    <span class="text-sm font-semibold text-slate-700">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+
           <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showPOModal = false">Cancel</UButton>
-            <UButton :loading="savingPO" @click="savePO">{{ poEditing ? "Save Changes" : "Create PO" }}</UButton>
+            <UButton v-if="!poEditing || poModalTab === 'details'" :loading="savingPO" @click="savePO">{{ poEditing ? "Save Changes" : "Create PO" }}</UButton>
           </div>
         </div>
       </template>

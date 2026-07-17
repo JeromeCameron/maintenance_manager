@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Budget, CostCentre
+from utils.utils import clean_update_payload
 
 
 def get_budgets(session: Session) -> Sequence[Budget]:
@@ -29,7 +30,7 @@ def update_budget(session: Session, id: int, data: Budget) -> Optional[Budget]:
     if db_budget is None:
         return None
 
-    budget = data.model_dump(exclude_unset=True)
+    budget = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in budget.items():
         setattr(db_budget, key, value)
 
@@ -78,7 +79,7 @@ def update_cost_centre(
     if db_cost_centre is None:
         return None
 
-    cost_centre = data.model_dump(exclude_unset=True)
+    cost_centre = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in cost_centre.items():
         setattr(db_cost_centre, key, value)
 

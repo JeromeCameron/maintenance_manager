@@ -3,6 +3,7 @@ from typing import Optional, Sequence
 from sqlmodel import Session, select
 
 from schema.models import Asset, AssetModel, AssetScores, AssetShiftHistory
+from utils.utils import clean_update_payload
 
 
 def get_assets(session: Session) -> Sequence[Asset]:
@@ -33,7 +34,7 @@ def update_asset(session: Session, asset_id: str, data: Asset) -> Optional[Asset
     if db_asset is None:
         return None
 
-    asset = data.model_dump(exclude_unset=True)
+    asset = clean_update_payload(data.model_dump(exclude_unset=True))
     for key, value in asset.items():
         setattr(db_asset, key, value)
 
@@ -75,7 +76,7 @@ def update_shift_history(session: Session, entry_id: int, data: AssetShiftHistor
     entry = session.get(AssetShiftHistory, entry_id)
     if entry is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(entry, key, value)
     session.add(entry)
     session.commit()
@@ -117,7 +118,7 @@ def update_asset_model(
     db_model: Optional[AssetModel] = session.get(AssetModel, model_no)
     if db_model is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_model, key, value)
     session.add(db_model)
     session.commit()
@@ -163,7 +164,7 @@ def update_asset_score(
     db_score: Optional[AssetScores] = session.get(AssetScores, score_id)
     if db_score is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_score, key, value)
     session.add(db_score)
     session.commit()

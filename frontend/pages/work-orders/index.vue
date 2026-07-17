@@ -149,10 +149,18 @@ watch(() => createForm.value.asset_id, (id) => {
 
 function onCreateOpen(isOpen: boolean) {
   if (isOpen) {
+    // Ensure the edit modal can't also be showing (and won't overwrite this form
+    // if a previous edit's fetch resolves late) before opening the create modal.
+    showEditModal.value = false
+    editingId.value = null
     createForm.value = defaultForm()
     createError.value = null
     createAssetPMs.value = []
   }
+}
+
+function openCreate() {
+  showCreateModal.value = true
 }
 
 async function submitCreate() {
@@ -174,6 +182,7 @@ const showEditModal = ref(false)
 const editingId = ref<number | null>(null)
 
 function openEdit(wo: WorkOrder) {
+  showCreateModal.value = false
   editingId.value = wo.work_order_id!
   showEditModal.value = true
 }
@@ -277,7 +286,7 @@ async function confirmDelete() {
             <USelect v-model="statusFilter" :items="statusOptions" class="w-48" />
             <USelect v-model="priorityFilter" :items="filterPriorityOptions" class="w-40" />
           </div>
-          <UButton leading-icon="i-heroicons-plus" @click="showCreateModal = true" class="!bg-blue-700 hover:!bg-blue-800">New Work Order</UButton>
+          <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Work Order</UButton>
         </div>
       </template>
 

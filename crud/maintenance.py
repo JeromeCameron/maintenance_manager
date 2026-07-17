@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 
 from schema.models import AssetPM, PmPlans
 from utils.pm_schedule import next_service_date
+from utils.utils import clean_update_payload
 
 
 def _recalc_next_service(session: Session, apm: AssetPM) -> None:
@@ -41,7 +42,7 @@ def update_pm_plan(session: Session, pm_id: str, data: PmPlans) -> Optional[PmPl
     db_pm: Optional[PmPlans] = session.get(PmPlans, pm_id)
     if db_pm is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_pm, key, value)
     session.add(db_pm)
     session.commit()
@@ -86,7 +87,7 @@ def update_asset_pm(session: Session, asset_pm_id: int, data: AssetPM) -> Option
     db_apm: Optional[AssetPM] = session.get(AssetPM, asset_pm_id)
     if db_apm is None:
         return None
-    for key, value in data.model_dump(exclude_unset=True).items():
+    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
         setattr(db_apm, key, value)
     _recalc_next_service(session, db_apm)
     session.add(db_apm)
