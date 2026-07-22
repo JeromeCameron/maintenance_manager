@@ -107,7 +107,7 @@ async function confirmDelete() {
           <span class="capitalize">{{ row.category ?? "—" }}</span>
         </template>
         <template #description-cell="{ row: { original: row } }">
-          <span class="text-slate-500">{{ row.description ?? "—" }}</span>
+          <span class="text-slate-500 dark:text-slate-400">{{ row.description ?? "—" }}</span>
         </template>
         <template #actions-cell="{ row: { original: row } }">
           <div class="flex items-center gap-1">
@@ -121,14 +121,14 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
+        <div class="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? `Edit Model: ${editId}` : "New Asset Model" }}</h3>
-              <p class="text-sm text-slate-500">{{ isEditing ? "Update model details" : "Register a new asset model" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? `Edit Model: ${editId}` : "New Asset Model" }}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "Update model details" : "Register a new asset model" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
@@ -145,8 +145,8 @@ async function confirmDelete() {
             <UFormField label="Description" class="col-span-2">
               <UTextarea v-model="form.description" :rows="3" class="w-full" />
             </UFormField>
-            <div v-if="isBaler" class="col-span-2 border-t border-slate-100 pt-4">
-              <p class="mb-3 text-sm font-medium text-slate-700">Baler Specifications</p>
+            <div v-if="isBaler" class="col-span-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+              <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">Baler Specifications</p>
               <div class="grid grid-cols-2 gap-x-5 gap-y-4">
                 <UFormField label="Baler Type">
                   <USelect v-model="form.baler_type" :items="balerTypeOptions" placeholder="Select type" class="w-full" />
@@ -170,7 +170,7 @@ async function confirmDelete() {
             </div>
           </div>
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Create Model" }}</UButton>
           </div>
@@ -183,7 +183,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Asset Model</h3></template>
-          <p class="text-sm text-slate-500">Delete model <strong>{{ deleteTarget?.model_no }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete model <strong>{{ deleteTarget?.model_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

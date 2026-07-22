@@ -681,7 +681,7 @@ async function confirmDeleteRate() {
                 <span class="capitalize">{{ row.category ?? "—" }}</span>
               </template>
               <template #description-cell="{ row: { original: row } }">
-                <span class="text-slate-500">{{ row.description ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ row.description ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -708,7 +708,7 @@ async function confirmDeleteRate() {
                 </UBadge>
               </template>
               <template #description-cell="{ row: { original: row } }">
-                <span class="text-slate-500">{{ row.description ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ row.description ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -787,7 +787,7 @@ async function confirmDeleteRate() {
                 <span class="capitalize">{{ row.owner?.replace(/_/g, " ") ?? "—" }}</span>
               </template>
               <template #description-cell="{ row: { original: row } }">
-                <span class="text-slate-500 truncate max-w-xs block">{{ row.description ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400 truncate max-w-xs block">{{ row.description ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -808,7 +808,7 @@ async function confirmDeleteRate() {
           <UCard>
             <UTable :data="costCentres ?? []" :columns="costCentreColumns">
               <template #description-cell="{ row: { original: row } }">
-                <span class="text-slate-500">{{ row.description ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ row.description ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -825,7 +825,7 @@ async function confirmDeleteRate() {
       <template #commodity-rates>
         <div class="mt-4 space-y-4">
           <div class="flex items-start justify-between">
-            <p class="text-sm text-slate-500 max-w-lg">Rates are stored as USD per pound. When calculating bale loss value for a downtime event, the rate in effect on that date (most recent rate with an effective date on or before the event) is used.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 max-w-lg">Rates are stored as USD per pound. When calculating bale loss value for a downtime event, the rate in effect on that date (most recent rate with an effective date on or before the event) is used.</p>
             <UButton leading-icon="i-heroicons-plus" @click="openCreateRate">Add Rate</UButton>
           </div>
           <UCard>
@@ -834,7 +834,7 @@ async function confirmDeleteRate() {
                 ${{ row.rate_per_lb.toFixed(4) }}/lb
               </template>
               <template #notes-cell="{ row: { original: row } }">
-                <span class="text-slate-500">{{ row.notes ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ row.notes ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -851,9 +851,9 @@ async function confirmDeleteRate() {
     <!-- Holiday Modal -->
     <UModal v-model:open="showHolidayModal">
       <template #content>
-        <div class="w-full rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ holidayEditing ? "Edit Holiday" : "Add Holiday" }}</h3>
+        <div class="w-full rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ holidayEditing ? "Edit Holiday" : "Add Holiday" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showHolidayModal = false" />
           </div>
           <div class="space-y-4 px-6 py-5">
@@ -865,7 +865,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="holidayError" color="error" variant="soft" :description="holidayError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showHolidayModal = false">Cancel</UButton>
             <UButton :loading="savingHoliday" @click="saveHoliday">Save</UButton>
           </div>
@@ -878,7 +878,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Holiday</h3></template>
-          <p class="text-sm text-slate-500">Delete <strong>{{ deleteHolidayTarget?.name }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete <strong>{{ deleteHolidayTarget?.name }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteHolidayTarget = null">Cancel</UButton>
@@ -892,9 +892,9 @@ async function confirmDeleteRate() {
     <!-- Asset Model Modal -->
     <UModal v-model:open="showModelModal">
       <template #content>
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ modelEditing ? `Edit Model: ${modelEditing.model_no}` : "Add Asset Model" }}</h3>
+        <div class="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ modelEditing ? `Edit Model: ${modelEditing.model_no}` : "Add Asset Model" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModelModal = false" />
           </div>
           <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
@@ -910,8 +910,8 @@ async function confirmDeleteRate() {
             <UFormField label="Description" class="col-span-2">
               <UTextarea v-model="modelForm.description" :rows="3" class="w-full" />
             </UFormField>
-            <div v-if="isModelBaler" class="col-span-2 border-t border-slate-100 pt-4">
-              <p class="mb-3 text-sm font-medium text-slate-700">Baler Specifications</p>
+            <div v-if="isModelBaler" class="col-span-2 border-t border-slate-100 dark:border-slate-800 pt-4">
+              <p class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-300">Baler Specifications</p>
               <div class="grid grid-cols-2 gap-x-5 gap-y-4">
                 <UFormField label="Baler Type">
                   <USelect v-model="modelForm.baler_type" :items="balerTypeOptions" placeholder="Select type" class="w-full" />
@@ -935,7 +935,7 @@ async function confirmDeleteRate() {
             </div>
           </div>
           <UAlert v-if="modelError" color="error" variant="soft" :description="modelError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModelModal = false">Cancel</UButton>
             <UButton :loading="savingModel" @click="saveModel">{{ modelEditing ? "Save Changes" : "Create Model" }}</UButton>
           </div>
@@ -948,7 +948,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Asset Model</h3></template>
-          <p class="text-sm text-slate-500">Delete model <strong>{{ deleteModelTarget?.model_no }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete model <strong>{{ deleteModelTarget?.model_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteModelTarget = null">Cancel</UButton>
@@ -962,9 +962,9 @@ async function confirmDeleteRate() {
     <!-- Downtime Cause Modal -->
     <UModal v-model:open="showCauseModal">
       <template #content>
-        <div class="w-full rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ causeEditing ? "Edit Downtime Cause" : "Add Downtime Cause" }}</h3>
+        <div class="w-full rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ causeEditing ? "Edit Downtime Cause" : "Add Downtime Cause" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showCauseModal = false" />
           </div>
           <div class="space-y-4 px-6 py-5">
@@ -979,7 +979,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="causeError" color="error" variant="soft" :description="causeError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showCauseModal = false">Cancel</UButton>
             <UButton :loading="savingCause" @click="saveCause">Save</UButton>
           </div>
@@ -992,7 +992,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Downtime Cause</h3></template>
-          <p class="text-sm text-slate-500">Delete <strong>{{ deleteCauseTarget?.name }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete <strong>{{ deleteCauseTarget?.name }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteCauseTarget = null">Cancel</UButton>
@@ -1005,9 +1005,9 @@ async function confirmDeleteRate() {
     <!-- Part Category Modal -->
     <UModal v-model:open="showCategoryModal">
       <template #content>
-        <div class="w-full rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ categoryEditing ? "Edit Category" : "Add Category" }}</h3>
+        <div class="w-full rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ categoryEditing ? "Edit Category" : "Add Category" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showCategoryModal = false" />
           </div>
           <div class="px-6 py-5">
@@ -1016,7 +1016,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="categoryError" color="error" variant="soft" :description="categoryError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showCategoryModal = false">Cancel</UButton>
             <UButton :loading="savingCategory" @click="saveCategory">Save</UButton>
           </div>
@@ -1029,7 +1029,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Part Category</h3></template>
-          <p class="text-sm text-slate-500">Delete category <strong>{{ deleteCategoryTarget?.name }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete category <strong>{{ deleteCategoryTarget?.name }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteCategoryTarget = null">Cancel</UButton>
@@ -1042,9 +1042,9 @@ async function confirmDeleteRate() {
     <!-- Inspection Template Modal -->
     <UModal v-model:open="showTemplateModal">
       <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ templateEditing ? "Edit Template" : "Add Inspection Template" }}</h3>
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ templateEditing ? "Edit Template" : "Add Inspection Template" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showTemplateModal = false" />
           </div>
           <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
@@ -1065,7 +1065,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="templateError" color="error" variant="soft" :description="templateError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showTemplateModal = false">Cancel</UButton>
             <UButton :loading="savingTemplate" @click="saveTemplate">{{ templateEditing ? "Save Changes" : "Create Template" }}</UButton>
           </div>
@@ -1078,7 +1078,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Template</h3></template>
-          <p class="text-sm text-slate-500">Delete template <strong>{{ deleteTemplateTarget?.name }}</strong>? This will also remove all its questions. This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete template <strong>{{ deleteTemplateTarget?.name }}</strong>? This will also remove all its questions. This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTemplateTarget = null">Cancel</UButton>
@@ -1092,11 +1092,11 @@ async function confirmDeleteRate() {
     <!-- Template Items Modal -->
     <UModal v-model:open="showItemsModal" :ui="{ content: 'max-w-2xl' }">
       <template #content>
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+        <div class="w-full max-w-2xl rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div>
-              <h3 class="text-base font-semibold text-slate-900">{{ activeTemplate?.name }} — Questions</h3>
-              <p class="text-sm text-slate-500">Manage checklist items for this template</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ activeTemplate?.name }} — Questions</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">Manage checklist items for this template</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showItemsModal = false" />
           </div>
@@ -1105,14 +1105,14 @@ async function confirmDeleteRate() {
             <div class="flex justify-end">
               <UButton size="xs" leading-icon="i-heroicons-plus" @click="openCreateItem">Add Question</UButton>
             </div>
-            <div v-if="loadingItems" class="py-8 text-center text-sm text-slate-400">Loading…</div>
+            <div v-if="loadingItems" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Loading…</div>
             <UTable v-else :data="templateItems" :columns="itemColumns">
               <template #is_critical-cell="{ row: { original: row } }">
                 <UBadge v-if="row.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
-                <span v-else class="text-slate-400 text-sm">—</span>
+                <span v-else class="text-slate-400 dark:text-slate-500 text-sm">—</span>
               </template>
               <template #category-cell="{ row: { original: row } }">
-                <span class="text-slate-500">{{ row.category ?? "—" }}</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ row.category ?? "—" }}</span>
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
@@ -1121,12 +1121,12 @@ async function confirmDeleteRate() {
                 </div>
               </template>
             </UTable>
-            <p v-if="!loadingItems && !templateItems.length" class="text-sm text-slate-400">No questions yet.</p>
+            <p v-if="!loadingItems && !templateItems.length" class="text-sm text-slate-400 dark:text-slate-500">No questions yet.</p>
           </div>
 
           <!-- Inline item form -->
           <div v-else class="p-6 space-y-4">
-            <h4 class="font-medium text-slate-800">{{ itemEditing ? "Edit Question" : "New Question" }}</h4>
+            <h4 class="font-medium text-slate-800 dark:text-slate-100">{{ itemEditing ? "Edit Question" : "New Question" }}</h4>
             <UFormField label="Question" required>
               <UTextarea v-model="itemForm.question" :rows="2" class="w-full" />
             </UFormField>
@@ -1153,9 +1153,9 @@ async function confirmDeleteRate() {
     <!-- PM Plan Modal -->
     <UModal v-model:open="showPmPlanModal">
       <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ pmPlanEditing ? `Edit Plan: ${pmPlanEditing.pm_id}` : "Add PM Plan" }}</h3>
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ pmPlanEditing ? `Edit Plan: ${pmPlanEditing.pm_id}` : "Add PM Plan" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showPmPlanModal = false" />
           </div>
           <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
@@ -1182,7 +1182,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="pmPlanError" color="error" variant="soft" :description="pmPlanError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showPmPlanModal = false">Cancel</UButton>
             <UButton :loading="savingPmPlan" @click="savePmPlan">{{ pmPlanEditing ? "Save Changes" : "Create Plan" }}</UButton>
           </div>
@@ -1195,7 +1195,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete PM Plan</h3></template>
-          <p class="text-sm text-slate-500">Delete plan <strong>{{ deletePmPlanTarget?.pm_id }}</strong>? Any asset PMs linked to this plan will lose their plan reference.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete plan <strong>{{ deletePmPlanTarget?.pm_id }}</strong>? Any asset PMs linked to this plan will lose their plan reference.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deletePmPlanTarget = null">Cancel</UButton>
@@ -1209,9 +1209,9 @@ async function confirmDeleteRate() {
     <!-- Cost Centre Modal -->
     <UModal v-model:open="showCostCentreModal">
       <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ costCentreEditing ? "Edit Cost Centre" : "Add Cost Centre" }}</h3>
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ costCentreEditing ? "Edit Cost Centre" : "Add Cost Centre" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showCostCentreModal = false" />
           </div>
           <div class="space-y-4 px-6 py-5">
@@ -1226,7 +1226,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="costCentreError" color="error" variant="soft" :description="costCentreError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showCostCentreModal = false">Cancel</UButton>
             <UButton :loading="savingCostCentre" @click="saveCostCentre">{{ costCentreEditing ? "Save Changes" : "Create" }}</UButton>
           </div>
@@ -1239,7 +1239,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Cost Centre</h3></template>
-          <p class="text-sm text-slate-500">Delete <strong>{{ deleteCostCentreTarget?.gl_code }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete <strong>{{ deleteCostCentreTarget?.gl_code }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteCostCentreTarget = null">Cancel</UButton>
@@ -1253,9 +1253,9 @@ async function confirmDeleteRate() {
     <!-- Commodity Rate Modal -->
     <UModal v-model:open="showRateModal">
       <template #content>
-        <div class="w-full rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ rateEditing ? "Edit Commodity Rate" : "Add Commodity Rate" }}</h3>
+        <div class="w-full rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ rateEditing ? "Edit Commodity Rate" : "Add Commodity Rate" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showRateModal = false" />
           </div>
           <div class="space-y-4 px-6 py-5">
@@ -1270,7 +1270,7 @@ async function confirmDeleteRate() {
             </UFormField>
           </div>
           <UAlert v-if="rateError" color="error" variant="soft" :description="rateError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showRateModal = false">Cancel</UButton>
             <UButton :loading="savingRate" @click="saveRate">{{ rateEditing ? "Save Changes" : "Add Rate" }}</UButton>
           </div>
@@ -1283,7 +1283,7 @@ async function confirmDeleteRate() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Commodity Rate</h3></template>
-          <p class="text-sm text-slate-500">Delete the rate effective <strong>{{ deleteRateTarget?.effective_date }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete the rate effective <strong>{{ deleteRateTarget?.effective_date }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteRateTarget = null">Cancel</UButton>

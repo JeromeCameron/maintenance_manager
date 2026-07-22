@@ -286,29 +286,29 @@ async function confirmDelete() {
 
       <!-- Inspection card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No inspections found.
         </div>
         <div
           v-for="insp in filtered"
           :key="insp.id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4"
           :class="insp.overall_result === 'fail' ? 'border-l-red-400' : 'border-l-transparent'"
           @click="openEdit(insp.id)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-magnifying-glass" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-magnifying-glass" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ insp.inspection_no }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ insp.inspection_no }}</span>
             </div>
             <!-- Asset -->
-            <p class="mt-0.5 text-xs text-gray-500">Asset: {{ insp.asset_id ?? "—" }}</p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-slate-400">Asset: {{ insp.asset_id ?? "—" }}</p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
               <span
@@ -318,7 +318,7 @@ async function confirmDelete() {
                 <UIcon name="i-heroicons-clipboard-document-check" class="h-3 w-3" />
                 {{ templateMap[insp.template_id] }}
               </span>
-              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(insp.inspection_date) }}
               </span>
@@ -338,33 +338,33 @@ async function confirmDelete() {
     <!-- Inspection Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl">
+        <div class="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
 
           <!-- Header -->
-          <div class="flex shrink-0 items-center gap-4 border-b border-slate-100 px-6 py-4">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-magnifying-glass" class="h-5 w-5 text-blue-600" />
+          <div class="flex shrink-0 items-center gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-magnifying-glass" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit Inspection" : "New Inspection" }}</h3>
-              <p class="text-xs text-slate-500">{{ form.inspection_no || "—" }} {{ form.asset_id ? `· ${form.asset_id}` : "" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit Inspection" : "New Inspection" }}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">{{ form.inspection_no || "—" }} {{ form.asset_id ? `· ${form.asset_id}` : "" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
 
           <!-- Tabs -->
-          <div class="shrink-0 border-b border-slate-100 px-6">
+          <div class="shrink-0 border-b border-slate-100 dark:border-slate-800 px-6">
             <div class="flex gap-1">
               <button
                 v-for="tab in [{ id: 'details', label: 'Inspection Details', icon: 'i-heroicons-clipboard-document' }, { id: 'checklist', label: 'Checklist', icon: 'i-heroicons-check-circle' }, { id: 'summary', label: 'Summary', icon: 'i-heroicons-chart-bar' }]"
                 :key="tab.id"
                 class="flex items-center gap-1.5 border-b-2 px-3 py-3 text-xs font-medium transition-colors"
-                :class="activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                :class="activeTab === tab.id ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
                 @click="activeTab = tab.id as any"
               >
                 <UIcon :name="tab.icon" class="h-3.5 w-3.5" />
                 {{ tab.label }}
-                <span v-if="tab.id === 'checklist' && checklistItems.length" class="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">{{ checklistItems.length }}</span>
+                <span v-if="tab.id === 'checklist' && checklistItems.length" class="ml-1 rounded-full bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-500 dark:text-slate-400">{{ checklistItems.length }}</span>
               </button>
             </div>
           </div>
@@ -397,23 +397,23 @@ async function confirmDelete() {
 
             <!-- Checklist tab -->
             <div v-else-if="activeTab === 'checklist'">
-              <div v-if="!form.template_id" class="flex flex-col items-center justify-center py-12 text-slate-400">
+              <div v-if="!form.template_id" class="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-clipboard-document" class="mb-2 h-10 w-10 opacity-30" />
                 <p class="text-sm">Select a template on the Details tab to load checklist items.</p>
               </div>
-              <div v-else-if="loadingChecklist" class="flex items-center justify-center py-12 text-slate-400">
+              <div v-else-if="loadingChecklist" class="flex items-center justify-center py-12 text-slate-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-arrow-path" class="mr-2 h-5 w-5 animate-spin" /> Loading checklist…
               </div>
-              <div v-else-if="!checklistItems.length" class="flex flex-col items-center justify-center py-12 text-slate-400">
+              <div v-else-if="!checklistItems.length" class="flex flex-col items-center justify-center py-12 text-slate-400 dark:text-slate-500">
                 <p class="text-sm">No items found for this template.</p>
               </div>
               <div v-else class="space-y-6">
                 <div v-for="(items, category) in checklistByCategory" :key="category">
                   <h4 class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-blue-600">{{ category }}</h4>
-                  <div class="overflow-hidden rounded-lg border border-slate-200">
+                  <div class="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
                     <table class="w-full text-xs">
                       <thead>
-                        <tr class="bg-slate-50 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                        <tr class="bg-slate-50 dark:bg-slate-800 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                           <th class="px-3 py-2 w-8">#</th>
                           <th class="px-3 py-2">Item</th>
                           <th class="px-3 py-2 w-24 text-center">Result</th>
@@ -421,10 +421,10 @@ async function confirmDelete() {
                         </tr>
                       </thead>
                       <tbody>
-                        <tr v-for="(item, idx) in items" :key="item.id" class="border-t border-slate-100">
-                          <td class="px-3 py-2 text-slate-400">{{ idx + 1 }}</td>
+                        <tr v-for="(item, idx) in items" :key="item.id" class="border-t border-slate-100 dark:border-slate-800">
+                          <td class="px-3 py-2 text-slate-400 dark:text-slate-500">{{ idx + 1 }}</td>
                           <td class="px-3 py-2">
-                            <span :class="item.is_critical ? 'font-semibold text-slate-800' : 'text-slate-700'">{{ item.question }}</span>
+                            <span :class="item.is_critical ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'">{{ item.question }}</span>
                             <span v-if="item.is_critical" class="ml-1 text-red-500 text-[10px] font-bold" title="Critical">★</span>
                           </td>
                           <td class="px-3 py-2">
@@ -457,17 +457,17 @@ async function confirmDelete() {
             <div v-else-if="activeTab === 'summary'" class="space-y-5">
               <!-- Stats -->
               <div v-if="checklistItems.length" class="grid grid-cols-3 gap-3">
-                <div class="rounded-lg bg-green-50 px-4 py-3 text-center ring-1 ring-green-200">
-                  <p class="text-2xl font-bold text-green-600">{{ summaryStats.pass }}</p>
-                  <p class="text-xs text-green-700">Pass</p>
+                <div class="rounded-lg bg-green-50 px-4 py-3 text-center ring-1 ring-green-200 dark:bg-green-500/10 dark:ring-green-500/30">
+                  <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ summaryStats.pass }}</p>
+                  <p class="text-xs text-green-700 dark:text-green-400">Pass</p>
                 </div>
-                <div class="rounded-lg bg-red-50 px-4 py-3 text-center ring-1 ring-red-200">
-                  <p class="text-2xl font-bold text-red-600">{{ summaryStats.fail }}</p>
-                  <p class="text-xs text-red-700">Fail</p>
+                <div class="rounded-lg bg-red-50 px-4 py-3 text-center ring-1 ring-red-200 dark:bg-red-500/10 dark:ring-red-500/30">
+                  <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ summaryStats.fail }}</p>
+                  <p class="text-xs text-red-700 dark:text-red-400">Fail</p>
                 </div>
-                <div class="rounded-lg bg-slate-50 px-4 py-3 text-center ring-1 ring-slate-200">
-                  <p class="text-2xl font-bold text-slate-500">{{ summaryStats.na }}</p>
-                  <p class="text-xs text-slate-500">N/A</p>
+                <div class="rounded-lg bg-slate-50 dark:bg-slate-800 px-4 py-3 text-center ring-1 ring-slate-200 dark:ring-slate-700">
+                  <p class="text-2xl font-bold text-slate-500 dark:text-slate-400">{{ summaryStats.na }}</p>
+                  <p class="text-xs text-slate-500 dark:text-slate-400">N/A</p>
                 </div>
               </div>
 
@@ -475,7 +475,7 @@ async function confirmDelete() {
               <div v-if="failedItems.length">
                 <p class="mb-2 text-xs font-semibold text-red-600">Failed Items ({{ failedItems.length }})</p>
                 <ul class="space-y-1">
-                  <li v-for="item in failedItems" :key="item.id" class="flex items-start gap-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-700">
+                  <li v-for="item in failedItems" :key="item.id" class="flex items-start gap-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-400">
                     <UIcon name="i-heroicons-x-circle" class="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     <span>{{ item.question }}</span>
                     <span v-if="item.is_critical" class="ml-auto shrink-0 font-bold text-red-500">Critical</span>
@@ -504,7 +504,7 @@ async function confirmDelete() {
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-2 shrink-0" />
 
           <!-- Footer -->
-          <div class="flex shrink-0 items-center justify-between border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 items-center justify-between border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" leading-icon="i-heroicons-printer" color="neutral" :disabled="!checklistItems.length" @click="printChecklist">
               Print Checklist
             </UButton>
@@ -522,7 +522,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Inspection</h3></template>
-          <p class="text-sm text-slate-500">Delete inspection <strong>{{ deleteTarget?.inspection_no }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete inspection <strong>{{ deleteTarget?.inspection_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

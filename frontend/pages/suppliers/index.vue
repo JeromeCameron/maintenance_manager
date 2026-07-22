@@ -191,28 +191,28 @@ async function confirmDelete() {
 
       <!-- Supplier card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No suppliers found.
         </div>
         <div
           v-for="sup in filtered"
           :key="sup.supplier_id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4 border-l-transparent"
           @click="openEdit(sup.supplier_id!)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-building-storefront" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-building-storefront" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ sup.name }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ sup.name }}</span>
             </div>
             <!-- Contact -->
-            <p v-if="sup.contact_number" class="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
+            <p v-if="sup.contact_number" class="mt-0.5 flex items-center gap-1 text-xs text-gray-500 dark:text-slate-400">
               <UIcon name="i-heroicons-phone" class="h-3 w-3" />
               {{ sup.contact_number }}
             </p>
@@ -235,21 +235,21 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal" :ui="{ content: 'max-w-4xl' }">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl">
+        <div class="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
           <!-- Header -->
-          <div class="flex shrink-0 items-start gap-4 border-b border-gray-100 px-6 py-5">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-building-storefront" class="h-5 w-5 text-blue-600" />
+          <div class="flex shrink-0 items-start gap-4 border-b border-gray-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-building-storefront" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit Supplier" : "New Supplier" }}</h3>
-              <p class="mt-0.5 text-sm text-gray-500">{{ isEditing ? "Update supplier details" : "Add a new supplier" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit Supplier" : "New Supplier" }}</h3>
+              <p class="mt-0.5 text-sm text-gray-500 dark:text-slate-400">{{ isEditing ? "Update supplier details" : "Add a new supplier" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
 
           <!-- Tab bar (edit mode only) -->
-          <div v-if="isEditing" class="flex shrink-0 gap-0 border-b border-gray-200 px-6">
+          <div v-if="isEditing" class="flex shrink-0 gap-0 border-b border-gray-200 dark:border-slate-700 px-6">
             <button
               v-for="tab in [
                 { value: 'details', label: 'Details' },
@@ -259,11 +259,11 @@ async function confirmDelete() {
               ]"
               :key="tab.value"
               class="flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors"
-              :class="activeRelatedTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+              :class="activeRelatedTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'"
               @click="activeRelatedTab = tab.value"
             >
               {{ tab.label }}
-              <span v-if="tab.count !== undefined" class="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
+              <span v-if="tab.count !== undefined" class="rounded-full bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300">
                 {{ relatedLoading ? "…" : tab.count }}
               </span>
             </button>
@@ -303,8 +303,8 @@ async function confirmDelete() {
                       :key="opt.value"
                       class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
                       :class="form.categories?.includes(opt.value)
-                        ? 'border-primary-500 bg-primary-50 text-primary-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-400'
+                        : 'border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-gray-300 dark:hover:border-slate-600'"
                       @click="toggleCategory(opt.value)"
                     >
                       <UIcon :name="form.categories?.includes(opt.value) ? 'i-heroicons-check-circle' : 'i-heroicons-circle'" class="h-4 w-4" />
@@ -318,12 +318,12 @@ async function confirmDelete() {
 
             <!-- Work Orders tab -->
             <template v-else-if="activeRelatedTab === 'work-orders'">
-              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400">Loading…</div>
+              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400 dark:text-slate-500">Loading…</div>
               <template v-else>
                 <UTable
                   :data="visibleWOs"
                   :columns="woColumns"
-                  :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+                  :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
                 >
                   <template #issue_date-cell="{ row: { original: row } }">{{ fmtDate(row.issue_date) }}</template>
                   <template #wo-description-cell="{ row: { original: row } }">
@@ -339,7 +339,7 @@ async function confirmDelete() {
                     <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/work-orders/${row.work_order_id}`" />
                   </template>
                 </UTable>
-                <div v-if="sortedWOs.length === 0" class="py-6 text-center text-sm text-slate-400">No work orders found</div>
+                <div v-if="sortedWOs.length === 0" class="py-6 text-center text-sm text-slate-400 dark:text-slate-500">No work orders found</div>
                 <div v-if="woVisible < sortedWOs.length" class="flex justify-center pt-2">
                   <UButton variant="outline" size="sm" @click="woVisible += PAGE_SIZE">
                     Load more ({{ sortedWOs.length - woVisible }} remaining)
@@ -350,12 +350,12 @@ async function confirmDelete() {
 
             <!-- Invoices tab -->
             <template v-else-if="activeRelatedTab === 'invoices'">
-              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400">Loading…</div>
+              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400 dark:text-slate-500">Loading…</div>
               <template v-else>
                 <UTable
                   :data="visibleInvoices"
                   :columns="invoiceColumns"
-                  :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+                  :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
                 >
                   <template #invoice_date-cell="{ row: { original: row } }">{{ fmtDate(row.invoice_date) }}</template>
                   <template #inv-description-cell="{ row: { original: row } }">
@@ -372,7 +372,7 @@ async function confirmDelete() {
                     <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/finance/invoice/${row.id}`" />
                   </template>
                 </UTable>
-                <div v-if="sortedInvoices.length === 0" class="py-6 text-center text-sm text-slate-400">No invoices found</div>
+                <div v-if="sortedInvoices.length === 0" class="py-6 text-center text-sm text-slate-400 dark:text-slate-500">No invoices found</div>
                 <div v-if="invVisible < sortedInvoices.length" class="flex justify-center pt-2">
                   <UButton variant="outline" size="sm" @click="invVisible += PAGE_SIZE">
                     Load more ({{ sortedInvoices.length - invVisible }} remaining)
@@ -383,12 +383,12 @@ async function confirmDelete() {
 
             <!-- Purchase Orders tab -->
             <template v-else-if="activeRelatedTab === 'purchase-orders'">
-              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400">Loading…</div>
+              <div v-if="relatedLoading" class="flex items-center justify-center py-8 text-sm text-slate-400 dark:text-slate-500">Loading…</div>
               <template v-else>
                 <UTable
                   :data="visiblePOs"
                   :columns="poColumns"
-                  :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+                  :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
                 >
                   <template #po_date-cell="{ row: { original: row } }">{{ fmtDate(row.po_date) }}</template>
                   <template #po-description-cell="{ row: { original: row } }">
@@ -400,7 +400,7 @@ async function confirmDelete() {
                     <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/finance/po/${row.po_no}`" />
                   </template>
                 </UTable>
-                <div v-if="sortedPOs.length === 0" class="py-6 text-center text-sm text-slate-400">No purchase orders found</div>
+                <div v-if="sortedPOs.length === 0" class="py-6 text-center text-sm text-slate-400 dark:text-slate-500">No purchase orders found</div>
                 <div v-if="poVisible < sortedPOs.length" class="flex justify-center pt-2">
                   <UButton variant="outline" size="sm" @click="poVisible += PAGE_SIZE">
                     Load more ({{ sortedPOs.length - poVisible }} remaining)
@@ -412,7 +412,7 @@ async function confirmDelete() {
           </div>
 
           <!-- Footer -->
-          <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
+          <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" leading-icon="i-heroicons-check" @click="save">
               {{ isEditing ? "Save Changes" : "Create Supplier" }}
@@ -427,7 +427,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Supplier</h3></template>
-          <p class="text-sm text-slate-500">Delete supplier <strong>{{ deleteTarget?.name }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete supplier <strong>{{ deleteTarget?.name }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

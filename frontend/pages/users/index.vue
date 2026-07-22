@@ -104,7 +104,7 @@ async function confirmDelete() {
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New User</UButton>
         </div>
       </template>
-      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }">
+      <UTable :data="filtered" :columns="columns" :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }">
         <template #role-cell="{ row: { original: row } }">
           <UBadge :color="roleColors[row.role] ?? 'neutral'" variant="soft" size="sm" class="capitalize">{{ row.role }}</UBadge>
         </template>
@@ -126,14 +126,14 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div class="w-full max-w-xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-users" class="h-5 w-5 text-blue-600" />
+        <div class="w-full max-w-xl rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-users" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit User" : "New User" }}</h3>
-              <p class="text-sm text-slate-500">{{ isEditing ? "Update user account details" : "Create a new system account" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit User" : "New User" }}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "Update user account details" : "Create a new system account" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
@@ -161,7 +161,7 @@ async function confirmDelete() {
             </UFormField>
           </div>
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Create User" }}</UButton>
           </div>
@@ -174,7 +174,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete User</h3></template>
-          <p class="text-sm text-slate-500">Delete user <strong>{{ deleteTarget?.username }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete user <strong>{{ deleteTarget?.username }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

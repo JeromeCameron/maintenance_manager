@@ -226,7 +226,7 @@ const psColumns = [
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/inventory" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-slate-900">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ isNew ? "New Part" : `Part: ${partNo}` }}
       </h1>
     </div>
@@ -293,10 +293,10 @@ const psColumns = [
           <template #header><h2 class="font-semibold">Stock Levels</h2></template>
           <div class="space-y-2 text-sm">
             <div v-for="s in stockLevels" :key="s.id" class="flex justify-between">
-              <span class="text-gray-500">Location {{ s.location_id ?? "—" }}</span>
+              <span class="text-gray-500 dark:text-slate-400">Location {{ s.location_id ?? "—" }}</span>
               <span class="font-semibold">{{ s.quantity }}</span>
             </div>
-            <p v-if="!stockLevels.length" class="text-gray-400">No stock recorded.</p>
+            <p v-if="!stockLevels.length" class="text-gray-400 dark:text-slate-500">No stock recorded.</p>
           </div>
         </UCard>
 
@@ -331,7 +331,7 @@ const psColumns = [
         <UTable :data="equipmentParts" :columns="epColumns">
           <template #is_critical-cell="{ row: { original: row } }">
             <UBadge v-if="row.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
-            <span v-else class="text-slate-400 text-sm">—</span>
+            <span v-else class="text-slate-400 dark:text-slate-500 text-sm">—</span>
           </template>
           <template #actions-cell="{ row: { original: row } }">
             <div class="flex items-center gap-1">
@@ -340,7 +340,7 @@ const psColumns = [
             </div>
           </template>
         </UTable>
-        <p v-if="!equipmentParts.length" class="px-2 py-3 text-sm text-slate-400">No equipment linked.</p>
+        <p v-if="!equipmentParts.length" class="px-2 py-3 text-sm text-slate-400 dark:text-slate-500">No equipment linked.</p>
       </UCard>
 
       <!-- Part Suppliers -->
@@ -365,7 +365,7 @@ const psColumns = [
             </div>
           </template>
         </UTable>
-        <p v-if="!partSuppliers.length" class="px-2 py-3 text-sm text-slate-400">No suppliers linked.</p>
+        <p v-if="!partSuppliers.length" class="px-2 py-3 text-sm text-slate-400 dark:text-slate-500">No suppliers linked.</p>
       </UCard>
     </div>
 
@@ -387,9 +387,9 @@ const psColumns = [
     <!-- Equipment Part Modal -->
     <UModal v-model:open="showEpModal">
       <template #content>
-        <div class="w-full max-w-md rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ epEditing ? "Edit Equipment Link" : "Link Equipment Model" }}</h3>
+        <div class="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ epEditing ? "Edit Equipment Link" : "Link Equipment Model" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showEpModal = false" />
           </div>
           <div class="space-y-4 px-6 py-5">
@@ -401,7 +401,7 @@ const psColumns = [
             </UFormField>
           </div>
           <UAlert v-if="epError" color="error" variant="soft" :description="epError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showEpModal = false">Cancel</UButton>
             <UButton :loading="savingEp" @click="saveEp">Save</UButton>
           </div>
@@ -412,9 +412,9 @@ const psColumns = [
     <!-- Part Supplier Modal -->
     <UModal v-model:open="showPsModal">
       <template #content>
-        <div class="w-full max-w-md rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ psEditing ? "Edit Supplier" : "Add Supplier" }}</h3>
+        <div class="w-full max-w-md rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ psEditing ? "Edit Supplier" : "Add Supplier" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showPsModal = false" />
           </div>
           <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
@@ -432,7 +432,7 @@ const psColumns = [
             </UFormField>
           </div>
           <UAlert v-if="psError" color="error" variant="soft" :description="psError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showPsModal = false">Cancel</UButton>
             <UButton :loading="savingPs" @click="savePs">Save</UButton>
           </div>

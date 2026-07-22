@@ -53,7 +53,7 @@ async function save() {
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/downtime" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-slate-900">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ isNew ? "Log Downtime" : `Downtime #${dtId}` }}
       </h1>
     </div>

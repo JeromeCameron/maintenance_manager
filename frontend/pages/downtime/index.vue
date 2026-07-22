@@ -118,14 +118,14 @@ async function confirmDelete() {
 
     <!-- KPI strip -->
     <div class="flex items-center gap-3">
-      <div class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-4 py-2 text-sm">
-        <span class="text-red-500">Total downtime:</span>
-        <span class="font-bold text-red-700">{{ totalHours.toFixed(1) }}h</span>
+      <div class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-2 text-sm">
+        <span class="text-red-500 dark:text-red-400">Total downtime:</span>
+        <span class="font-bold text-red-700 dark:text-red-400">{{ totalHours.toFixed(1) }}h</span>
       </div>
-      <div v-if="openCount > 0" class="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 px-4 py-2 text-sm">
-        <UIcon name="i-heroicons-exclamation-circle" class="h-4 w-4 text-orange-500" />
-        <span class="font-semibold text-orange-700">{{ openCount }} open</span>
-        <span class="text-orange-500">— no end date recorded</span>
+      <div v-if="openCount > 0" class="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 dark:bg-orange-500/10 px-4 py-2 text-sm">
+        <UIcon name="i-heroicons-exclamation-circle" class="h-4 w-4 text-orange-500 dark:text-orange-400" />
+        <span class="font-semibold text-orange-700 dark:text-orange-400">{{ openCount }} open</span>
+        <span class="text-orange-500 dark:text-orange-400">— no end date recorded</span>
       </div>
     </div>
 
@@ -139,21 +139,21 @@ async function confirmDelete() {
       </template>
 
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No downtime records found.
         </div>
         <template v-else>
           <div
             v-for="d in filtered"
             :key="d.downtime_id"
-            class="flex cursor-pointer items-center gap-4 rounded-lg px-5 py-3.5 ring-1 ring-gray-200 hover:bg-red-50/20 transition-colors border-l-4"
+            class="flex cursor-pointer items-center gap-4 rounded-lg px-5 py-3.5 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-red-50/20 dark:hover:bg-red-500/10 transition-colors border-l-4"
             :class="isOpen(d) ? 'border-l-red-400' : 'border-l-transparent'"
             @click="openEdit(d.downtime_id)"
           >
             <!-- Icon -->
             <div
               class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-              :class="d.planned ? 'bg-blue-50' : 'bg-red-50'"
+              :class="d.planned ? 'bg-blue-50 dark:bg-blue-500/10' : 'bg-red-50 dark:bg-red-500/10'"
             >
               <UIcon
                 :name="d.planned ? 'i-heroicons-calendar' : 'i-heroicons-exclamation-triangle'"
@@ -165,37 +165,37 @@ async function confirmDelete() {
             <!-- Asset + cause (fixed) -->
             <div class="w-52 shrink-0 min-w-0">
               <div class="flex items-center gap-1.5">
-                <span class="text-sm font-semibold text-slate-800 truncate">{{ d.asset_id ?? '—' }}</span>
+                <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ d.asset_id ?? '—' }}</span>
                 <span v-if="isOpen(d)" class="h-2 w-2 shrink-0 rounded-full bg-red-500" />
               </div>
-              <p class="text-xs text-slate-500 truncate">{{ causeMap[d.cause_id] ?? 'Unknown cause' }}</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{{ causeMap[d.cause_id] ?? 'Unknown cause' }}</p>
             </div>
 
             <!-- Details (fills remaining space) -->
-            <p class="flex-1 min-w-0 truncate text-xs text-gray-400">{{ d.details ?? '—' }}</p>
+            <p class="flex-1 min-w-0 truncate text-xs text-gray-400 dark:text-slate-500">{{ d.details ?? '—' }}</p>
 
             <!-- Pills + date -->
             <div class="flex shrink-0 items-center gap-2">
               <span
                 class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium ring-1"
-                :class="d.planned ? 'bg-blue-50 text-blue-600 ring-blue-200' : 'bg-red-50 text-red-600 ring-red-200'"
+                :class="d.planned ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 ring-blue-200 dark:ring-blue-500/30' : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-500/30'"
               >{{ d.planned ? 'Planned' : 'Unplanned' }}</span>
-              <span v-if="d.repeat_failure" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200">Repeat</span>
-              <span v-if="d.temporary_fix" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-purple-50 text-purple-600 ring-1 ring-purple-200">Temp fix</span>
+              <span v-if="d.repeat_failure" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/30">Repeat</span>
+              <span v-if="d.temporary_fix" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:ring-purple-500/30">Temp fix</span>
             </div>
 
             <!-- Start date -->
             <div class="w-28 shrink-0 text-center">
-              <p class="text-xs text-gray-500">{{ formatDate(d.start_date) }}</p>
-              <p v-if="d.start_time" class="text-[11px] text-gray-400">{{ d.start_time.slice(0, 5) }}</p>
+              <p class="text-xs text-gray-500 dark:text-slate-400">{{ formatDate(d.start_date) }}</p>
+              <p v-if="d.start_time" class="text-[11px] text-gray-400 dark:text-slate-500">{{ d.start_time.slice(0, 5) }}</p>
             </div>
 
             <!-- Hours (prominent) -->
             <div class="w-16 shrink-0 text-right">
-              <span class="text-lg font-bold leading-tight" :class="isOpen(d) ? 'text-red-600' : 'text-slate-700'">
+              <span class="text-lg font-bold leading-tight" :class="isOpen(d) ? 'text-red-600' : 'text-slate-700 dark:text-slate-300'">
                 {{ d.downtime_hours != null ? d.downtime_hours.toFixed(1) : '—' }}
               </span>
-              <span class="block text-[11px] font-medium text-gray-400 -mt-0.5">hours</span>
+              <span class="block text-[11px] font-medium text-gray-400 dark:text-slate-500 -mt-0.5">hours</span>
             </div>
 
             <!-- Open / closed + ID -->
@@ -204,8 +204,8 @@ async function confirmDelete() {
                 <UIcon name="i-heroicons-exclamation-circle" class="h-3.5 w-3.5" />
                 Open
               </span>
-              <p v-else class="text-[11px] text-gray-400">Closed {{ formatDate(d.end_date) }}</p>
-              <p class="text-[11px] text-gray-400 mt-0.5">#{{ d.downtime_id }}<template v-if="d.work_order"> · WO {{ d.work_order }}</template></p>
+              <p v-else class="text-[11px] text-gray-400 dark:text-slate-500">Closed {{ formatDate(d.end_date) }}</p>
+              <p class="text-[11px] text-gray-400 dark:text-slate-500 mt-0.5">#{{ d.downtime_id }}<template v-if="d.work_order"> · WO {{ d.work_order }}</template></p>
             </div>
 
             <!-- Actions -->
@@ -220,14 +220,14 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50">
-              <UIcon name="i-heroicons-exclamation-triangle" class="h-5 w-5 text-red-500" />
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-50 dark:bg-red-500/10">
+              <UIcon name="i-heroicons-exclamation-triangle" class="h-5 w-5 text-red-500 dark:text-red-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit Downtime Record" : "Log Downtime" }}</h3>
-              <p class="text-sm text-slate-500">{{ isEditing ? "Update downtime details" : "Record an equipment downtime event" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit Downtime Record" : "Log Downtime" }}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "Update downtime details" : "Record an equipment downtime event" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
@@ -284,7 +284,7 @@ async function confirmDelete() {
             </div>
             <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mt-4" />
           </div>
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Log Downtime" }}</UButton>
           </div>
@@ -297,7 +297,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Downtime Record</h3></template>
-          <p class="text-sm text-slate-500">Delete downtime record <strong>#{{ deleteTarget?.downtime_id }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete downtime record <strong>#{{ deleteTarget?.downtime_id }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

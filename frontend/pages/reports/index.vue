@@ -13,6 +13,9 @@ interface MonthlyMetrics {
 }
 
 const { get } = useApi()
+const colorMode = useColorMode()
+const chartTheme = computed(() => ({ mode: colorMode.value === "dark" ? "dark" as const : "light" as const }))
+const chartGridColor = computed(() => colorMode.value === "dark" ? "#1e293b" : "#f1f5f9")
 const { getAll: getCommodityRates } = useCommodityRates()
 const { getPOs, getCostCentres } = useFinance()
 const { getAll: getSuppliers } = useSuppliers()
@@ -235,7 +238,7 @@ const kpiCards = computed(() => {
 
 function sparkOpts(color: string) {
   return {
-    chart: { type: "line", sparkline: { enabled: true }, animations: { enabled: false } },
+    chart: { type: "line", sparkline: { enabled: true }, animations: { enabled: false }, background: "transparent" },
     stroke: { width: 2, curve: "smooth" },
     colors: [color],
     tooltip: { enabled: false },
@@ -890,7 +893,8 @@ function woTypeColor(type: string) {
 }
 
 const dtBarOpts = computed(() => ({
-  chart: { type: 'bar', toolbar: { show: false }, animations: { enabled: false } },
+  chart: { type: 'bar', toolbar: { show: false }, animations: { enabled: false }, background: 'transparent' },
+  theme: chartTheme.value,
   plotOptions: { bar: { borderRadius: 3, columnWidth: '55%' } },
   dataLabels: { enabled: false },
   colors: ['#ef4444'],
@@ -900,11 +904,12 @@ const dtBarOpts = computed(() => ({
   },
   yaxis: { title: { text: 'Hours' }, labels: { formatter: (v: number) => v.toFixed(1) } },
   tooltip: { y: { formatter: (v: number) => v.toFixed(1) + ' hrs' } },
-  grid: { borderColor: '#f1f5f9' },
+  grid: { borderColor: chartGridColor.value },
 }))
 
 const availLineOpts = computed(() => ({
-  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false } },
+  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false }, background: 'transparent' },
+  theme: chartTheme.value,
   stroke: { width: 2, curve: 'smooth' },
   colors: ['#22c55e'],
   markers: { size: 4 },
@@ -927,7 +932,7 @@ const availLineOpts = computed(() => ({
     }],
   },
   tooltip: { y: { formatter: (v: number) => v.toFixed(1) + '%' } },
-  grid: { borderColor: '#f1f5f9' },
+  grid: { borderColor: chartGridColor.value },
 }))
 
 const assetMonthlyMTTR = computed(() =>
@@ -956,7 +961,8 @@ const assetMonthlyMTBF = computed(() =>
 )
 
 const mttrLineOpts = computed(() => ({
-  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false } },
+  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false }, background: 'transparent' },
+  theme: chartTheme.value,
   stroke: { width: 2, curve: 'smooth' },
   colors: ['#f97316'],
   markers: { size: 4 },
@@ -970,11 +976,12 @@ const mttrLineOpts = computed(() => ({
     labels: { formatter: (v: number) => v != null ? v.toFixed(1) + 'h' : '—' },
   },
   tooltip: { y: { formatter: (v: number) => v != null ? v.toFixed(2) + ' hrs' : 'No data' } },
-  grid: { borderColor: '#f1f5f9' },
+  grid: { borderColor: chartGridColor.value },
 }))
 
 const mtbfLineOpts = computed(() => ({
-  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false } },
+  chart: { type: 'line', toolbar: { show: false }, animations: { enabled: false }, background: 'transparent' },
+  theme: chartTheme.value,
   stroke: { width: 2, curve: 'smooth' },
   colors: ['#8b5cf6'],
   markers: { size: 4 },
@@ -988,7 +995,7 @@ const mtbfLineOpts = computed(() => ({
     labels: { formatter: (v: number) => v != null ? v.toFixed(1) + 'h' : '—' },
   },
   tooltip: { y: { formatter: (v: number) => v != null ? v.toFixed(2) + ' hrs' : 'No data' } },
-  grid: { borderColor: '#f1f5f9' },
+  grid: { borderColor: chartGridColor.value },
 }))
 
 // ── Location Analysis ──────────────────────────────────────────
@@ -1176,7 +1183,8 @@ const paretoDtSeries = computed(() => [
 ])
 
 const paretoDtOptions = computed(() => ({
-  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 }, background: "transparent" },
+  theme: chartTheme.value,
   plotOptions: { bar: { columnWidth: "55%", borderRadius: 4 } },
   stroke: { width: [0, 2], curve: "straight" },
   colors: ["#f97316", "#64748b"],
@@ -1198,7 +1206,7 @@ const paretoDtOptions = computed(() => ({
       labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => Math.round(v) + "%" },
     },
   ],
-  grid: { borderColor: "#f1f5f9", strokeDashArray: 4 },
+  grid: { borderColor: chartGridColor.value, strokeDashArray: 4 },
   legend: { show: false },
   tooltip: { shared: true },
 }))
@@ -1305,12 +1313,13 @@ const spendSeries = computed(() => [
 ])
 
 const spendChartOptions = computed(() => ({
-  chart: { type: "line", height: 220, toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 } },
+  chart: { type: "line", height: 220, toolbar: { show: false }, zoom: { enabled: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 }, background: "transparent" },
+  theme: chartTheme.value,
   stroke: { width: [2, 2], curve: "smooth", dashArray: [6, 0] },
   markers: { size: 3, strokeWidth: 0 },
   xaxis: { categories: spendChartMonths.value.map((m) => m.label), labels: { style: { fontSize: "10px", colors: "#94a3b8" } }, axisBorder: { show: false }, axisTicks: { show: false } },
   yaxis: { tickAmount: 4, labels: { style: { fontSize: "10px", colors: "#94a3b8" }, formatter: (v: number) => v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(1)}M` : v >= 1_000 ? `$${(v / 1_000).toFixed(0)}k` : `$${v.toFixed(0)}` }, min: 0 },
-  grid: { borderColor: "#f1f5f9", strokeDashArray: 4, padding: { left: 2, right: 2 } },
+  grid: { borderColor: chartGridColor.value, strokeDashArray: 4, padding: { left: 2, right: 2 } },
   colors: ["#94a3b8", "#3b82f6"],
   legend: { show: false },
   dataLabels: { enabled: false },
@@ -1391,30 +1400,30 @@ const topSuppliersBySpend = computed(() => {
   <div class="space-y-5">
 
     <!-- ── Tab bar ────────────────────────────────────────────────── -->
-    <div class="flex gap-0 border-b border-slate-200">
+    <div class="flex gap-0 border-b border-slate-200 dark:border-slate-700">
       <button
         class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
-        :class="activeReportTab === 'reports' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        :class="activeReportTab === 'reports' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'reports'"
       >Reports</button>
       <button
         class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
-        :class="activeReportTab === 'asset' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        :class="activeReportTab === 'asset' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'asset'"
       >Asset Analysis</button>
       <button
         class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
-        :class="activeReportTab === 'location' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        :class="activeReportTab === 'location' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'location'"
       >Location Analysis</button>
       <button
         class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
-        :class="activeReportTab === 'downtime' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        :class="activeReportTab === 'downtime' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'downtime'"
       >Downtime Analysis</button>
       <button
         class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
-        :class="activeReportTab === 'budget' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'"
+        :class="activeReportTab === 'budget' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'budget'"
       >Budget & Spend</button>
     </div>
@@ -1425,14 +1434,14 @@ const topSuppliersBySpend = computed(() => {
     <template v-if="activeReportTab === 'reports'">
 
       <!-- ── Weekly Management Report ───────────────────────────── -->
-      <div class="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
+      <div class="flex items-center justify-between rounded-xl border border-blue-100 dark:border-blue-500/20 bg-blue-50 dark:bg-blue-500/10 px-5 py-4">
         <div class="flex items-center gap-4">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600">
             <UIcon name="i-heroicons-document-chart-bar" class="h-5 w-5 text-white" />
           </div>
           <div>
-            <p class="text-sm font-semibold text-slate-800">Weekly Management Report</p>
-            <p class="text-xs text-slate-500">Covers the previous Mon – Sun. Includes downtime, work orders, PM compliance, finance and reliability. Opens in a new tab — print or save as PDF from there.</p>
+            <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">Weekly Management Report</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Covers the previous Mon – Sun. Includes downtime, work orders, PM compliance, finance and reliability. Opens in a new tab — print or save as PDF from there.</p>
           </div>
         </div>
         <div class="flex flex-col items-end gap-1">
@@ -1446,12 +1455,12 @@ const topSuppliersBySpend = computed(() => {
       <!-- ── Header ──────────────────────────────────────────────── -->
       <div class="flex flex-wrap items-center gap-3">
           <div class="relative">
-            <UIcon name="i-heroicons-magnifying-glass" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <UIcon name="i-heroicons-magnifying-glass" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input
               v-model="searchQuery"
               type="text"
               placeholder="Search reports..."
-              class="h-9 rounded-lg border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-700 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              class="h-9 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 pl-9 pr-4 text-sm text-slate-700 dark:text-slate-300 placeholder-slate-400 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             />
           </div>
           <UButton :loading="exportingAll" leading-icon="i-heroicons-arrow-down-tray" @click="exportAll">
@@ -1464,12 +1473,12 @@ const topSuppliersBySpend = computed(() => {
         <div
           v-for="card in kpiCards"
           :key="card.id"
-          class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"
+          class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
         >
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
-              <p class="text-xs font-medium text-slate-500">{{ card.label }}</p>
-              <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ card.value }}<span v-if="card.suffix" class="ml-0.5 text-sm font-medium text-slate-400">{{ card.suffix }}</span></p>
+              <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ card.label }}</p>
+              <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ card.value }}<span v-if="card.suffix" class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">{{ card.suffix }}</span></p>
             </div>
             <div class="w-24 shrink-0">
               <ClientOnly>
@@ -1477,7 +1486,7 @@ const topSuppliersBySpend = computed(() => {
               </ClientOnly>
             </div>
           </div>
-          <p v-if="card.note" class="mt-1 truncate text-xs text-slate-400">{{ card.note }}</p>
+          <p v-if="card.note" class="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">{{ card.note }}</p>
           <div class="mt-2 flex items-center gap-1 text-xs">
             <UIcon
               :name="card.trend.up ? 'i-heroicons-arrow-trending-up' : 'i-heroicons-arrow-trending-down'"
@@ -1487,7 +1496,7 @@ const topSuppliersBySpend = computed(() => {
             <span :class="(card.trend.up && !card.higherIsBetter) || (!card.trend.up && card.higherIsBetter) ? 'text-red-500' : 'text-green-500'">
               {{ card.trend.pct }}{{ card.trend.pct !== "—" ? "%" : "" }}
             </span>
-            <span class="text-slate-400">vs last month</span>
+            <span class="text-slate-400 dark:text-slate-500">vs last month</span>
           </div>
         </div>
       </div>
@@ -1500,20 +1509,20 @@ const topSuppliersBySpend = computed(() => {
 
           <!-- Filter bar -->
           <div class="flex flex-wrap items-center gap-3">
-            <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400" />
+            <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
+              <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
               <select
                 v-model="selectedDays"
-                class="bg-transparent text-sm text-slate-700 focus:outline-none"
+                class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
               >
                 <option v-for="opt in timelineOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
               </select>
             </div>
-            <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-              <UIcon name="i-heroicons-funnel" class="h-4 w-4 text-slate-400" />
+            <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
+              <UIcon name="i-heroicons-funnel" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
               <select
                 v-model="categoryFilter"
-                class="bg-transparent text-sm text-slate-700 focus:outline-none"
+                class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none"
               >
                 <option :value="null">All Types</option>
                 <option v-for="cat in reportCategories" :key="cat.name" :value="cat.name">{{ cat.name }}</option>
@@ -1525,27 +1534,27 @@ const topSuppliersBySpend = computed(() => {
           </div>
 
           <!-- Available Reports -->
-          <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <h2 class="text-sm font-semibold text-slate-900">Available Reports</h2>
-              <span class="text-xs text-slate-400">{{ filteredReports.length }} report{{ filteredReports.length === 1 ? "" : "s" }}</span>
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Available Reports</h2>
+              <span class="text-xs text-slate-400 dark:text-slate-500">{{ filteredReports.length }} report{{ filteredReports.length === 1 ? "" : "s" }}</span>
             </div>
 
-            <div v-if="filteredReports.length" class="divide-y divide-slate-50">
+            <div v-if="filteredReports.length" class="divide-y divide-slate-50 dark:divide-slate-800">
               <div
                 v-for="report in filteredReports"
                 :key="report.id"
-                class="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50"
+                class="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <!-- Icon -->
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100">
-                  <UIcon :name="report.icon" class="h-5 w-5 text-slate-500" />
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800">
+                  <UIcon :name="report.icon" class="h-5 w-5 text-slate-500 dark:text-slate-400" />
                 </div>
 
                 <!-- Meta -->
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-900">{{ report.name }}</p>
-                  <p class="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400">
+                  <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ report.name }}</p>
+                  <p class="mt-0.5 flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
                     <UBadge :color="report.categoryColor" variant="soft" size="xs">{{ report.category }}</UBadge>
                     <span>·</span>
                     <span>{{ report.dateNote }}</span>
@@ -1557,7 +1566,7 @@ const topSuppliersBySpend = computed(() => {
                 <div class="flex shrink-0 items-center gap-3">
                   <UBadge color="success" variant="soft" size="xs">Ready</UBadge>
                   <button
-                    class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 shadow-sm transition hover:border-blue-300 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
                     :disabled="!!downloading && downloading !== report.id"
                     :title="`Download ${report.name}`"
                     @click="report.download"
@@ -1569,7 +1578,7 @@ const topSuppliersBySpend = computed(() => {
               </div>
             </div>
 
-            <div v-else class="flex flex-col items-center gap-2 py-12 text-slate-400">
+            <div v-else class="flex flex-col items-center gap-2 py-12 text-slate-400 dark:text-slate-500">
               <UIcon name="i-heroicons-document-magnifying-glass" class="h-8 w-8" />
               <p class="text-sm">No reports match your filters.</p>
             </div>
@@ -1581,24 +1590,24 @@ const topSuppliersBySpend = computed(() => {
         <div class="space-y-5">
 
           <!-- Report Categories -->
-          <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h2 class="text-sm font-semibold text-slate-900">Report Categories</h2>
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Report Categories</h2>
             </div>
-            <div class="divide-y divide-slate-50">
+            <div class="divide-y divide-slate-50 dark:divide-slate-800">
               <button
                 v-for="cat in reportCategories"
                 :key="cat.name"
-                class="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-slate-50"
-                :class="categoryFilter === cat.name ? 'bg-blue-50' : ''"
+                class="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+                :class="categoryFilter === cat.name ? 'bg-blue-50 dark:bg-blue-500/10' : ''"
                 @click="categoryFilter = categoryFilter === cat.name ? null : cat.name"
               >
                 <div :class="`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : cat.color === 'primary' ? 'indigo' : 'slate'}-50`">
                   <UIcon :name="cat.icon" :class="`h-4 w-4 text-${cat.color === 'info' ? 'blue' : cat.color === 'warning' ? 'amber' : cat.color === 'success' ? 'green' : cat.color === 'primary' ? 'indigo' : 'slate'}-500`" />
                 </div>
                 <div class="flex-1">
-                  <p class="text-sm font-medium text-slate-800">{{ cat.name }}</p>
-                  <p class="text-xs text-slate-400">{{ cat.count }} report{{ cat.count === 1 ? "" : "s" }}</p>
+                  <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ cat.name }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">{{ cat.count }} report{{ cat.count === 1 ? "" : "s" }}</p>
                 </div>
                 <UIcon name="i-heroicons-chevron-right" class="h-4 w-4 text-slate-300" :class="categoryFilter === cat.name ? 'text-blue-400' : ''" />
               </button>
@@ -1606,56 +1615,56 @@ const topSuppliersBySpend = computed(() => {
           </div>
 
           <!-- Quick Stats -->
-          <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h2 class="text-sm font-semibold text-slate-900">Quick Stats</h2>
-              <p class="text-xs text-slate-400">{{ selectedLabel }}</p>
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h2 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Quick Stats</h2>
+              <p class="text-xs text-slate-400 dark:text-slate-500">{{ selectedLabel }}</p>
             </div>
-            <div class="divide-y divide-slate-50 px-5">
+            <div class="divide-y divide-slate-50 dark:divide-slate-800 px-5">
               <!-- Downtime -->
               <div class="flex items-center justify-between py-3">
                 <div>
-                  <span class="flex items-center gap-2 text-sm text-slate-600">
+                  <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                     <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-red-400" />
                     Unplanned Downtime
                   </span>
-                  <p class="mt-0.5 text-xs text-slate-400">This month</p>
+                  <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">This month</p>
                 </div>
-                <span class="font-semibold text-slate-900">{{ totalDowntimeHrs.toFixed(1) }}h</span>
+                <span class="font-semibold text-slate-900 dark:text-slate-100">{{ totalDowntimeHrs.toFixed(1) }}h</span>
               </div>
               <!-- Bales -->
               <div class="flex items-center justify-between py-3">
                 <div>
-                  <span class="flex items-center gap-2 text-sm text-slate-600">
+                  <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                     <UIcon name="i-heroicons-cube" class="h-4 w-4 text-amber-400" />
                     Bales Lost
                   </span>
-                  <p class="mt-0.5 text-xs text-slate-400">At historical $/lb rates</p>
+                  <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">At historical $/lb rates</p>
                 </div>
                 <div class="text-right">
-                  <p class="font-semibold text-slate-900">{{ balesStats.bales.toLocaleString() }}</p>
-                  <p class="text-xs text-slate-400">{{ fmtCurrency(balesStats.value) }}</p>
+                  <p class="font-semibold text-slate-900 dark:text-slate-100">{{ balesStats.bales.toLocaleString() }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">{{ fmtCurrency(balesStats.value) }}</p>
                 </div>
               </div>
               <!-- PM -->
               <div class="flex items-center justify-between py-3">
-                <span class="flex items-center gap-2 text-sm text-slate-600">
+                <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                   <UIcon name="i-heroicons-calendar-days" class="h-4 w-4 text-purple-400" />
                   PM Cost
                 </span>
-                <span class="font-semibold text-slate-900">{{ fmtCurrency(pmCost) }}</span>
+                <span class="font-semibold text-slate-900 dark:text-slate-100">{{ fmtCurrency(pmCost) }}</span>
               </div>
               <!-- Corrective -->
               <div class="flex items-center justify-between py-3">
-                <span class="flex items-center gap-2 text-sm text-slate-600">
+                <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                   <UIcon name="i-heroicons-wrench" class="h-4 w-4 text-blue-400" />
                   Corrective Cost
                 </span>
-                <span class="font-semibold text-slate-900">{{ fmtCurrency(correctiveCost) }}</span>
+                <span class="font-semibold text-slate-900 dark:text-slate-100">{{ fmtCurrency(correctiveCost) }}</span>
               </div>
               <!-- Budget -->
               <div class="flex items-center justify-between py-3">
-                <span class="flex items-center gap-2 text-sm text-slate-600">
+                <span class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                   <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-green-400" />
                   Budget
                 </span>
@@ -1680,7 +1689,7 @@ const topSuppliersBySpend = computed(() => {
 
       <!-- Asset selector -->
       <div class="flex items-center gap-4">
-        <UIcon name="i-heroicons-cube" class="h-5 w-5 shrink-0 text-slate-400" />
+        <UIcon name="i-heroicons-cube" class="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" />
         <div class="w-full max-w-sm">
           <USelect
             v-model="selectedAssetId"
@@ -1689,13 +1698,13 @@ const topSuppliersBySpend = computed(() => {
             class="w-full"
           />
         </div>
-        <p v-if="selectedAssetObj" class="text-xs text-slate-400">
+        <p v-if="selectedAssetObj" class="text-xs text-slate-400 dark:text-slate-500">
           {{ assetDowntimes.length }} downtime events · {{ assetWorkOrders.length }} work orders
         </p>
       </div>
 
       <!-- Empty state -->
-      <div v-if="!selectedAssetId" class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white py-20 text-slate-400">
+      <div v-if="!selectedAssetId" class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-20 text-slate-400 dark:text-slate-500">
         <UIcon name="i-heroicons-chart-bar-square" class="h-10 w-10" />
         <p class="text-sm font-medium">Select an asset above to view its analysis</p>
         <p class="text-xs">Downtime history, availability trend, lifetime cost and work order breakdown</p>
@@ -1705,51 +1714,51 @@ const topSuppliersBySpend = computed(() => {
       <template v-else-if="selectedAssetObj">
 
         <!-- ── Asset header card ─────────────────────────────────── -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="flex items-start gap-5 border-b border-slate-100 px-6 py-5">
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="flex items-start gap-5 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-600">
               <UIcon name="i-heroicons-cube" class="h-6 w-6 text-white" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-lg font-bold text-slate-900">{{ selectedAssetObj.asset_id }}</h2>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ selectedAssetObj.asset_id }}</h2>
                 <UBadge v-if="selectedAssetObj.alias" color="neutral" variant="soft" size="sm">{{ selectedAssetObj.alias }}</UBadge>
                 <UBadge :color="assetStatusColor(selectedAssetObj.status)" variant="soft" size="sm" class="capitalize">{{ selectedAssetObj.status.replace('_', ' ') }}</UBadge>
                 <UBadge color="neutral" variant="outline" size="sm" class="capitalize">{{ selectedAssetObj.category }}</UBadge>
               </div>
-              <p class="mt-0.5 text-sm text-slate-500">{{ selectedAssetObj.manufacturer }}{{ selectedAssetObj.model_no ? ' · ' + selectedAssetObj.model_no : '' }}{{ selectedAssetObj.yr ? ' · ' + selectedAssetObj.yr : '' }}</p>
+              <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{{ selectedAssetObj.manufacturer }}{{ selectedAssetObj.model_no ? ' · ' + selectedAssetObj.model_no : '' }}{{ selectedAssetObj.yr ? ' · ' + selectedAssetObj.yr : '' }}</p>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 sm:grid-cols-4">
             <div v-if="selectedAssetObj.serial_no">
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Serial No</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ selectedAssetObj.serial_no }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Serial No</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedAssetObj.serial_no }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Ownership</p>
-              <p class="mt-0.5 text-sm capitalize text-slate-700">{{ selectedAssetObj.owned }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Ownership</p>
+              <p class="mt-0.5 text-sm capitalize text-slate-700 dark:text-slate-300">{{ selectedAssetObj.owned }}</p>
             </div>
             <div v-if="selectedAssetObj.date_in_service">
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">In Service</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ selectedAssetObj.date_in_service }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">In Service</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedAssetObj.date_in_service }}</p>
             </div>
             <div v-if="selectedAssetObj.location_id">
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Location</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ locationMap[selectedAssetObj.location_id] ?? selectedAssetObj.location_id }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Location</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ locationMap[selectedAssetObj.location_id] ?? selectedAssetObj.location_id }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Availability (30d)</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Availability (30d)</p>
               <p class="mt-0.5 text-sm font-semibold" :class="assetAvailability30d >= 90 ? 'text-green-600' : assetAvailability30d >= 75 ? 'text-amber-600' : 'text-red-600'">
                 {{ assetAvailability30d }}%
               </p>
             </div>
             <div v-if="selectedAssetModel?.bale_time" class="sm:col-span-2">
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Bale Specs</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ selectedAssetModel.bale_time }} min/bale · {{ selectedAssetModel.bale_weight }} lb/bale</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Bale Specs</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedAssetModel.bale_time }} min/bale · {{ selectedAssetModel.bale_weight }} lb/bale</p>
             </div>
             <div v-if="selectedAssetObj.notes" class="sm:col-span-4">
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Notes</p>
-              <p class="mt-0.5 text-sm text-slate-600">{{ selectedAssetObj.notes }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Notes</p>
+              <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-300">{{ selectedAssetObj.notes }}</p>
             </div>
           </div>
         </div>
@@ -1757,24 +1766,24 @@ const topSuppliersBySpend = computed(() => {
         <!-- ── KPI cards ─────────────────────────────────────────── -->
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <!-- Lifetime WO cost -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Lifetime WO Cost</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtCurrency(lifetimeCostWO) }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ assetWorkOrders.length }} work orders total</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Lifetime WO Cost</p>
+            <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtCurrency(lifetimeCostWO) }}</p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ assetWorkOrders.length }} work orders total</p>
           </div>
           <!-- Lifetime downtime -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Lifetime Downtime</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ lifetimeDowntimeHrs.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400">h</span></p>
-            <p class="mt-1 text-xs text-slate-400">{{ assetDowntimes.length }} events recorded</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Lifetime Downtime</p>
+            <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ lifetimeDowntimeHrs.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">h</span></p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ assetDowntimes.length }} events recorded</p>
           </div>
           <!-- 12m avg availability -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">12m Avg Availability</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">12m Avg Availability</p>
             <p class="mt-1.5 text-2xl font-bold" :class="avg12mAvailability >= 90 ? 'text-green-600' : avg12mAvailability >= 75 ? 'text-amber-600' : 'text-red-600'">
               {{ avg12mAvailability }}%
             </p>
-            <p class="mt-1 text-xs text-slate-400">{{ assetShiftHours }}h/day scheduled</p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ assetShiftHours }}h/day scheduled</p>
           </div>
         </div>
 
@@ -1782,8 +1791,8 @@ const topSuppliersBySpend = computed(() => {
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
 
           <!-- Downtime history -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-4 text-sm font-semibold text-slate-900">Downtime History — Last 12 Months</h3>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Downtime History — Last 12 Months</h3>
             <ClientOnly>
               <apexchart
                 type="bar"
@@ -1795,8 +1804,8 @@ const topSuppliersBySpend = computed(() => {
           </div>
 
           <!-- Availability trend -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-4 text-sm font-semibold text-slate-900">Availability Trend — Last 12 Months</h3>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Availability Trend — Last 12 Months</h3>
             <ClientOnly>
               <apexchart
                 type="line"
@@ -1808,9 +1817,9 @@ const topSuppliersBySpend = computed(() => {
           </div>
 
           <!-- MTTR -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-1 text-sm font-semibold text-slate-900">MTTR — Last 12 Months</h3>
-            <p class="mb-4 text-xs text-slate-400">Mean time to repair per failure event (unplanned only)</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-100">MTTR — Last 12 Months</h3>
+            <p class="mb-4 text-xs text-slate-400 dark:text-slate-500">Mean time to repair per failure event (unplanned only)</p>
             <ClientOnly>
               <apexchart
                 type="line"
@@ -1822,9 +1831,9 @@ const topSuppliersBySpend = computed(() => {
           </div>
 
           <!-- MTBF -->
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-1 text-sm font-semibold text-slate-900">MTBF — Last 12 Months</h3>
-            <p class="mb-4 text-xs text-slate-400">Mean time between failures based on scheduled operating hours</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-100">MTBF — Last 12 Months</h3>
+            <p class="mb-4 text-xs text-slate-400 dark:text-slate-500">Mean time between failures based on scheduled operating hours</p>
             <ClientOnly>
               <apexchart
                 type="line"
@@ -1841,14 +1850,14 @@ const topSuppliersBySpend = computed(() => {
         <div class="grid grid-cols-1 gap-5" :class="isBaler ? 'lg:grid-cols-2' : ''">
 
           <!-- Work order summary -->
-          <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h3 class="text-sm font-semibold text-slate-900">Work Order Summary</h3>
-              <p class="mt-0.5 text-xs text-slate-400">
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Work Order Summary</h3>
+              <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                 {{ woOpen }} open · {{ woCompleted }} completed
               </p>
             </div>
-            <div v-if="woByType.length" class="divide-y divide-slate-50">
+            <div v-if="woByType.length" class="divide-y divide-slate-50 dark:divide-slate-800">
               <div
                 v-for="row in woByType"
                 :key="row.type"
@@ -1857,59 +1866,59 @@ const topSuppliersBySpend = computed(() => {
                 <UBadge :color="woTypeColor(row.type)" variant="soft" size="sm" class="w-28 shrink-0 capitalize justify-center">
                   {{ row.type }}
                 </UBadge>
-                <div class="flex-1 text-sm text-slate-700">
+                <div class="flex-1 text-sm text-slate-700 dark:text-slate-300">
                   {{ row.count }} WO{{ row.count !== 1 ? 's' : '' }}
                 </div>
                 <div class="text-right text-sm">
-                  <p class="font-medium text-slate-900">{{ fmtCurrency(row.cost) }}</p>
-                  <p class="text-xs text-slate-400">{{ row.hours.toFixed(0) }}h</p>
+                  <p class="font-medium text-slate-900 dark:text-slate-100">{{ fmtCurrency(row.cost) }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">{{ row.hours.toFixed(0) }}h</p>
                 </div>
               </div>
             </div>
-            <div v-else class="flex flex-col items-center gap-2 py-10 text-slate-400">
+            <div v-else class="flex flex-col items-center gap-2 py-10 text-slate-400 dark:text-slate-500">
               <UIcon name="i-heroicons-clipboard-document-list" class="h-7 w-7" />
               <p class="text-sm">No work orders recorded for this asset</p>
             </div>
           </div>
 
           <!-- Baler performance (balers only) -->
-          <div v-if="isBaler && assetBalesStats" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h3 class="text-sm font-semibold text-slate-900">Baler Performance</h3>
-              <p class="mt-0.5 text-xs text-slate-400">Lifetime bale loss from downtime events</p>
+          <div v-if="isBaler && assetBalesStats" class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Baler Performance</h3>
+              <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Lifetime bale loss from downtime events</p>
             </div>
             <div class="space-y-4 px-5 py-5">
-              <div class="flex items-center justify-between rounded-lg bg-amber-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-4">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                    <UIcon name="i-heroicons-cube" class="h-5 w-5 text-amber-600" />
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-500/20">
+                    <UIcon name="i-heroicons-cube" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-amber-700">Lifetime Bales Lost</p>
-                    <p class="mt-0.5 text-2xl font-bold text-amber-900">{{ assetBalesStats.bales.toLocaleString() }}</p>
-                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600">avg {{ assetBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
+                    <p class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">Lifetime Bales Lost</p>
+                    <p class="mt-0.5 text-2xl font-bold text-amber-900 dark:text-amber-300">{{ assetBalesStats.bales.toLocaleString() }}</p>
+                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600 dark:text-amber-400">avg {{ assetBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
                   </div>
                 </div>
                 <ClientOnly>
                   <apexchart type="line" width="96" height="50" :options="sparkOpts('#f59e0b')" :series="[{ data: assetMonthlyBales }]" />
                 </ClientOnly>
               </div>
-              <div class="flex items-center justify-between rounded-lg bg-red-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-4">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100">
-                    <UIcon name="i-heroicons-banknotes" class="h-5 w-5 text-red-600" />
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-500/20">
+                    <UIcon name="i-heroicons-banknotes" class="h-5 w-5 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-red-700">Estimated Value Lost</p>
-                    <p class="mt-0.5 text-2xl font-bold text-red-900">{{ fmtCurrency(assetBalesStats.value) }}</p>
-                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600">avg {{ fmtCurrency(assetBalesAvgPerMonth.value) }} / month</p>
+                    <p class="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-400">Estimated Value Lost</p>
+                    <p class="mt-0.5 text-2xl font-bold text-red-900 dark:text-red-300">{{ fmtCurrency(assetBalesStats.value) }}</p>
+                    <p v-if="assetBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600 dark:text-red-400">avg {{ fmtCurrency(assetBalesAvgPerMonth.value) }} / month</p>
                   </div>
                 </div>
                 <ClientOnly>
                   <apexchart type="line" width="96" height="50" :options="sparkOpts('#ef4444')" :series="[{ data: assetMonthlyBaleValue }]" />
                 </ClientOnly>
               </div>
-              <p class="text-xs text-slate-400">Calculated using historical commodity rates at each downtime event date.</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">Calculated using historical commodity rates at each downtime event date.</p>
             </div>
           </div>
 
@@ -1925,7 +1934,7 @@ const topSuppliersBySpend = computed(() => {
 
       <!-- Location selector -->
       <div class="flex items-center gap-4">
-        <UIcon name="i-heroicons-map-pin" class="h-5 w-5 shrink-0 text-slate-400" />
+        <UIcon name="i-heroicons-map-pin" class="h-5 w-5 shrink-0 text-slate-400 dark:text-slate-500" />
         <div class="w-full max-w-sm">
           <USelect
             v-model="selectedLocationId"
@@ -1934,7 +1943,7 @@ const topSuppliersBySpend = computed(() => {
             class="w-full"
           />
         </div>
-        <p v-if="selectedLocationObj" class="text-xs text-slate-400">
+        <p v-if="selectedLocationObj" class="text-xs text-slate-400 dark:text-slate-500">
           {{ locationAssets.length }} asset{{ locationAssets.length !== 1 ? 's' : '' }} ·
           {{ locationDowntimes.length }} downtime events ·
           {{ locationWorkOrders.length }} work orders
@@ -1942,7 +1951,7 @@ const topSuppliersBySpend = computed(() => {
       </div>
 
       <!-- Empty state -->
-      <div v-if="!selectedLocationId" class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-white py-20 text-slate-400">
+      <div v-if="!selectedLocationId" class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-20 text-slate-400 dark:text-slate-500">
         <UIcon name="i-heroicons-building-office-2" class="h-10 w-10" />
         <p class="text-sm font-medium">Select a location above to view combined asset performance</p>
         <p class="text-xs">Downtime history, availability trend, lifetime cost and work order breakdown across all assets</p>
@@ -1952,75 +1961,75 @@ const topSuppliersBySpend = computed(() => {
       <template v-else-if="selectedLocationObj">
 
         <!-- ── Location header card ──────────────────────────────── -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="flex items-start gap-5 border-b border-slate-100 px-6 py-5">
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="flex items-start gap-5 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-indigo-600">
               <UIcon name="i-heroicons-map-pin" class="h-6 w-6 text-white" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-lg font-bold text-slate-900">{{ selectedLocationObj.name }}</h2>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ selectedLocationObj.name }}</h2>
                 <UBadge color="neutral" variant="soft" size="sm">{{ locTypLabel(selectedLocationObj.typ) }}</UBadge>
               </div>
-              <p class="mt-0.5 text-sm text-slate-500">{{ selectedLocationObj.parish }}</p>
+              <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{{ selectedLocationObj.parish }}</p>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 sm:grid-cols-4">
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Supervisor</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ selectedLocationObj.supervisor }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Supervisor</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.supervisor }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Contact</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ selectedLocationObj.contact_no }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Contact</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.contact_no }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Total Assets</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ locationAssets.length }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Total Assets</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ locationAssets.length }}</p>
             </div>
             <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Active Assets</p>
-              <p class="mt-0.5 text-sm text-slate-700">{{ locationAssets.filter(a => a.status === 'operational').length }}</p>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Active Assets</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ locationAssets.filter(a => a.status === 'operational').length }}</p>
             </div>
           </div>
         </div>
 
         <!-- ── KPI cards ─────────────────────────────────────────── -->
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Lifetime WO Cost</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtCurrency(locationCostWO) }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ locationWorkOrders.length }} work orders total</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Lifetime WO Cost</p>
+            <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtCurrency(locationCostWO) }}</p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ locationWorkOrders.length }} work orders total</p>
           </div>
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Invoice Spend</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtCurrency(locationCostInv) }}</p>
-            <p class="mt-1 text-xs text-slate-400">{{ locationInvoices.length }} invoices linked</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Invoice Spend</p>
+            <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtCurrency(locationCostInv) }}</p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ locationInvoices.length }} invoices linked</p>
           </div>
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">Lifetime Downtime</p>
-            <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ locationLifetimeDowntime.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400">h</span></p>
-            <p class="mt-1 text-xs text-slate-400">{{ locationDowntimes.length }} events recorded</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Lifetime Downtime</p>
+            <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ locationLifetimeDowntime.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">h</span></p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ locationDowntimes.length }} events recorded</p>
           </div>
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <p class="text-xs font-medium text-slate-500">12m Avg Availability</p>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">12m Avg Availability</p>
             <p class="mt-1.5 text-2xl font-bold" :class="locationAvg12mAvailability >= 90 ? 'text-green-600' : locationAvg12mAvailability >= 75 ? 'text-amber-600' : 'text-red-600'">
               {{ locationAvg12mAvailability }}%
             </p>
-            <p class="mt-1 text-xs text-slate-400">Combined across {{ locationAssets.length }} assets</p>
+            <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Combined across {{ locationAssets.length }} assets</p>
           </div>
         </div>
 
         <!-- ── Charts ────────────────────────────────────────────── -->
         <div class="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-4 text-sm font-semibold text-slate-900">Combined Downtime — Last 12 Months</h3>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Combined Downtime — Last 12 Months</h3>
             <ClientOnly>
               <apexchart type="bar" height="220" :options="dtBarOpts" :series="[{ name: 'Downtime Hours', data: locationMonthlyDowntime }]" />
             </ClientOnly>
           </div>
-          <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-            <h3 class="mb-4 text-sm font-semibold text-slate-900">Combined Availability — Last 12 Months</h3>
+          <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <h3 class="mb-4 text-sm font-semibold text-slate-900 dark:text-slate-100">Combined Availability — Last 12 Months</h3>
             <ClientOnly>
               <apexchart type="line" height="220" :options="availLineOpts" :series="[{ name: 'Availability %', data: locationMonthlyAvailability }]" />
             </ClientOnly>
@@ -2031,87 +2040,87 @@ const topSuppliersBySpend = computed(() => {
         <div class="grid grid-cols-1 gap-5" :class="locationHasBalers ? 'lg:grid-cols-2' : ''">
 
           <!-- Work order summary -->
-          <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h3 class="text-sm font-semibold text-slate-900">Work Order Summary</h3>
-              <p class="mt-0.5 text-xs text-slate-400">{{ locationWoOpen }} open · {{ locationWoCompleted }} completed</p>
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Work Order Summary</h3>
+              <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{{ locationWoOpen }} open · {{ locationWoCompleted }} completed</p>
             </div>
-            <div v-if="locationWoByType.length" class="divide-y divide-slate-50">
+            <div v-if="locationWoByType.length" class="divide-y divide-slate-50 dark:divide-slate-800">
               <div v-for="row in locationWoByType" :key="row.type" class="flex items-center gap-4 px-5 py-3">
                 <UBadge :color="woTypeColor(row.type)" variant="soft" size="sm" class="w-28 shrink-0 capitalize justify-center">{{ row.type }}</UBadge>
-                <div class="flex-1 text-sm text-slate-700">{{ row.count }} WO{{ row.count !== 1 ? 's' : '' }}</div>
+                <div class="flex-1 text-sm text-slate-700 dark:text-slate-300">{{ row.count }} WO{{ row.count !== 1 ? 's' : '' }}</div>
                 <div class="text-right text-sm">
-                  <p class="font-medium text-slate-900">{{ fmtCurrency(row.cost) }}</p>
-                  <p class="text-xs text-slate-400">{{ row.hours.toFixed(0) }}h</p>
+                  <p class="font-medium text-slate-900 dark:text-slate-100">{{ fmtCurrency(row.cost) }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">{{ row.hours.toFixed(0) }}h</p>
                 </div>
               </div>
             </div>
-            <div v-else class="flex flex-col items-center gap-2 py-10 text-slate-400">
+            <div v-else class="flex flex-col items-center gap-2 py-10 text-slate-400 dark:text-slate-500">
               <UIcon name="i-heroicons-clipboard-document-list" class="h-7 w-7" />
               <p class="text-sm">No work orders recorded for this location</p>
             </div>
           </div>
 
           <!-- Baler performance (locations with balers) -->
-          <div v-if="locationHasBalers && locationBalesStats" class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-            <div class="border-b border-slate-100 px-5 py-4">
-              <h3 class="text-sm font-semibold text-slate-900">Baler Performance</h3>
-              <p class="mt-0.5 text-xs text-slate-400">
+          <div v-if="locationHasBalers && locationBalesStats" class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Baler Performance</h3>
+              <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
                 {{ locationAssets.filter(a => a.category === 'baler').length }} baler{{ locationAssets.filter(a => a.category === 'baler').length !== 1 ? 's' : '' }} at this location — lifetime bale loss
               </p>
             </div>
             <div class="space-y-4 px-5 py-5">
-              <div class="flex items-center justify-between rounded-lg bg-amber-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-4">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                    <UIcon name="i-heroicons-cube" class="h-5 w-5 text-amber-600" />
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-500/20">
+                    <UIcon name="i-heroicons-cube" class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-amber-700">Lifetime Bales Lost</p>
-                    <p class="mt-0.5 text-2xl font-bold text-amber-900">{{ locationBalesStats.bales.toLocaleString() }}</p>
-                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600">avg {{ locationBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
+                    <p class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">Lifetime Bales Lost</p>
+                    <p class="mt-0.5 text-2xl font-bold text-amber-900 dark:text-amber-300">{{ locationBalesStats.bales.toLocaleString() }}</p>
+                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-amber-600 dark:text-amber-400">avg {{ locationBalesAvgPerMonth.bales.toLocaleString() }} / month</p>
                   </div>
                 </div>
                 <ClientOnly>
                   <apexchart type="line" width="96" height="50" :options="sparkOpts('#f59e0b')" :series="[{ data: locationMonthlyBales }]" />
                 </ClientOnly>
               </div>
-              <div class="flex items-center justify-between rounded-lg bg-red-50 px-4 py-4">
+              <div class="flex items-center justify-between rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-4">
                 <div class="flex items-center gap-3">
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100">
-                    <UIcon name="i-heroicons-banknotes" class="h-5 w-5 text-red-600" />
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-500/20">
+                    <UIcon name="i-heroicons-banknotes" class="h-5 w-5 text-red-600 dark:text-red-400" />
                   </div>
                   <div>
-                    <p class="text-xs font-medium uppercase tracking-wide text-red-700">Estimated Value Lost</p>
-                    <p class="mt-0.5 text-2xl font-bold text-red-900">{{ fmtCurrency(locationBalesStats.value) }}</p>
-                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600">avg {{ fmtCurrency(locationBalesAvgPerMonth.value) }} / month</p>
+                    <p class="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-400">Estimated Value Lost</p>
+                    <p class="mt-0.5 text-2xl font-bold text-red-900 dark:text-red-300">{{ fmtCurrency(locationBalesStats.value) }}</p>
+                    <p v-if="locationBalesAvgPerMonth" class="mt-0.5 text-xs text-red-600 dark:text-red-400">avg {{ fmtCurrency(locationBalesAvgPerMonth.value) }} / month</p>
                   </div>
                 </div>
                 <ClientOnly>
                   <apexchart type="line" width="96" height="50" :options="sparkOpts('#ef4444')" :series="[{ data: locationMonthlyBaleValue }]" />
                 </ClientOnly>
               </div>
-              <p class="text-xs text-slate-400">Calculated using historical commodity rates at each downtime event date.</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">Calculated using historical commodity rates at each downtime event date.</p>
             </div>
           </div>
 
         </div>
 
         <!-- ── Asset list at location ─────────────────────────────── -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="border-b border-slate-100 px-5 py-4">
-            <h3 class="text-sm font-semibold text-slate-900">Assets at this Location</h3>
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Assets at this Location</h3>
           </div>
-          <div class="divide-y divide-slate-50">
+          <div class="divide-y divide-slate-50 dark:divide-slate-800">
             <button
               v-for="asset in locationAssets"
               :key="asset.asset_id"
-              class="flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-blue-50"
+              class="flex w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10"
               @click="selectedAssetId = asset.asset_id; activeReportTab = 'asset'"
             >
               <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-slate-900">{{ asset.asset_id }}<span v-if="asset.alias" class="ml-1.5 text-xs font-normal text-slate-400">{{ asset.alias }}</span></p>
-                <p class="text-xs text-slate-400 capitalize">{{ asset.manufacturer }}{{ asset.model_no ? ' · ' + asset.model_no : '' }} · {{ asset.category }}</p>
+                <p class="text-sm font-medium text-slate-900 dark:text-slate-100">{{ asset.asset_id }}<span v-if="asset.alias" class="ml-1.5 text-xs font-normal text-slate-400 dark:text-slate-500">{{ asset.alias }}</span></p>
+                <p class="text-xs text-slate-400 dark:text-slate-500 capitalize">{{ asset.manufacturer }}{{ asset.model_no ? ' · ' + asset.model_no : '' }} · {{ asset.category }}</p>
               </div>
               <UBadge :color="assetStatusColor(asset.status)" variant="soft" size="sm" class="capitalize shrink-0">{{ asset.status.replace('_', ' ') }}</UBadge>
               <UIcon name="i-heroicons-arrow-right" class="h-4 w-4 shrink-0 text-slate-300" />
@@ -2129,38 +2138,38 @@ const topSuppliersBySpend = computed(() => {
 
       <!-- Date filter row (reuses existing selectedDays) -->
       <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400" />
-          <select v-model="selectedDays" class="bg-transparent text-sm text-slate-700 focus:outline-none">
+        <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
+          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
+          <select v-model="selectedDays" class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none">
             <option v-for="opt in timelineOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
-        <span class="text-xs text-slate-400">{{ selectedLabel }}</span>
+        <span class="text-xs text-slate-400 dark:text-slate-500">{{ selectedLabel }}</span>
       </div>
 
       <!-- ── KPI row ─────────────────────────────────────────────── -->
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Total Downtime</p>
-          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ dtTotalHours.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400">h</span></p>
-          <p class="mt-1 text-xs text-slate-400">Planned + unplanned</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Total Downtime</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ dtTotalHours.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">h</span></p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Planned + unplanned</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Unplanned Downtime</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Unplanned Downtime</p>
           <p class="mt-1.5 text-2xl font-bold text-red-600">{{ dtUnplannedHours.toFixed(1) }}<span class="ml-0.5 text-sm font-medium text-red-300">h</span></p>
-          <p class="mt-1 text-xs text-slate-400">{{ dtUnplannedEvents }} failure events</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ dtUnplannedEvents }} failure events</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Repeat Failures</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Repeat Failures</p>
           <p class="mt-1.5 text-2xl font-bold text-amber-600">{{ dtRepeatFailures }}</p>
-          <p class="mt-1 text-xs text-slate-400">Same-cause recurrences</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Same-cause recurrences</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Avg Time to Repair</p>
-          <p class="mt-1.5 text-2xl font-bold text-slate-900">
-            {{ dtUnplannedEvents > 0 ? (dtUnplannedHours / dtUnplannedEvents).toFixed(1) : '—' }}<span v-if="dtUnplannedEvents > 0" class="ml-0.5 text-sm font-medium text-slate-400">h</span>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Avg Time to Repair</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">
+            {{ dtUnplannedEvents > 0 ? (dtUnplannedHours / dtUnplannedEvents).toFixed(1) : '—' }}<span v-if="dtUnplannedEvents > 0" class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">h</span>
           </p>
-          <p class="mt-1 text-xs text-slate-400">MTTR (unplanned)</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">MTTR (unplanned)</p>
         </div>
       </div>
 
@@ -2168,85 +2177,85 @@ const topSuppliersBySpend = computed(() => {
       <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
 
         <!-- Pareto chart (2/3 width) -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-          <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 lg:col-span-2">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
             <div>
-              <h2 class="text-sm font-semibold text-slate-700">Failure Drivers — Pareto Analysis</h2>
-              <p class="text-xs text-slate-400">Unplanned downtime hours by cause, sorted by impact</p>
+              <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Failure Drivers — Pareto Analysis</h2>
+              <p class="text-xs text-slate-400 dark:text-slate-500">Unplanned downtime hours by cause, sorted by impact</p>
             </div>
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
-              <UIcon name="i-heroicons-chart-bar-square" class="h-4 w-4 text-orange-500" />
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-500/10">
+              <UIcon name="i-heroicons-chart-bar-square" class="h-4 w-4 text-orange-500 dark:text-orange-400" />
             </div>
           </div>
           <div class="p-5">
-            <div v-if="paretoDtData.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+            <div v-if="paretoDtData.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
               No unplanned downtime events in this period.
             </div>
             <ClientOnly v-else>
               <apexchart type="line" height="260" :options="paretoDtOptions" :series="paretoDtSeries" />
               <template #fallback>
-                <div class="flex h-[260px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+                <div class="flex h-[260px] items-center justify-center text-sm text-slate-400 dark:text-slate-500">Loading chart…</div>
               </template>
             </ClientOnly>
           </div>
           <!-- Cause breakdown table -->
-          <div v-if="paretoDtData.length" class="border-t border-slate-100">
-            <div class="divide-y divide-slate-50">
+          <div v-if="paretoDtData.length" class="border-t border-slate-100 dark:border-slate-800">
+            <div class="divide-y divide-slate-50 dark:divide-slate-800">
               <div v-for="(row, i) in paretoDtData" :key="row.id" class="flex items-center gap-4 px-5 py-2.5">
-                <span class="w-5 shrink-0 text-center text-xs font-bold text-slate-400">{{ i + 1 }}</span>
+                <span class="w-5 shrink-0 text-center text-xs font-bold text-slate-400 dark:text-slate-500">{{ i + 1 }}</span>
                 <div class="min-w-0 flex-1">
-                  <p class="text-sm font-medium text-slate-800">{{ row.name }}</p>
-                  <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                  <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ row.name }}</p>
+                  <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                     <div class="h-1.5 rounded-full bg-orange-400" :style="{ width: row.cumPct - (i > 0 ? paretoDtData[i-1].cumPct : 0) + '%' }" />
                   </div>
                 </div>
                 <div class="shrink-0 text-right">
-                  <p class="text-sm font-semibold text-slate-800">{{ row.hours.toFixed(1) }}h</p>
-                  <p class="text-xs text-slate-400">{{ row.events }} event{{ row.events !== 1 ? 's' : '' }}</p>
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ row.hours.toFixed(1) }}h</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">{{ row.events }} event{{ row.events !== 1 ? 's' : '' }}</p>
                 </div>
-                <span class="w-10 shrink-0 text-right text-xs font-medium text-slate-400">{{ row.cumPct }}%</span>
+                <span class="w-10 shrink-0 text-right text-xs font-medium text-slate-400 dark:text-slate-500">{{ row.cumPct }}%</span>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Top Offending Assets (1/3 width) -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="border-b border-slate-100 px-5 py-4">
-            <h2 class="text-sm font-semibold text-slate-700">Top Offending Assets</h2>
-            <p class="text-xs text-slate-400">By unplanned downtime hours</p>
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Top Offending Assets</h2>
+            <p class="text-xs text-slate-400 dark:text-slate-500">By unplanned downtime hours</p>
           </div>
-          <div v-if="topOffendingAssets.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+          <div v-if="topOffendingAssets.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
             No data in this period.
           </div>
-          <div v-else class="divide-y divide-slate-50">
+          <div v-else class="divide-y divide-slate-50 dark:divide-slate-800">
             <button
               v-for="(asset, i) in topOffendingAssets"
               :key="asset.id"
-              class="flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-blue-50"
+              class="flex w-full items-start gap-3 px-5 py-3 text-left transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/10"
               @click="selectedAssetId = asset.id; activeReportTab = 'asset'"
             >
               <!-- Rank -->
               <span
                 class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                :class="i === 0 ? 'bg-red-100 text-red-600' : i === 1 ? 'bg-orange-100 text-orange-600' : i === 2 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'"
+                :class="i === 0 ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' : i === 1 ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' : i === 2 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'"
               >{{ i + 1 }}</span>
               <!-- Info -->
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-semibold text-slate-800">{{ asset.id }}</p>
-                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ asset.id }}</p>
+                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
                     class="h-1.5 rounded-full"
                     :class="i === 0 ? 'bg-red-400' : i === 1 ? 'bg-orange-400' : 'bg-amber-300'"
                     :style="{ width: asset.pct + '%' }"
                   />
                 </div>
-                <p class="mt-0.5 text-xs text-slate-400">{{ asset.events }} event{{ asset.events !== 1 ? 's' : '' }}<span v-if="asset.repeats"> · {{ asset.repeats }} repeat{{ asset.repeats !== 1 ? 's' : '' }}</span></p>
+                <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{{ asset.events }} event{{ asset.events !== 1 ? 's' : '' }}<span v-if="asset.repeats"> · {{ asset.repeats }} repeat{{ asset.repeats !== 1 ? 's' : '' }}</span></p>
               </div>
               <!-- Hours -->
               <div class="shrink-0 text-right">
-                <p class="text-sm font-semibold text-slate-800">{{ asset.hours }}h</p>
-                <p class="text-xs text-slate-400">{{ asset.pct }}%</p>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ asset.hours }}h</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500">{{ asset.pct }}%</p>
               </div>
               <UIcon name="i-heroicons-arrow-right" class="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300" />
             </button>
@@ -2264,52 +2273,52 @@ const topSuppliersBySpend = computed(() => {
 
       <!-- Financial year filter -->
       <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
-          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400" />
-          <select v-model="selectedFY" class="bg-transparent text-sm text-slate-700 focus:outline-none">
+        <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
+          <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
+          <select v-model="selectedFY" class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none">
             <option v-for="fy in fyOptions" :key="fy" :value="fy">{{ fy }}</option>
           </select>
         </div>
-        <span class="text-xs text-slate-400">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</span>
+        <span class="text-xs text-slate-400 dark:text-slate-500">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</span>
       </div>
 
       <!-- ── KPI row ─────────────────────────────────────────────── -->
       <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">PO Value</p>
-          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtMoney(periodPOValue) }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ fyFilteredPOs.length }} purchase order{{ fyFilteredPOs.length !== 1 ? 's' : '' }}</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">PO Value</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtMoney(periodPOValue) }}</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fyFilteredPOs.length }} purchase order{{ fyFilteredPOs.length !== 1 ? 's' : '' }}</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Invoice Value</p>
-          <p class="mt-1.5 text-2xl font-bold text-slate-900">{{ fmtMoney(periodInvoiceValue) }}</p>
-          <p class="mt-1 text-xs text-slate-400">{{ fyFilteredInvoices.length }} invoice{{ fyFilteredInvoices.length !== 1 ? 's' : '' }}</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Invoice Value</p>
+          <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtMoney(periodInvoiceValue) }}</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fyFilteredInvoices.length }} invoice{{ fyFilteredInvoices.length !== 1 ? 's' : '' }}</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Budget Utilisation</p>
-          <p class="mt-1.5 text-2xl font-bold" :class="periodUtilizationPct !== null && periodUtilizationPct > 100 ? 'text-red-600' : 'text-slate-900'">
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Budget Utilisation</p>
+          <p class="mt-1.5 text-2xl font-bold" :class="periodUtilizationPct !== null && periodUtilizationPct > 100 ? 'text-red-600' : 'text-slate-900 dark:text-slate-100'">
             {{ periodUtilizationPct !== null ? periodUtilizationPct.toFixed(1) + '%' : '—' }}
           </p>
-          <p class="mt-1 text-xs text-slate-400">{{ fmtMoney(periodInvoiceValue) }} of {{ fmtMoney(periodBudgetTotal) }} budget</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fmtMoney(periodInvoiceValue) }} of {{ fmtMoney(periodBudgetTotal) }} budget</p>
         </div>
-        <div class="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-          <p class="text-xs font-medium text-slate-500">Variance</p>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Variance</p>
           <p class="mt-1.5 text-2xl font-bold" :class="periodVariance >= 0 ? 'text-green-600' : 'text-red-600'">
             {{ periodVariance >= 0 ? 'Under ' : 'Over ' }}{{ fmtMoney(Math.abs(periodVariance)) }}
           </p>
-          <p class="mt-1 text-xs text-slate-400">Budget minus actual, {{ selectedFY }}</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Budget minus actual, {{ selectedFY }}</p>
         </div>
       </div>
 
       <!-- ── Budget vs Actual chart ──────────────────────────────── -->
-      <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-        <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+      <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
           <div>
-            <h2 class="text-sm font-semibold text-slate-700">Budget vs Actual Spend</h2>
-            <p class="text-xs text-slate-400">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</p>
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Budget vs Actual Spend</h2>
+            <p class="text-xs text-slate-400 dark:text-slate-500">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</p>
           </div>
-          <div class="flex items-center gap-4 text-xs text-slate-500">
-            <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300" />Budget</span>
+          <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400">
+            <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 border-t-2 border-dashed border-slate-300 dark:border-slate-600" />Budget</span>
             <span class="flex items-center gap-1.5"><span class="inline-block h-0.5 w-4 bg-blue-500" />Actual</span>
           </div>
         </div>
@@ -2317,7 +2326,7 @@ const topSuppliersBySpend = computed(() => {
           <ClientOnly>
             <apexchart type="line" height="220" :options="spendChartOptions" :series="spendSeries" />
             <template #fallback>
-              <div class="flex h-[220px] items-center justify-center text-sm text-slate-400">Loading chart…</div>
+              <div class="flex h-[220px] items-center justify-center text-sm text-slate-400 dark:text-slate-500">Loading chart…</div>
             </template>
           </ClientOnly>
         </div>
@@ -2327,29 +2336,29 @@ const topSuppliersBySpend = computed(() => {
       <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
 
         <!-- Cost centre budget vs actual (2/3 width) -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 lg:col-span-2">
-          <div class="border-b border-slate-100 px-5 py-4">
-            <h2 class="text-sm font-semibold text-slate-700">Budget vs Actual by Cost Centre</h2>
-            <p class="text-xs text-slate-400">{{ selectedFY }} · actual resolved via invoice → PO → GL code</p>
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 lg:col-span-2">
+          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Budget vs Actual by Cost Centre</h2>
+            <p class="text-xs text-slate-400 dark:text-slate-500">{{ selectedFY }} · actual resolved via invoice → PO → GL code</p>
           </div>
-          <div v-if="costCentreBreakdown.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+          <div v-if="costCentreBreakdown.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
             No budget or cost-centre-linked spend recorded in {{ selectedFY }}.
           </div>
-          <div v-else class="divide-y divide-slate-50">
+          <div v-else class="divide-y divide-slate-50 dark:divide-slate-800">
             <div v-for="cc in costCentreBreakdown" :key="cc.gl_code" class="px-5 py-3">
               <div class="flex items-center justify-between gap-4">
                 <div class="min-w-0">
-                  <p class="text-sm font-medium text-slate-800">{{ cc.gl_code }}</p>
-                  <p class="truncate text-xs text-slate-400">{{ cc.description }}</p>
+                  <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ cc.gl_code }}</p>
+                  <p class="truncate text-xs text-slate-400 dark:text-slate-500">{{ cc.description }}</p>
                 </div>
                 <div class="shrink-0 text-right">
-                  <p class="text-sm font-semibold text-slate-800">{{ fmtMoney(cc.actual) }}<span class="font-normal text-slate-400"> / {{ fmtMoney(cc.budget) }}</span></p>
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ fmtMoney(cc.actual) }}<span class="font-normal text-slate-400 dark:text-slate-500"> / {{ fmtMoney(cc.budget) }}</span></p>
                   <p class="text-xs" :class="cc.variance >= 0 ? 'text-green-600' : 'text-red-600'">
                     {{ cc.variance >= 0 ? 'Under' : 'Over' }} {{ fmtMoney(Math.abs(cc.variance)) }}
                   </p>
                 </div>
               </div>
-              <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                 <div
                   class="h-1.5 rounded-full"
                   :class="cc.pctUsed == null ? 'bg-slate-300' : cc.pctUsed > 100 ? 'bg-red-500' : cc.pctUsed > 85 ? 'bg-amber-400' : 'bg-blue-500'"
@@ -2361,34 +2370,34 @@ const topSuppliersBySpend = computed(() => {
         </div>
 
         <!-- Top suppliers by spend (1/3 width) -->
-        <div class="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
-          <div class="border-b border-slate-100 px-5 py-4">
-            <h2 class="text-sm font-semibold text-slate-700">Top Suppliers by Spend</h2>
-            <p class="text-xs text-slate-400">By invoice value, {{ selectedFY }}</p>
+        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Top Suppliers by Spend</h2>
+            <p class="text-xs text-slate-400 dark:text-slate-500">By invoice value, {{ selectedFY }}</p>
           </div>
-          <div v-if="topSuppliersBySpend.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400">
+          <div v-if="topSuppliersBySpend.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
             No invoices recorded in {{ selectedFY }}.
           </div>
-          <div v-else class="divide-y divide-slate-50">
+          <div v-else class="divide-y divide-slate-50 dark:divide-slate-800">
             <div v-for="(s, i) in topSuppliersBySpend" :key="s.id" class="flex items-start gap-3 px-5 py-3">
               <span
                 class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
-                :class="i === 0 ? 'bg-red-100 text-red-600' : i === 1 ? 'bg-orange-100 text-orange-600' : i === 2 ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-500'"
+                :class="i === 0 ? 'bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-400' : i === 1 ? 'bg-orange-100 dark:bg-orange-500/20 text-orange-600 dark:text-orange-400' : i === 2 ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'"
               >{{ i + 1 }}</span>
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-slate-800">{{ s.name }}</p>
-                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                <p class="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{{ s.name }}</p>
+                <div class="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
                     class="h-1.5 rounded-full"
                     :class="i === 0 ? 'bg-red-400' : i === 1 ? 'bg-orange-400' : 'bg-amber-300'"
                     :style="{ width: s.pct + '%' }"
                   />
                 </div>
-                <p class="mt-0.5 text-xs text-slate-400">{{ s.count }} invoice{{ s.count !== 1 ? 's' : '' }}</p>
+                <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">{{ s.count }} invoice{{ s.count !== 1 ? 's' : '' }}</p>
               </div>
               <div class="shrink-0 text-right">
-                <p class="text-sm font-semibold text-slate-800">{{ fmtMoney(s.total) }}</p>
-                <p class="text-xs text-slate-400">{{ s.pct }}%</p>
+                <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ fmtMoney(s.total) }}</p>
+                <p class="text-xs text-slate-400 dark:text-slate-500">{{ s.pct }}%</p>
               </div>
             </div>
           </div>

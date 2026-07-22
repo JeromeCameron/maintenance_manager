@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: false })
+definePageMeta({ layout: false, colorMode: "light" })
 
 const { login, isAuthenticated } = useAuth()
 
@@ -27,7 +27,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <div class="flex min-h-screen bg-white">
 
     <!-- Left panel — form -->
     <div class="flex w-full flex-col justify-center px-8 py-12 sm:px-12 lg:w-[480px] lg:px-16 xl:px-20">

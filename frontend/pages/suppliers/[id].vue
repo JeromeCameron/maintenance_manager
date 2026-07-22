@@ -130,7 +130,7 @@ function fmtDate(value: string | null | undefined): string {
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/suppliers" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-slate-900">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ isNew ? "New Supplier" : form.name }}
       </h1>
     </div>
@@ -174,8 +174,8 @@ function fmtDate(value: string | null | undefined): string {
               :key="opt.value"
               class="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors"
               :class="form.categories?.includes(opt.value)
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                : 'border-gray-200 text-gray-600 hover:border-gray-300'"
+                ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10 text-primary-700 dark:text-primary-400'
+                : 'border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-300 hover:border-gray-300 dark:hover:border-slate-600'"
               @click="toggleCategory(opt.value)"
             >
               <UIcon
@@ -202,7 +202,7 @@ function fmtDate(value: string | null | undefined): string {
 
     <!-- Related records tabs — only shown for existing suppliers -->
     <div v-if="!isNew">
-      <div class="flex gap-2 border-b border-gray-200">
+      <div class="flex gap-2 border-b border-gray-200 dark:border-slate-700">
         <button
           v-for="tab in [
             { value: 'work-orders', label: 'Work Orders', count: sortedWOs.length },
@@ -211,11 +211,11 @@ function fmtDate(value: string | null | undefined): string {
           ]"
           :key="tab.value"
           class="flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-          :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+          :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}
-          <span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">{{ tab.count }}</span>
+          <span class="rounded-full bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300">{{ tab.count }}</span>
         </button>
       </div>
 
@@ -224,7 +224,7 @@ function fmtDate(value: string | null | undefined): string {
         <UTable
           :data="visibleWOs"
           :columns="woColumns"
-          :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+          :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
         >
           <template #issue_date-cell="{ row: { original: row } }">{{ fmtDate(row.issue_date) }}</template>
           <template #description-cell="{ row: { original: row } }">
@@ -240,7 +240,7 @@ function fmtDate(value: string | null | undefined): string {
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/work-orders/${row.work_order_id}`" />
           </template>
         </UTable>
-        <div v-if="sortedWOs.length === 0" class="py-8 text-center text-sm text-slate-400">No work orders found</div>
+        <div v-if="sortedWOs.length === 0" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No work orders found</div>
         <div v-if="woVisible < sortedWOs.length" class="mt-4 flex justify-center">
           <UButton variant="outline" size="sm" @click="woVisible += PAGE_SIZE">
             Load more ({{ sortedWOs.length - woVisible }} remaining)
@@ -253,7 +253,7 @@ function fmtDate(value: string | null | undefined): string {
         <UTable
           :data="visibleInvoices"
           :columns="invoiceColumns"
-          :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+          :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
         >
           <template #invoice_date-cell="{ row: { original: row } }">{{ fmtDate(row.invoice_date) }}</template>
           <template #inv-description-cell="{ row: { original: row } }">
@@ -270,7 +270,7 @@ function fmtDate(value: string | null | undefined): string {
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/finance/invoice/${row.id}`" />
           </template>
         </UTable>
-        <div v-if="sortedInvoices.length === 0" class="py-8 text-center text-sm text-slate-400">No invoices found</div>
+        <div v-if="sortedInvoices.length === 0" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No invoices found</div>
         <div v-if="invVisible < sortedInvoices.length" class="mt-4 flex justify-center">
           <UButton variant="outline" size="sm" @click="invVisible += PAGE_SIZE">
             Load more ({{ sortedInvoices.length - invVisible }} remaining)
@@ -283,7 +283,7 @@ function fmtDate(value: string | null | undefined): string {
         <UTable
           :data="visiblePOs"
           :columns="poColumns"
-          :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50 hover:bg-blue-50 transition-colors' }"
+          :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors' }"
         >
           <template #po_date-cell="{ row: { original: row } }">{{ fmtDate(row.po_date) }}</template>
           <template #po-description-cell="{ row: { original: row } }">
@@ -295,7 +295,7 @@ function fmtDate(value: string | null | undefined): string {
             <UButton variant="ghost" size="xs" icon="i-heroicons-eye" :to="`/finance/po/${row.po_no}`" />
           </template>
         </UTable>
-        <div v-if="sortedPOs.length === 0" class="py-8 text-center text-sm text-slate-400">No purchase orders found</div>
+        <div v-if="sortedPOs.length === 0" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No purchase orders found</div>
         <div v-if="poVisible < sortedPOs.length" class="mt-4 flex justify-center">
           <UButton variant="outline" size="sm" @click="poVisible += PAGE_SIZE">
             Load more ({{ sortedPOs.length - poVisible }} remaining)

@@ -365,37 +365,37 @@ function deletePart(part: Part) {
 
       <!-- Part card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No parts found.
         </div>
         <div
           v-for="part in filtered"
           :key="part.part_no"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4"
           :class="(stockMap[part.part_no] ?? 0) <= part.reorder_level ? 'border-l-amber-400' : 'border-l-transparent'"
           @click="openEdit(part.part_no)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-archive-box" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-archive-box" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ part.part_no }}</span>
-              <span class="text-xs text-slate-400">· {{ part.part_name }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ part.part_no }}</span>
+              <span class="text-xs text-slate-400 dark:text-slate-500">· {{ part.part_name }}</span>
               <UBadge v-if="part.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
             </div>
             <!-- Manufacturer -->
-            <p class="mt-0.5 text-xs text-gray-500">{{ part.manufacturer ?? "—" }}</p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-slate-400">{{ part.manufacturer ?? "—" }}</p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
-              <span v-if="part.category_id" class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+              <span v-if="part.category_id" class="inline-flex items-center rounded-md bg-gray-100 dark:bg-slate-800 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-slate-400">
                 {{ catMap[part.category_id] ?? "—" }}
               </span>
-              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-scale" class="h-3 w-3" />
                 {{ part.unit_of_measure }}
               </span>
@@ -404,10 +404,10 @@ function deletePart(part: Part) {
 
           <!-- Right side -->
           <div class="shrink-0 flex flex-col items-end gap-2">
-            <span class="text-sm font-semibold" :class="(stockMap[part.part_no] ?? 0) <= part.reorder_level ? 'text-amber-600' : 'text-slate-700'">
+            <span class="text-sm font-semibold" :class="(stockMap[part.part_no] ?? 0) <= part.reorder_level ? 'text-amber-600' : 'text-slate-700 dark:text-slate-300'">
               {{ stockMap[part.part_no] ?? 0 }} in stock
             </span>
-            <span class="text-[11px] text-gray-400">Reorder at {{ part.reorder_level }}</span>
+            <span class="text-[11px] text-gray-400 dark:text-slate-500">Reorder at {{ part.reorder_level }}</span>
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deletePart(part)" />
           </div>
         </div>
@@ -417,33 +417,33 @@ function deletePart(part: Part) {
     <!-- Part Modal -->
     <UModal v-model:open="showModal" :ui="{ content: 'max-w-5xl' }">
       <template #content>
-        <div class="flex h-[85vh] max-h-[800px] w-full flex-col rounded-xl bg-white shadow-xl">
+        <div class="flex h-[85vh] max-h-[800px] w-full flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
           <!-- Header -->
-          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-archive-box" class="h-5 w-5 text-blue-600" />
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-archive-box" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-3">
-                <h3 class="text-base font-semibold text-slate-900">
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
                   {{ isEditing ? `${form.part_no} — ${form.part_name ?? ""}` : "New Part" }}
                 </h3>
                 <UBadge v-if="isEditing" :color="totalStockQty <= (form.reorder_level ?? 0) ? 'warning' : 'success'" variant="soft" size="sm">
                   {{ totalStockQty }} {{ form.unit_of_measure ?? "units" }} in stock
                 </UBadge>
               </div>
-              <p class="text-sm text-slate-500">{{ isEditing ? "View and manage part details" : "Add a new part to inventory" }}</p>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "View and manage part details" : "Add a new part to inventory" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
 
           <!-- Tabs -->
-          <div v-if="isEditing" class="shrink-0 flex gap-0 border-b border-slate-200 px-6">
+          <div v-if="isEditing" class="shrink-0 flex gap-0 border-b border-slate-200 dark:border-slate-700 px-6">
             <button v-for="tab in partTabs" :key="tab.value"
               class="flex items-center gap-1.5 border-b-2 px-4 py-3 text-sm font-medium transition-colors"
               :class="activeTab === tab.value
                 ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-slate-500 hover:text-slate-700'"
+                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
               @click="activeTab = tab.value">
               <UIcon :name="tab.icon" class="h-4 w-4" />
               {{ tab.label }}
@@ -452,7 +452,7 @@ function deletePart(part: Part) {
 
           <!-- Loading -->
           <div v-if="loadingPart" class="flex flex-1 items-center justify-center">
-            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-slate-400" />
+            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-slate-400 dark:text-slate-500" />
           </div>
 
           <!-- Tab content -->
@@ -504,24 +504,24 @@ function deletePart(part: Part) {
 
             <!-- Stock Levels Tab -->
             <div v-else-if="activeTab === 'stock'">
-              <div v-if="partStockLevels.length" class="divide-y divide-slate-100 rounded-lg border border-slate-200">
+              <div v-if="partStockLevels.length" class="divide-y divide-slate-100 dark:divide-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
                 <div v-for="s in partStockLevels" :key="s.id" class="flex items-center justify-between px-4 py-3">
-                  <span class="text-sm text-slate-600">
+                  <span class="text-sm text-slate-600 dark:text-slate-300">
                     {{ s.location_id != null ? (locationMap[s.location_id] ?? `Location ${s.location_id}`) : "No location" }}
                   </span>
-                  <span class="text-sm font-semibold" :class="s.quantity <= (form.reorder_level ?? 0) ? 'text-amber-600' : 'text-slate-900'">
+                  <span class="text-sm font-semibold" :class="s.quantity <= (form.reorder_level ?? 0) ? 'text-amber-600' : 'text-slate-900 dark:text-slate-100'">
                     {{ s.quantity }} {{ form.unit_of_measure }}
                   </span>
                 </div>
               </div>
-              <p v-else class="text-sm text-slate-400">No stock recorded.</p>
+              <p v-else class="text-sm text-slate-400 dark:text-slate-500">No stock recorded.</p>
             </div>
 
             <!-- Transactions Tab -->
             <div v-else-if="activeTab === 'transactions'" class="space-y-6">
               <!-- Record transaction form -->
-              <div class="rounded-lg border border-slate-200 p-4">
-                <h4 class="mb-3 text-sm font-semibold text-slate-700">Record Transaction</h4>
+              <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                <h4 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Record Transaction</h4>
                 <div class="grid grid-cols-3 gap-x-4 gap-y-3">
                   <UFormField label="Type">
                     <USelect v-model="adjustment.transaction_type" :items="['receive', 'issue', 'adjust']" class="w-full" />
@@ -555,8 +555,8 @@ function deletePart(part: Part) {
 
               <!-- Transactions history -->
               <div>
-                <h4 class="mb-3 text-sm font-semibold text-slate-700">Recent Transactions</h4>
-                <UTable :data="partTransactions" :columns="txColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
+                <h4 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Recent Transactions</h4>
+                <UTable :data="partTransactions" :columns="txColumns" :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800' }">
                   <template #transaction_type-cell="{ row: { original: row } }">
                     <UBadge :color="txTypeColors[row.transaction_type] ?? 'neutral'" variant="soft" size="xs">
                       {{ row.transaction_type }}
@@ -566,20 +566,20 @@ function deletePart(part: Part) {
                     <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTransaction(row.id!)" />
                   </template>
                 </UTable>
-                <p v-if="!partTransactions.length" class="mt-2 text-sm text-slate-400">No transactions recorded.</p>
+                <p v-if="!partTransactions.length" class="mt-2 text-sm text-slate-400 dark:text-slate-500">No transactions recorded.</p>
               </div>
             </div>
 
             <!-- Compatible Equipment Tab -->
             <div v-else-if="activeTab === 'equipment'">
               <div class="mb-3 flex items-center justify-between">
-                <h4 class="text-sm font-semibold text-slate-700">Compatible Equipment Models</h4>
+                <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Compatible Equipment Models</h4>
                 <UButton size="xs" leading-icon="i-heroicons-plus" @click="openCreateEp">Add</UButton>
               </div>
-              <UTable :data="partEquipment" :columns="epColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
+              <UTable :data="partEquipment" :columns="epColumns" :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800' }">
                 <template #is_critical-cell="{ row: { original: row } }">
                   <UBadge v-if="row.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
-                  <span v-else class="text-slate-400 text-sm">—</span>
+                  <span v-else class="text-slate-400 dark:text-slate-500 text-sm">—</span>
                 </template>
                 <template #actions-cell="{ row: { original: row } }">
                   <div class="flex items-center gap-1">
@@ -588,16 +588,16 @@ function deletePart(part: Part) {
                   </div>
                 </template>
               </UTable>
-              <p v-if="!partEquipment.length" class="mt-2 text-sm text-slate-400">No equipment linked.</p>
+              <p v-if="!partEquipment.length" class="mt-2 text-sm text-slate-400 dark:text-slate-500">No equipment linked.</p>
             </div>
 
             <!-- Suppliers Tab -->
             <div v-else-if="activeTab === 'suppliers'">
               <div class="mb-3 flex items-center justify-between">
-                <h4 class="text-sm font-semibold text-slate-700">Part Suppliers</h4>
+                <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Part Suppliers</h4>
                 <UButton size="xs" leading-icon="i-heroicons-plus" @click="openCreatePs">Add</UButton>
               </div>
-              <UTable :data="partSupplierRows" :columns="psColumns" :ui="{ th: 'bg-slate-100 text-slate-500 font-semibold', tr: 'odd:bg-white even:bg-slate-50' }">
+              <UTable :data="partSupplierRows" :columns="psColumns" :ui="{ th: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold', tr: 'odd:bg-white dark:odd:bg-slate-900 even:bg-slate-50 dark:even:bg-slate-800' }">
                 <template #supplier_id-cell="{ row: { original: row } }">
                   {{ suppliers?.find(s => s.supplier_id === row.supplier_id)?.name ?? row.supplier_id ?? "—" }}
                 </template>
@@ -611,12 +611,12 @@ function deletePart(part: Part) {
                   </div>
                 </template>
               </UTable>
-              <p v-if="!partSupplierRows.length" class="mt-2 text-sm text-slate-400">No suppliers linked.</p>
+              <p v-if="!partSupplierRows.length" class="mt-2 text-sm text-slate-400 dark:text-slate-500">No suppliers linked.</p>
             </div>
           </div>
 
           <!-- Footer -->
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">
               {{ activeTab === 'details' ? 'Cancel' : 'Close' }}
             </UButton>
@@ -697,7 +697,7 @@ function deletePart(part: Part) {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Confirm Delete</h3></template>
-          <p class="text-sm text-slate-500">Delete <strong>{{ pendingDelete?.label }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete <strong>{{ pendingDelete?.label }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="pendingDelete = null">Cancel</UButton>

@@ -35,18 +35,18 @@ const locationAssets = ref<Asset[]>([])
 const assetModels = ref<AssetModel[]>([])
 
 const categoryMeta: Record<AssetCategory, { label: string; icon: string; color: string; bg: string; border: string }> = {
-  baler:    { label: "Balers",     icon: "i-heroicons-cube-transparent",  color: "text-blue-600",   bg: "bg-blue-50",   border: "border-blue-200" },
-  conveyor: { label: "Conveyors",  icon: "i-heroicons-arrows-right-left", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-200" },
-  bobcat:   { label: "Bobcats",    icon: "i-heroicons-truck",             color: "text-amber-600",  bg: "bg-amber-50",  border: "border-amber-200" },
-  forklift: { label: "Forklifts",  icon: "i-heroicons-arrow-up-tray",     color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200" },
-  scale:    { label: "Scales",     icon: "i-heroicons-scale",             color: "text-teal-600",   bg: "bg-teal-50",   border: "border-teal-200" },
+  baler:    { label: "Balers",     icon: "i-heroicons-cube-transparent",  color: "text-blue-600 dark:text-blue-400",     bg: "bg-blue-50 dark:bg-blue-500/10",     border: "border-blue-200 dark:border-blue-500/20" },
+  conveyor: { label: "Conveyors",  icon: "i-heroicons-arrows-right-left", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-200 dark:border-purple-500/20" },
+  bobcat:   { label: "Bobcats",    icon: "i-heroicons-truck",             color: "text-amber-600 dark:text-amber-400",   bg: "bg-amber-50 dark:bg-amber-500/10",   border: "border-amber-200 dark:border-amber-500/20" },
+  forklift: { label: "Forklifts",  icon: "i-heroicons-arrow-up-tray",     color: "text-orange-600 dark:text-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" },
+  scale:    { label: "Scales",     icon: "i-heroicons-scale",             color: "text-teal-600 dark:text-teal-400",     bg: "bg-teal-50 dark:bg-teal-500/10",     border: "border-teal-200 dark:border-teal-500/20" },
 }
 
 const statusMeta: Record<string, { label: string; color: string; dot: string }> = {
-  operational:    { label: "Operational",    color: "text-emerald-700", dot: "bg-emerald-500" },
-  maintenance:    { label: "Maintenance",    color: "text-amber-700",   dot: "bg-amber-500" },
-  out_of_service: { label: "Out of Service", color: "text-red-700",     dot: "bg-red-500" },
-  disposed:       { label: "Disposed",       color: "text-slate-500",   dot: "bg-slate-400" },
+  operational:    { label: "Operational",    color: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  maintenance:    { label: "Maintenance",    color: "text-amber-700 dark:text-amber-400",      dot: "bg-amber-500" },
+  out_of_service: { label: "Out of Service", color: "text-red-700 dark:text-red-400",          dot: "bg-red-500" },
+  disposed:       { label: "Disposed",       color: "text-slate-500 dark:text-slate-400",      dot: "bg-slate-400" },
 }
 
 // Fleet summary stats
@@ -192,37 +192,37 @@ async function confirmDelete() {
 
       <!-- Location card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No locations found.
         </div>
         <div
           v-for="loc in filtered"
           :key="loc.location_id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4 border-l-transparent"
           @click="openEdit(loc.location_id!)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-map-pin" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-map-pin" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ loc.name }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ loc.name }}</span>
               <UBadge :color="loc.typ === 'depot' ? 'info' : 'neutral'" variant="soft" size="xs" class="capitalize">{{ loc.typ.replace(/_/g, " ") }}</UBadge>
               <UBadge v-if="loc.shift_depot" color="success" variant="soft" size="xs">Shift Depot</UBadge>
             </div>
             <!-- Parish -->
-            <p class="mt-0.5 text-xs text-gray-500">{{ loc.parish }}</p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-slate-400">{{ loc.parish }}</p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
-              <span class="flex items-center gap-1 text-[11px] text-gray-500">
+              <span class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
                 <UIcon name="i-heroicons-user" class="h-3 w-3" />
                 {{ loc.supervisor }}
               </span>
-              <span v-if="loc.contact_no" class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span v-if="loc.contact_no" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-phone" class="h-3 w-3" />
                 {{ loc.contact_no }}
               </span>
@@ -240,27 +240,27 @@ async function confirmDelete() {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showModal" :ui="{ content: isEditing ? 'max-w-4xl' : 'max-w-2xl' }">
       <template #content>
-        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl" :class="isEditing ? 'max-w-4xl' : 'max-w-2xl'">
+        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl" :class="isEditing ? 'max-w-4xl' : 'max-w-2xl'">
 
           <!-- Header -->
-          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-map-pin" class="h-5 w-5 text-blue-600" />
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-map-pin" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? form.name : "New Location" }}</h3>
-              <p class="text-sm text-slate-500">{{ isEditing ? `${form.parish} · ${form.typ?.replace(/_/g, " ")}` : "Add a new location" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? form.name : "New Location" }}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? `${form.parish} · ${form.typ?.replace(/_/g, " ")}` : "Add a new location" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
 
           <!-- Tab bar (edit only) -->
-          <div v-if="isEditing" class="flex shrink-0 border-b border-gray-200 px-6">
+          <div v-if="isEditing" class="flex shrink-0 border-b border-gray-200 dark:border-slate-700 px-6">
             <button
               v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'profile', label: 'Location Profile' }]"
               :key="tab.value"
               class="border-b-2 px-5 py-3 text-sm font-medium transition-colors"
-              :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+              :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'"
               @click="activeTab = tab.value"
             >
               {{ tab.label }}
@@ -305,7 +305,7 @@ async function confirmDelete() {
             <!-- Profile tab -->
             <div v-else-if="activeTab === 'profile'" class="px-6 py-5 space-y-6">
 
-              <div v-if="profileLoading" class="flex items-center justify-center py-16 text-sm text-slate-400">
+              <div v-if="profileLoading" class="flex items-center justify-center py-16 text-sm text-slate-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-arrow-path" class="mr-2 h-4 w-4 animate-spin" />
                 Loading profile…
               </div>
@@ -314,35 +314,35 @@ async function confirmDelete() {
 
                 <!-- Fleet summary stat row -->
                 <div class="grid grid-cols-4 gap-3">
-                  <div class="rounded-xl border border-slate-200 bg-white p-4 text-center shadow-sm">
-                    <p class="text-2xl font-bold text-slate-800">{{ fleetStats.total }}</p>
-                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-500">Total Equipment</p>
+                  <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-bold text-slate-800 dark:text-slate-100">{{ fleetStats.total }}</p>
+                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Equipment</p>
                   </div>
-                  <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center shadow-sm">
-                    <p class="text-2xl font-bold text-emerald-700">{{ fleetStats.operational }}</p>
-                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-emerald-600">Operational</p>
+                  <div class="rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{{ fleetStats.operational }}</p>
+                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">Operational</p>
                   </div>
-                  <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center shadow-sm">
-                    <p class="text-2xl font-bold text-amber-700">{{ fleetStats.maintenance }}</p>
-                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-amber-600">Maintenance</p>
+                  <div class="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-bold text-amber-700 dark:text-amber-400">{{ fleetStats.maintenance }}</p>
+                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400">Maintenance</p>
                   </div>
-                  <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-center shadow-sm">
-                    <p class="text-2xl font-bold text-red-700">{{ fleetStats.out_of_service }}</p>
-                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-red-600">Out of Service</p>
+                  <div class="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-4 text-center shadow-sm">
+                    <p class="text-2xl font-bold text-red-700 dark:text-red-400">{{ fleetStats.out_of_service }}</p>
+                    <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-red-600 dark:text-red-400">Out of Service</p>
                   </div>
                 </div>
 
                 <!-- Empty state -->
-                <div v-if="fleetStats.total === 0" class="rounded-xl border border-dashed border-slate-300 py-12 text-center">
-                  <UIcon name="i-heroicons-building-office-2" class="mx-auto mb-2 h-8 w-8 text-slate-300" />
-                  <p class="text-sm text-slate-400">No equipment assigned to this location</p>
+                <div v-if="fleetStats.total === 0" class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 py-12 text-center">
+                  <UIcon name="i-heroicons-building-office-2" class="mx-auto mb-2 h-8 w-8 text-slate-300 dark:text-slate-600" />
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No equipment assigned to this location</p>
                 </div>
 
                 <template v-else>
 
                   <!-- Equipment by category -->
                   <div>
-                    <h4 class="mb-3 text-sm font-semibold text-slate-700">Equipment by Type</h4>
+                    <h4 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Equipment by Type</h4>
                     <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                       <div
                         v-for="[cat, group] in equipmentByCategory"
@@ -351,12 +351,12 @@ async function confirmDelete() {
                         :class="[group.meta.bg, group.meta.border]"
                       >
                         <div class="flex items-center gap-2">
-                          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/70">
+                          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-white/70 dark:bg-slate-900/50">
                             <UIcon :name="group.meta.icon" class="h-4 w-4" :class="group.meta.color" />
                           </div>
                           <div>
-                            <p class="text-lg font-bold text-slate-800">{{ group.assets.length }}</p>
-                            <p class="text-xs font-medium text-slate-600">{{ group.meta.label }}</p>
+                            <p class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ group.assets.length }}</p>
+                            <p class="text-xs font-medium text-slate-600 dark:text-slate-300">{{ group.meta.label }}</p>
                           </div>
                         </div>
                         <!-- Status breakdown -->
@@ -364,7 +364,7 @@ async function confirmDelete() {
                           <template v-for="(sm, status) in statusMeta" :key="status">
                             <span
                               v-if="group.assets.filter(a => a.status === status).length"
-                              class="flex items-center gap-1 text-xs text-slate-500"
+                              class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400"
                             >
                               <span class="inline-block h-1.5 w-1.5 rounded-full" :class="sm.dot" />
                               {{ group.assets.filter(a => a.status === status).length }} {{ sm.label }}
@@ -377,48 +377,48 @@ async function confirmDelete() {
 
                   <!-- Baling Potential (only if balers exist) -->
                   <div v-if="balerInfo">
-                    <h4 class="mb-3 text-sm font-semibold text-slate-700">Baling Potential</h4>
-                    <div class="overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">
+                    <h4 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Baling Potential</h4>
+                    <div class="overflow-hidden rounded-xl border border-blue-200 dark:border-blue-500/20 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-500/10 dark:to-indigo-500/10">
 
                       <!-- Summary row -->
-                      <div v-if="balerInfo.hasSpecs && balerInfo.operational.length" class="grid grid-cols-3 divide-x divide-blue-200 border-b border-blue-200">
+                      <div v-if="balerInfo.hasSpecs && balerInfo.operational.length" class="grid grid-cols-3 divide-x divide-blue-200 dark:divide-blue-500/20 border-b border-blue-200 dark:border-blue-500/20">
                         <div class="px-5 py-4 text-center">
-                          <p class="text-2xl font-bold text-blue-700">{{ balerInfo.operational.length }}</p>
-                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500">Active Balers</p>
+                          <p class="text-2xl font-bold text-blue-700 dark:text-blue-400">{{ balerInfo.operational.length }}</p>
+                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500 dark:text-blue-400">Active Balers</p>
                         </div>
                         <div class="px-5 py-4 text-center">
-                          <p class="text-2xl font-bold text-blue-700">{{ balerInfo.totalBalesPerShift }}</p>
-                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500">Bales / {{ balerInfo.shiftHours }}h shift</p>
+                          <p class="text-2xl font-bold text-blue-700 dark:text-blue-400">{{ balerInfo.totalBalesPerShift }}</p>
+                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500 dark:text-blue-400">Bales / {{ balerInfo.shiftHours }}h shift</p>
                         </div>
                         <div class="px-5 py-4 text-center">
-                          <p class="text-2xl font-bold text-blue-700">{{ fmtWeight(balerInfo.totalWeightPerShift) }}</p>
-                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500">Weight / shift</p>
+                          <p class="text-2xl font-bold text-blue-700 dark:text-blue-400">{{ fmtWeight(balerInfo.totalWeightPerShift) }}</p>
+                          <p class="mt-0.5 text-xs font-medium uppercase tracking-wide text-blue-500 dark:text-blue-400">Weight / shift</p>
                         </div>
                       </div>
-                      <div v-else-if="!balerInfo.hasSpecs" class="px-5 py-3 text-center text-xs text-blue-400">
+                      <div v-else-if="!balerInfo.hasSpecs" class="px-5 py-3 text-center text-xs text-blue-400 dark:text-blue-300">
                         Model specs not configured — baling capacity unavailable
                       </div>
-                      <div v-else-if="!balerInfo.operational.length" class="px-5 py-3 text-center text-xs text-amber-600">
+                      <div v-else-if="!balerInfo.operational.length" class="px-5 py-3 text-center text-xs text-amber-600 dark:text-amber-400">
                         No operational balers — {{ balerInfo.rows.length }} baler(s) offline
                       </div>
 
                       <!-- Per-baler breakdown -->
-                      <div class="divide-y divide-blue-100">
+                      <div class="divide-y divide-blue-100 dark:divide-blue-500/10">
                         <div v-for="baler in balerInfo.rows" :key="baler.asset_id" class="flex items-center gap-3 px-5 py-3">
-                          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" :class="baler.isOperational ? 'bg-blue-100' : 'bg-slate-100'">
-                            <UIcon name="i-heroicons-cube-transparent" class="h-3.5 w-3.5" :class="baler.isOperational ? 'text-blue-600' : 'text-slate-400'" />
+                          <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" :class="baler.isOperational ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-slate-100 dark:bg-slate-800'">
+                            <UIcon name="i-heroicons-cube-transparent" class="h-3.5 w-3.5" :class="baler.isOperational ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-500'" />
                           </div>
                           <div class="flex-1 min-w-0">
-                            <p class="truncate text-sm font-medium text-slate-800">
+                            <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">
                               {{ baler.alias ?? baler.asset_id }}
-                              <span v-if="baler.baler_type" class="ml-1 text-xs text-slate-400 capitalize">({{ baler.baler_type }})</span>
+                              <span v-if="baler.baler_type" class="ml-1 text-xs text-slate-400 dark:text-slate-500 capitalize">({{ baler.baler_type }})</span>
                             </p>
-                            <p class="text-xs text-slate-500">{{ baler.manufacturer }}{{ baler.model_no ? ` · ${baler.model_no}` : "" }}</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">{{ baler.manufacturer }}{{ baler.model_no ? ` · ${baler.model_no}` : "" }}</p>
                           </div>
                           <div class="shrink-0 text-right">
                             <template v-if="baler.balesPerShift != null && baler.isOperational">
-                              <p class="text-sm font-semibold text-blue-700">{{ baler.balesPerShift }} bales</p>
-                              <p v-if="baler.weightPerShift" class="text-xs text-blue-500">{{ fmtWeight(baler.weightPerShift) }} / shift</p>
+                              <p class="text-sm font-semibold text-blue-700 dark:text-blue-400">{{ baler.balesPerShift }} bales</p>
+                              <p v-if="baler.weightPerShift" class="text-xs text-blue-500 dark:text-blue-400">{{ fmtWeight(baler.weightPerShift) }} / shift</p>
                             </template>
                             <template v-else>
                               <UBadge :color="baler.isOperational ? 'neutral' : 'warning'" variant="subtle" size="sm">
@@ -433,38 +433,38 @@ async function confirmDelete() {
 
                   <!-- Full fleet list -->
                   <div>
-                    <h4 class="mb-3 text-sm font-semibold text-slate-700">Fleet</h4>
-                    <div class="overflow-hidden rounded-xl border border-slate-200">
+                    <h4 class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">Fleet</h4>
+                    <div class="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
                       <table class="w-full text-sm">
                         <thead>
-                          <tr class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          <tr class="bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <th class="px-4 py-2.5">ID</th>
                             <th class="px-4 py-2.5">Name</th>
                             <th class="px-4 py-2.5">Type</th>
                             <th class="px-4 py-2.5">Status</th>
                           </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-100">
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                           <tr
                             v-for="asset in locationAssets"
                             :key="asset.asset_id"
-                            class="hover:bg-slate-50 transition-colors"
+                            class="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                           >
-                            <td class="px-4 py-2.5 font-mono text-xs text-slate-600">{{ asset.asset_id }}</td>
+                            <td class="px-4 py-2.5 font-mono text-xs text-slate-600 dark:text-slate-300">{{ asset.asset_id }}</td>
                             <td class="px-4 py-2.5">
-                              <span class="font-medium text-slate-800">{{ asset.alias ?? asset.manufacturer }}</span>
-                              <span v-if="asset.alias" class="ml-1.5 text-xs text-slate-400">{{ asset.manufacturer }}</span>
+                              <span class="font-medium text-slate-800 dark:text-slate-100">{{ asset.alias ?? asset.manufacturer }}</span>
+                              <span v-if="asset.alias" class="ml-1.5 text-xs text-slate-400 dark:text-slate-500">{{ asset.manufacturer }}</span>
                             </td>
                             <td class="px-4 py-2.5">
                               <span class="flex items-center gap-1.5">
                                 <UIcon :name="categoryMeta[asset.category as AssetCategory]?.icon ?? 'i-heroicons-cube'" class="h-3.5 w-3.5" :class="categoryMeta[asset.category as AssetCategory]?.color" />
-                                <span class="capitalize text-slate-600">{{ asset.category }}</span>
+                                <span class="capitalize text-slate-600 dark:text-slate-300">{{ asset.category }}</span>
                               </span>
                             </td>
                             <td class="px-4 py-2.5">
                               <span class="flex items-center gap-1.5">
                                 <span class="h-1.5 w-1.5 rounded-full" :class="statusMeta[asset.status]?.dot ?? 'bg-slate-400'" />
-                                <span class="capitalize" :class="statusMeta[asset.status]?.color ?? 'text-slate-600'">
+                                <span class="capitalize" :class="statusMeta[asset.status]?.color ?? 'text-slate-600 dark:text-slate-300'">
                                   {{ asset.status.replace(/_/g, " ") }}
                                 </span>
                               </span>
@@ -482,7 +482,7 @@ async function confirmDelete() {
           </div>
 
           <!-- Footer -->
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton v-if="!isEditing || activeTab === 'details'" :loading="saving" @click="save">
               {{ isEditing ? "Save Changes" : "Create Location" }}
@@ -497,7 +497,7 @@ async function confirmDelete() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Location</h3></template>
-          <p class="text-sm text-slate-500">Delete location <strong>{{ deleteTarget?.name }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete location <strong>{{ deleteTarget?.name }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

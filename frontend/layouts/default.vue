@@ -5,6 +5,13 @@ const { get } = useApi()
 const { changePassword } = useUsers()
 const showIdleWarning = useState("idle_warning", () => false)
 
+// ── Dark mode toggle ────────────────────────────────────────────
+const colorMode = useColorMode()
+const isDark = computed({
+  get: () => colorMode.value === "dark",
+  set: (v: boolean) => { colorMode.preference = v ? "dark" : "light" },
+})
+
 // ── Profile modal ─────────────────────────────────────────────
 const showProfileModal = ref(false)
 const profileTab = ref("profile")
@@ -117,7 +124,7 @@ const pageInfo = computed(() => {
 </script>
 
 <template>
-  <div class="flex h-screen overflow-hidden bg-white">
+  <div class="flex h-screen overflow-hidden bg-white dark:bg-slate-950">
 
     <!-- Sidebar -->
     <aside class="flex w-60 shrink-0 flex-col bg-slate-900">
@@ -187,17 +194,17 @@ const pageInfo = computed(() => {
     <!-- Profile Modal -->
     <UModal v-model:open="showProfileModal">
       <template #content>
-        <div class="w-full rounded-xl bg-white shadow-xl">
+        <div class="w-full rounded-xl bg-white shadow-xl dark:bg-slate-900">
           <!-- Header -->
-          <div class="flex items-center gap-4 border-b border-slate-100 px-6 py-5">
+          <div class="flex items-center gap-4 border-b border-slate-100 px-6 py-5 dark:border-slate-800">
             <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-600">
               <span class="text-sm font-bold text-white">
                 {{ user ? user.firstname[0] + user.lastname[0] : "?" }}
               </span>
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">{{ user?.firstname }} {{ user?.lastname }}</h3>
-              <p class="text-sm capitalize text-slate-500">{{ user?.role }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ user?.firstname }} {{ user?.lastname }}</h3>
+              <p class="text-sm capitalize text-slate-500 dark:text-slate-400">{{ user?.role }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showProfileModal = false" />
           </div>
@@ -212,25 +219,25 @@ const pageInfo = computed(() => {
               <template #profile>
                 <div class="mt-4 space-y-3 pb-6">
                   <div class="grid grid-cols-2 gap-3">
-                    <div class="rounded-lg bg-slate-50 px-4 py-3">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">First Name</p>
-                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.firstname }}</p>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">First Name</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ profileData?.firstname }}</p>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-4 py-3">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Last Name</p>
-                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.lastname }}</p>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Last Name</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ profileData?.lastname }}</p>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-4 py-3">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Username</p>
-                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.username }}</p>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Username</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ profileData?.username }}</p>
                     </div>
-                    <div class="rounded-lg bg-slate-50 px-4 py-3">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Role</p>
-                      <p class="mt-0.5 text-sm font-medium capitalize text-slate-900">{{ profileData?.role }}</p>
+                    <div class="rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Role</p>
+                      <p class="mt-0.5 text-sm font-medium capitalize text-slate-900 dark:text-slate-100">{{ profileData?.role }}</p>
                     </div>
-                    <div class="col-span-2 rounded-lg bg-slate-50 px-4 py-3">
-                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Email</p>
-                      <p class="mt-0.5 text-sm font-medium text-slate-900">{{ profileData?.email }}</p>
+                    <div class="col-span-2 rounded-lg bg-slate-50 px-4 py-3 dark:bg-slate-800">
+                      <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Email</p>
+                      <p class="mt-0.5 text-sm font-medium text-slate-900 dark:text-slate-100">{{ profileData?.email }}</p>
                     </div>
                   </div>
                 </div>
@@ -263,12 +270,20 @@ const pageInfo = computed(() => {
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 
       <!-- Top bar -->
-      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6">
+      <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900">
         <div>
-          <p class="text-base font-bold text-slate-900">{{ pageInfo.title }}</p>
-          <p v-if="pageInfo.caption" class="text-xs text-slate-400">{{ pageInfo.caption }}</p>
+          <p class="text-base font-bold text-slate-900 dark:text-slate-100">{{ pageInfo.title }}</p>
+          <p v-if="pageInfo.caption" class="text-xs text-slate-400 dark:text-slate-500">{{ pageInfo.caption }}</p>
         </div>
         <div class="flex items-center gap-2">
+          <UButton
+            variant="ghost"
+            size="sm"
+            :icon="isDark ? 'i-heroicons-sun' : 'i-heroicons-moon'"
+            color="neutral"
+            :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+            @click="isDark = !isDark"
+          />
           <UButton variant="ghost" size="sm" icon="i-heroicons-bell" color="neutral" />
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
@@ -296,7 +311,7 @@ const pageInfo = computed(() => {
       </Transition>
 
       <!-- Page content -->
-      <main class="flex flex-col flex-1 overflow-y-auto bg-slate-50 p-6">
+      <main class="flex flex-col flex-1 overflow-y-auto bg-slate-50 p-6 dark:bg-slate-950">
         <slot />
       </main>
     </div>

@@ -176,9 +176,9 @@ function formatDate(val: string | undefined) {
     <!-- Summary badges -->
     <div class="flex flex-wrap gap-3">
       <div v-for="sev in severityOptions" :key="sev"
-        class="flex items-center gap-2 rounded-lg border border-gray-100 bg-white px-3 py-2 shadow-sm">
+        class="flex items-center gap-2 rounded-lg border border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
         <UBadge :color="severityColors[sev]" variant="soft" size="xs" class="capitalize">{{ sev }}</UBadge>
-        <span class="text-sm font-semibold text-slate-700">
+        <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {{ (issues ?? []).filter((i) => i.severity === sev && i.status !== 'dismissed').length }}
         </span>
       </div>
@@ -198,37 +198,37 @@ function formatDate(val: string | undefined) {
 
       <!-- Issue card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No issues found.
         </div>
         <div
           v-for="issue in filtered"
           :key="issue.id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4"
           :class="issue.severity === 'critical' || issue.severity === 'high' ? 'border-l-red-400' : issue.severity === 'medium' ? 'border-l-yellow-400' : 'border-l-transparent'"
           @click="openEdit(issue)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800 truncate">{{ issue.description }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{{ issue.description }}</span>
             </div>
             <!-- Asset -->
-            <p class="mt-0.5 text-xs text-gray-500">Asset: {{ issue.asset_id ?? "—" }}</p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-slate-400">Asset: {{ issue.asset_id ?? "—" }}</p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
               <UBadge :color="severityColors[issue.severity]" variant="soft" size="xs" class="capitalize">{{ issue.severity }}</UBadge>
-              <span class="flex items-center gap-1 text-[11px] text-gray-500">
+              <span class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
                 <UIcon name="i-heroicons-user" class="h-3 w-3" />
                 {{ issue.reported_by ? (userMap[issue.reported_by] ?? `User ${issue.reported_by}`) : "Unknown" }}
               </span>
-              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ formatDate(issue.reported_at) }}
               </span>
@@ -255,11 +255,11 @@ function formatDate(val: string | undefined) {
     <!-- Create / Edit Modal -->
     <UModal v-model:open="showFormModal">
       <template #content>
-        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
+        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
+          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div>
-              <h3 class="text-base font-semibold text-slate-900">{{ isEditing ? "Edit Issue" : "Report Issue" }}</h3>
-              <p class="text-sm text-slate-500">{{ isEditing ? "Update issue details" : "Log a new issue for review" }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit Issue" : "Report Issue" }}</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "Update issue details" : "Log a new issue for review" }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showFormModal = false" />
           </div>
@@ -286,7 +286,7 @@ function formatDate(val: string | undefined) {
             </div>
             <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mt-4" />
           </div>
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showFormModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Report Issue" }}</UButton>
           </div>
@@ -297,14 +297,14 @@ function formatDate(val: string | undefined) {
     <!-- Convert to Work Order Modal -->
     <UModal v-model:open="showConvertModal" :ui="{ content: 'max-w-2xl' }">
       <template #content>
-        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50">
-              <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 text-green-600" />
+        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 dark:bg-green-500/10">
+              <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">Convert to Work Order</h3>
-              <p class="text-sm text-slate-500">Issue #{{ convertingIssue?.id }} — {{ convertingIssue?.asset_id }}</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Convert to Work Order</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">Issue #{{ convertingIssue?.id }} — {{ convertingIssue?.asset_id }}</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showConvertModal = false" />
           </div>
@@ -337,7 +337,7 @@ function formatDate(val: string | undefined) {
             </div>
             <UAlert v-if="convertError" color="error" variant="soft" :description="convertError" class="mt-4" />
           </div>
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showConvertModal = false">Cancel</UButton>
             <UButton color="success" :loading="converting" leading-icon="i-heroicons-check" @click="submitConvert">
               Create Work Order
@@ -352,7 +352,7 @@ function formatDate(val: string | undefined) {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Issue</h3></template>
-          <p class="text-sm text-slate-500">Delete issue <strong>#{{ deleteTarget?.id }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete issue <strong>#{{ deleteTarget?.id }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

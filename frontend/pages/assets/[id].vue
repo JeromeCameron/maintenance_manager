@@ -131,7 +131,7 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/assets" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-slate-900">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ isNew ? "New Asset" : `Asset: ${assetId}` }}
       </h1>
       <template v-if="!isNew">
@@ -218,18 +218,18 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
           <template #header>
             <div class="flex items-center justify-between">
               <h2 class="font-semibold">Baler Specs</h2>
-              <p class="text-xs text-slate-400">Edit in Settings → Asset Models</p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">Edit in Settings → Asset Models</p>
             </div>
           </template>
           <div v-if="modelData" class="space-y-2 text-sm">
-            <div class="flex justify-between"><span class="text-slate-500">Type</span><span class="capitalize">{{ modelData.baler_type ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Size</span><span class="capitalize">{{ modelData.baler_size ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Weight</span><span>{{ modelData.bale_weight != null ? `${modelData.bale_weight} kg` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Time</span><span>{{ modelData.bale_time != null ? `${modelData.bale_time} min` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Ram Force</span><span>{{ modelData.ram_force != null ? `${modelData.ram_force} kN` : "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Bale Size</span><span>{{ modelData.bale_size ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Type</span><span class="capitalize">{{ modelData.baler_type ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Size</span><span class="capitalize">{{ modelData.baler_size ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Weight</span><span>{{ modelData.bale_weight != null ? `${modelData.bale_weight} kg` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Time</span><span>{{ modelData.bale_time != null ? `${modelData.bale_time} min` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Ram Force</span><span>{{ modelData.ram_force != null ? `${modelData.ram_force} kN` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Size</span><span>{{ modelData.bale_size ?? "—" }}</span></div>
           </div>
-          <p v-else class="text-sm text-slate-400">No model assigned or specs not set.</p>
+          <p v-else class="text-sm text-slate-400 dark:text-slate-500">No model assigned or specs not set.</p>
         </UCard>
 
         <!-- Asset Scores -->
@@ -244,13 +244,13 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
             </div>
           </template>
           <div v-if="scores" class="space-y-2 text-sm">
-            <div class="flex justify-between"><span class="text-slate-500">Operational</span><span>{{ scores.operational_score ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Safety</span><span>{{ scores.safety_score ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Backup</span><span>{{ scores.backup_score ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Repair</span><span>{{ scores.repair_score ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500">Usage</span><span>{{ scores.usage_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Operational</span><span>{{ scores.operational_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Safety</span><span>{{ scores.safety_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Backup</span><span>{{ scores.backup_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Repair</span><span>{{ scores.repair_score ?? "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Usage</span><span>{{ scores.usage_score ?? "—" }}</span></div>
           </div>
-          <p v-else class="text-sm text-slate-400">No scores recorded. <UButton variant="link" size="xs" @click="openScoresEdit">Add now</UButton></p>
+          <p v-else class="text-sm text-slate-400 dark:text-slate-500">No scores recorded. <UButton variant="link" size="xs" @click="openScoresEdit">Add now</UButton></p>
         </UCard>
       </div>
 
@@ -260,12 +260,12 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
           <template #header><h2 class="font-semibold">Work Orders</h2></template>
           <div class="space-y-2">
             <div v-for="wo in workOrders?.slice(0, 5)" :key="wo.work_order_id" class="flex items-center justify-between text-sm">
-              <span class="font-mono text-gray-600 dark:text-gray-400">#{{ wo.work_order_id }}</span>
+              <span class="font-mono text-gray-600 dark:text-slate-300 dark:text-gray-400">#{{ wo.work_order_id }}</span>
               <UBadge :color="woStatusColors[wo.status] ?? 'neutral'" variant="soft" size="xs">
                 {{ wo.status.replace(/_/g, " ") }}
               </UBadge>
             </div>
-            <p v-if="!workOrders?.length" class="text-sm text-gray-400">No work orders.</p>
+            <p v-if="!workOrders?.length" class="text-sm text-gray-400 dark:text-slate-500">No work orders.</p>
           </div>
           <template #footer>
             <UButton to="/work-orders" variant="ghost" size="xs" trailing-icon="i-heroicons-arrow-right">
@@ -278,10 +278,10 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
           <template #header><h2 class="font-semibold">Recent Downtime</h2></template>
           <div class="space-y-2">
             <div v-for="dt in downtimes?.slice(0, 5)" :key="dt.downtime_id" class="flex items-center justify-between text-sm">
-              <span class="text-gray-600 dark:text-gray-400">{{ dt.start_date }}</span>
+              <span class="text-gray-600 dark:text-slate-300 dark:text-gray-400">{{ dt.start_date }}</span>
               <span class="font-medium">{{ dt.downtime_hours }}h</span>
             </div>
-            <p v-if="!downtimes?.length" class="text-sm text-gray-400">No downtime recorded.</p>
+            <p v-if="!downtimes?.length" class="text-sm text-gray-400 dark:text-slate-500">No downtime recorded.</p>
           </div>
         </UCard>
 
@@ -289,12 +289,12 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
           <template #header><h2 class="font-semibold">Recent Inspections</h2></template>
           <div class="space-y-2">
             <div v-for="ins in inspections?.slice(0, 5)" :key="ins.id" class="flex items-center justify-between text-sm">
-              <span class="text-gray-600 dark:text-gray-400">{{ ins.inspection_date }}</span>
+              <span class="text-gray-600 dark:text-slate-300 dark:text-gray-400">{{ ins.inspection_date }}</span>
               <UBadge :color="ins.overall_result === 'pass' ? 'success' : ins.overall_result === 'fail' ? 'error' : 'neutral'" variant="soft" size="xs">
                 {{ ins.overall_result }}
               </UBadge>
             </div>
-            <p v-if="!inspections?.length" class="text-sm text-gray-400">No inspections recorded.</p>
+            <p v-if="!inspections?.length" class="text-sm text-gray-400 dark:text-slate-500">No inspections recorded.</p>
           </div>
         </UCard>
       </div>
@@ -303,9 +303,9 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
     <!-- Asset Scores Modal -->
     <UModal v-model:open="showScoresModal">
       <template #content>
-        <div class="w-full max-w-lg rounded-xl bg-white shadow-xl">
-          <div class="flex items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ scores ? "Edit Asset Scores" : "Add Asset Scores" }}</h3>
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ scores ? "Edit Asset Scores" : "Add Asset Scores" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showScoresModal = false" />
           </div>
           <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
@@ -326,7 +326,7 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
             </UFormField>
           </div>
           <UAlert v-if="scoresError" color="error" variant="soft" :description="scoresError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showScoresModal = false">Cancel</UButton>
             <UButton :loading="savingScores" @click="saveScores">Save</UButton>
           </div>

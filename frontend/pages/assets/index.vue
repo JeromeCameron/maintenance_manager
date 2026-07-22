@@ -26,25 +26,25 @@ const statusColors: Record<string, string> = {
 }
 
 const assetStatusStyles: Record<string, string> = {
-  operational:    "bg-green-50 text-green-600 ring-1 ring-green-200",
-  maintenance:    "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200",
-  out_of_service: "bg-red-50 text-red-600 ring-1 ring-red-200",
-  disposed:       "bg-gray-100 text-gray-500 ring-1 ring-gray-200",
-  retired:        "bg-slate-100 text-slate-500 ring-1 ring-slate-200",
+  operational:    "bg-green-50 text-green-600 ring-1 ring-green-200 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/30",
+  maintenance:    "bg-yellow-50 text-yellow-700 ring-1 ring-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-400 dark:ring-yellow-500/30",
+  out_of_service: "bg-red-50 text-red-600 ring-1 ring-red-200 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/30",
+  disposed:       "bg-gray-100 text-gray-500 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700",
+  retired:        "bg-slate-100 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700",
 }
 
 const categoryStyles: Record<string, string> = {
-  baler:    "bg-blue-50 text-blue-600",
-  conveyor: "bg-purple-50 text-purple-600",
-  bobcat:   "bg-orange-50 text-orange-600",
-  forklift: "bg-teal-50 text-teal-700",
-  scale:    "bg-indigo-50 text-indigo-600",
+  baler:    "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
+  conveyor: "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+  bobcat:   "bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400",
+  forklift: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400",
+  scale:    "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
 }
 
 const ownershipStyles: Record<string, string> = {
-  owned:  "bg-emerald-50 text-emerald-600",
-  rented: "bg-amber-50 text-amber-700",
-  leased: "bg-violet-50 text-violet-600",
+  owned:  "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400",
+  rented: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  leased: "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
 }
 const severityColors: Record<string, string> = { low: "success", medium: "warning", high: "error", critical: "error" }
 const woStatusColors: Record<string, string> = { requested: "neutral", approved: "info", in_progress: "warning", completed: "success", cancelled: "neutral" }
@@ -353,51 +353,51 @@ function fmtDateShort(v?: string | null) {
 
       <!-- Asset card list -->
       <div class="overflow-auto h-full p-4 space-y-2">
-        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No assets found.
         </div>
         <div
           v-for="asset in filtered"
           :key="asset.asset_id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4"
           :class="asset.status === 'out_of_service' ? 'border-l-red-400' : asset.status === 'maintenance' ? 'border-l-yellow-400' : 'border-l-transparent'"
           @click="openAsset(asset.asset_id)"
         >
           <!-- Left icon -->
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-cube" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-cube" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
 
           <!-- Main content -->
           <div class="min-w-0 flex-1">
             <!-- Title -->
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ asset.asset_id }}</span>
-              <span v-if="asset.alias" class="text-xs text-slate-400">· {{ asset.alias }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ asset.asset_id }}</span>
+              <span v-if="asset.alias" class="text-xs text-slate-400 dark:text-slate-500">· {{ asset.alias }}</span>
               <span
                 class="h-2 w-2 shrink-0 rounded-full"
                 :class="asset.status === 'operational' ? 'bg-green-500' : asset.status === 'maintenance' ? 'bg-yellow-400' : asset.status === 'out_of_service' ? 'bg-red-500' : 'bg-gray-300'"
               />
             </div>
             <!-- Manufacturer + year -->
-            <p class="mt-0.5 text-xs text-gray-500">
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
               {{ asset.manufacturer }}<span v-if="asset.yr"> · {{ asset.yr }}</span>
             </p>
             <!-- Meta row -->
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
               <span
                 class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                :class="categoryStyles[asset.category] ?? 'bg-gray-100 text-gray-500'"
+                :class="categoryStyles[asset.category] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
               >{{ asset.category }}</span>
-              <span v-if="asset.location_id" class="flex items-center gap-1 text-[11px] text-gray-500">
+              <span v-if="asset.location_id" class="flex items-center gap-1 text-[11px] text-gray-500 dark:text-slate-400">
                 <UIcon name="i-heroicons-map-pin" class="h-3 w-3" />
                 {{ locationMap[asset.location_id] ?? asset.location_id }}
               </span>
               <span
                 class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                :class="ownershipStyles[asset.owned] ?? 'bg-gray-100 text-gray-500'"
+                :class="ownershipStyles[asset.owned] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
               >{{ asset.owned }}</span>
-              <span v-if="asset.model_no" class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span v-if="asset.model_no" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-tag" class="h-3 w-3" />
                 {{ asset.model_no }}
               </span>
@@ -408,7 +408,7 @@ function fmtDateShort(v?: string | null) {
           <div class="w-44 shrink-0 self-center mr-6">
             <template v-if="scoresMap[asset.asset_id]">
               <div class="flex items-center justify-between mb-1">
-                <span class="text-[11px] text-gray-400">Criticality</span>
+                <span class="text-[11px] text-gray-400 dark:text-slate-500">Criticality</span>
                 <div class="flex items-center gap-1">
                   <span class="text-xs font-bold" :class="getCriticalityTier(criticalityTotal(scoresMap[asset.asset_id])).color">
                     {{ criticalityTotal(scoresMap[asset.asset_id]) }}/12
@@ -418,7 +418,7 @@ function fmtDateShort(v?: string | null) {
                   </span>
                 </div>
               </div>
-              <div class="h-1.5 w-full rounded-full bg-gray-100">
+              <div class="h-1.5 w-full rounded-full bg-gray-100 dark:bg-slate-800">
                 <div
                   class="h-1.5 rounded-full transition-all"
                   :class="criticalityTotal(scoresMap[asset.asset_id]) >= 10 ? 'bg-red-500' : criticalityTotal(scoresMap[asset.asset_id]) >= 7 ? 'bg-orange-400' : criticalityTotal(scoresMap[asset.asset_id]) >= 4 ? 'bg-amber-400' : 'bg-green-400'"
@@ -437,10 +437,10 @@ function fmtDateShort(v?: string | null) {
             <!-- Status pill -->
             <span
               class="inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize"
-              :class="assetStatusStyles[asset.status] ?? 'bg-gray-100 text-gray-500'"
+              :class="assetStatusStyles[asset.status] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
             >{{ asset.status.replace(/_/g, ' ') }}</span>
             <!-- Sub-status if any -->
-            <span v-if="asset.sub_status" class="text-[11px] text-gray-400 capitalize">
+            <span v-if="asset.sub_status" class="text-[11px] text-gray-400 dark:text-slate-500 capitalize">
               {{ asset.sub_status.replace(/_/g, ' ') }}
             </span>
             <!-- Actions -->
@@ -455,14 +455,14 @@ function fmtDateShort(v?: string | null) {
     <!-- Create Modal -->
     <UModal v-model:open="showCreateModal">
       <template #content>
-        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-          <div class="flex items-start gap-4 border-b border-slate-100 px-6 py-5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
+        <div class="w-full max-w-2xl rounded-xl bg-white shadow-xl dark:bg-slate-900">
+          <div class="flex items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
-              <h3 class="text-base font-semibold text-slate-900">New Asset</h3>
-              <p class="text-sm text-slate-500">Register a new asset</p>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">New Asset</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">Register a new asset</p>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showCreateModal = false" />
           </div>
@@ -508,7 +508,7 @@ function fmtDateShort(v?: string | null) {
             </UFormField>
           </div>
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showCreateModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="saveCreate">Create Asset</UButton>
           </div>
@@ -519,20 +519,20 @@ function fmtDateShort(v?: string | null) {
     <!-- View / Edit tabbed modal -->
     <UModal v-model:open="showViewModal" :ui="{ content: 'max-w-4xl' }">
       <template #content>
-        <div class="flex h-[85vh] w-full flex-col rounded-xl bg-white shadow-xl">
+        <div class="flex h-[85vh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
 
           <!-- Header -->
-          <div class="flex shrink-0 items-center gap-4 border-b border-slate-100 px-6 py-4">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50">
-              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600" />
+          <div class="flex shrink-0 items-center gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-4">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-cube" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div class="flex-1">
               <div class="flex items-center gap-2">
-                <span class="text-base font-semibold text-slate-900">{{ form.asset_id }}</span>
-                <span v-if="form.alias" class="text-sm text-slate-400">· {{ form.alias }}</span>
+                <span class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ form.asset_id }}</span>
+                <span v-if="form.alias" class="text-sm text-slate-400 dark:text-slate-500">· {{ form.alias }}</span>
                 <UBadge v-if="form.status" :color="statusColors[form.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ form.status?.replace(/_/g, " ") }}</UBadge>
               </div>
-              <p class="text-xs text-slate-400">{{ form.manufacturer }}<span v-if="form.model_no"> · {{ form.model_no }}</span></p>
+              <p class="text-xs text-slate-400 dark:text-slate-500">{{ form.manufacturer }}<span v-if="form.model_no"> · {{ form.model_no }}</span></p>
             </div>
             <div
               v-if="!loadingAsset"
@@ -550,19 +550,19 @@ function fmtDateShort(v?: string | null) {
 
           <!-- Loading -->
           <div v-if="loadingAsset" class="flex flex-1 items-center justify-center">
-            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-slate-400" />
+            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-slate-400 dark:text-slate-500" />
           </div>
 
           <template v-else>
             <!-- Custom tab bar -->
-            <div class="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 px-6">
+            <div class="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-100 dark:border-slate-800 px-6">
               <button
                 v-for="tab in tabs" :key="tab.value"
                 @click="activeTab = tab.value"
                 class="whitespace-nowrap border-b-2 px-3 py-3 text-sm font-medium transition-colors"
                 :class="activeTab === tab.value
                   ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'"
+                  : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-100'"
               >{{ tab.label }}</button>
             </div>
 
@@ -631,36 +631,36 @@ function fmtDateShort(v?: string | null) {
 
                   <!-- Spec cards -->
                   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                    <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-500/20 dark:bg-blue-500/10">
                       <p class="text-xs font-medium text-blue-400">Bale Weight</p>
-                      <p class="mt-1 text-xl font-bold text-blue-700">{{ modelData.bale_weight ?? "—" }}<span v-if="modelData.bale_weight" class="ml-1 text-sm font-medium text-blue-400">kg</span></p>
+                      <p class="mt-1 text-xl font-bold text-blue-700 dark:text-blue-400">{{ modelData.bale_weight ?? "—" }}<span v-if="modelData.bale_weight" class="ml-1 text-sm font-medium text-blue-400">kg</span></p>
                     </div>
-                    <div class="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
+                    <div class="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 dark:border-violet-500/20 dark:bg-violet-500/10">
                       <p class="text-xs font-medium text-violet-400">Bale Time</p>
-                      <p class="mt-1 text-xl font-bold text-violet-700">{{ modelData.bale_time ?? "—" }}<span v-if="modelData.bale_time" class="ml-1 text-sm font-medium text-violet-400">min</span></p>
+                      <p class="mt-1 text-xl font-bold text-violet-700 dark:text-violet-400">{{ modelData.bale_time ?? "—" }}<span v-if="modelData.bale_time" class="ml-1 text-sm font-medium text-violet-400">min</span></p>
                     </div>
-                    <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                    <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">
                       <p class="text-xs font-medium text-amber-400">Ram Force</p>
-                      <p class="mt-1 text-xl font-bold text-amber-700">{{ modelData.ram_force ?? "—" }}<span v-if="modelData.ram_force" class="ml-1 text-sm font-medium text-amber-400">kN</span></p>
+                      <p class="mt-1 text-xl font-bold text-amber-700 dark:text-amber-400">{{ modelData.ram_force ?? "—" }}<span v-if="modelData.ram_force" class="ml-1 text-sm font-medium text-amber-400">kN</span></p>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p class="text-xs font-medium text-slate-400">Baler Type</p>
-                      <p class="mt-1 text-base font-semibold capitalize text-slate-700">{{ modelData.baler_type ?? "—" }}</p>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400 dark:text-slate-500">Baler Type</p>
+                      <p class="mt-1 text-base font-semibold capitalize text-slate-700 dark:text-slate-300">{{ modelData.baler_type ?? "—" }}</p>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p class="text-xs font-medium text-slate-400">Baler Size</p>
-                      <p class="mt-1 text-base font-semibold capitalize text-slate-700">{{ modelData.baler_size ?? "—" }}</p>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400 dark:text-slate-500">Baler Size</p>
+                      <p class="mt-1 text-base font-semibold capitalize text-slate-700 dark:text-slate-300">{{ modelData.baler_size ?? "—" }}</p>
                     </div>
-                    <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p class="text-xs font-medium text-slate-400">Bale Size</p>
-                      <p class="mt-1 text-base font-semibold text-slate-700">{{ modelData.bale_size ?? "—" }}</p>
+                    <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-4 py-3">
+                      <p class="text-xs font-medium text-slate-400 dark:text-slate-500">Bale Size</p>
+                      <p class="mt-1 text-base font-semibold text-slate-700 dark:text-slate-300">{{ modelData.bale_size ?? "—" }}</p>
                     </div>
                   </div>
 
-                  <p class="text-xs text-slate-400">Edit specs via Settings → Asset Models.</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">Edit specs via Settings → Asset Models.</p>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No model assigned or baler specs not set. Edit specs in Settings → Asset Models.</p>
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No model assigned or baler specs not set. Edit specs in Settings → Asset Models.</p>
                 </div>
               </div>
 
@@ -675,26 +675,26 @@ function fmtDateShort(v?: string | null) {
                       <div class="flex items-center gap-6">
                         <!-- Criticality score -->
                         <div>
-                          <p class="text-xs text-slate-400 mb-0.5">Criticality Score</p>
+                          <p class="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Criticality Score</p>
                           <div class="flex items-baseline gap-2">
-                            <span class="text-3xl font-bold text-slate-900">
+                            <span class="text-3xl font-bold text-slate-900 dark:text-slate-100">
                               {{ (scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0) }}
                             </span>
-                            <span class="text-sm text-slate-400">/ 12</span>
+                            <span class="text-sm text-slate-400 dark:text-slate-500">/ 12</span>
                             <span class="text-sm font-semibold" :class="getCriticalityTier((scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0)).color">
                               {{ getCriticalityTier((scoresData.safety_score ?? 0) + (scoresData.operational_score ?? 0) + (scoresData.backup_score ?? 0) + (scoresData.repair_score ?? 0) + (scoresData.usage_score ?? 0)).label }}
                             </span>
                           </div>
-                          <p class="mt-0.5 text-xs text-slate-400">10–12 Critical · 7–9 High · 4–6 Medium · 0–3 Low</p>
+                          <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">10–12 Critical · 7–9 High · 4–6 Medium · 0–3 Low</p>
                         </div>
                         <!-- Risk flag -->
                         <div>
-                          <p class="text-xs text-slate-400 mb-0.5">Risk Flag</p>
+                          <p class="text-xs text-slate-400 dark:text-slate-500 mb-0.5">Risk Flag</p>
                           <span class="inline-flex items-center rounded-md border px-3 py-1 text-sm font-semibold"
                             :class="[getRiskFlag(scoresData).bg, getRiskFlag(scoresData).color]">
                             {{ getRiskFlag(scoresData).label }}
                           </span>
-                          <p class="mt-0.5 text-xs text-slate-400">Based on usage &amp; operational impact</p>
+                          <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Based on usage &amp; operational impact</p>
                         </div>
                       </div>
                     </div>
@@ -706,16 +706,16 @@ function fmtDateShort(v?: string | null) {
 
                   <div v-if="scoresData" class="space-y-3">
                     <div v-for="f in scoreFields" :key="f.key"
-                      class="flex items-center gap-4 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3">
+                      class="flex items-center gap-4 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-4 py-3">
                       <!-- Score badge -->
-                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200">
-                        <span class="text-lg font-bold text-slate-800">{{ scoresData[f.key] ?? "—" }}</span>
+                      <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200 dark:bg-slate-900 dark:border-slate-700">
+                        <span class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ scoresData[f.key] ?? "—" }}</span>
                       </div>
                       <!-- Label + description -->
                       <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-slate-800">{{ f.label }} <span class="font-normal text-slate-400">(0–{{ f.max }})</span></p>
-                        <p class="text-xs text-slate-500">{{ f.question }}</p>
-                        <p v-if="scoresData[f.key] != null" class="mt-0.5 text-xs text-slate-400 italic">{{ f.levels[scoresData[f.key]!] }}</p>
+                        <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ f.label }} <span class="font-normal text-slate-400 dark:text-slate-500">(0–{{ f.max }})</span></p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">{{ f.question }}</p>
+                        <p v-if="scoresData[f.key] != null" class="mt-0.5 text-xs text-slate-400 dark:text-slate-500 italic">{{ f.levels[scoresData[f.key]!] }}</p>
                       </div>
                       <!-- Bar -->
                       <div class="hidden sm:block w-24 shrink-0">
@@ -727,28 +727,28 @@ function fmtDateShort(v?: string | null) {
                     </div>
                   </div>
 
-                  <div v-else class="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-200">
-                    <p class="text-sm text-slate-400">No scores recorded yet. Click "Add Scores" to get started.</p>
+                  <div v-else class="flex h-32 items-center justify-center rounded-lg border border-dashed border-slate-200 dark:border-slate-700">
+                    <p class="text-sm text-slate-400 dark:text-slate-500">No scores recorded yet. Click "Add Scores" to get started.</p>
                   </div>
                 </template>
 
                 <!-- Edit mode -->
                 <template v-else>
                   <div class="mb-1 flex items-center justify-between">
-                    <h4 class="text-sm font-semibold text-slate-700">Asset Criticality Scores</h4>
-                    <p class="text-xs text-slate-400">Maximum total: 12</p>
+                    <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Asset Criticality Scores</h4>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">Maximum total: 12</p>
                   </div>
-                  <p class="mb-4 text-xs text-slate-500">Rate each criterion using the guide below. Higher scores indicate greater criticality.</p>
+                  <p class="mb-4 text-xs text-slate-500 dark:text-slate-400">Rate each criterion using the guide below. Higher scores indicate greater criticality.</p>
 
                   <div class="space-y-4">
-                    <div v-for="f in scoreFields" :key="f.key" class="rounded-lg border border-slate-200 p-4">
+                    <div v-for="f in scoreFields" :key="f.key" class="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
                       <div class="flex items-start gap-4">
                         <div class="flex-1 min-w-0">
-                          <p class="text-sm font-medium text-slate-800">{{ f.label }}</p>
-                          <p class="text-xs text-slate-500 mt-0.5">{{ f.question }}</p>
+                          <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ f.label }}</p>
+                          <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ f.question }}</p>
                           <div class="mt-2 space-y-0.5">
-                            <p v-for="(desc, i) in f.levels" :key="i" class="text-xs text-slate-400">
-                              <span class="font-medium text-slate-500">{{ i }}</span> — {{ desc }}
+                            <p v-for="(desc, i) in f.levels" :key="i" class="text-xs text-slate-400 dark:text-slate-500">
+                              <span class="font-medium text-slate-500 dark:text-slate-400">{{ i }}</span> — {{ desc }}
                             </p>
                           </div>
                         </div>
@@ -770,47 +770,47 @@ function fmtDateShort(v?: string | null) {
               </div>
 
               <!-- Open Work Orders -->
-              <div v-else-if="activeTab === 'open-wo'" class="divide-y divide-slate-50 px-6 py-2">
+              <div v-else-if="activeTab === 'open-wo'" class="divide-y divide-slate-50 dark:divide-slate-800 px-6 py-2">
                 <div v-for="wo in openWorkOrders" :key="wo.work_order_id" class="flex items-start gap-3 py-3">
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs font-medium text-slate-700">#{{ wo.work_order_id }}</span>
+                      <span class="text-xs font-medium text-slate-700 dark:text-slate-300">#{{ wo.work_order_id }}</span>
                       <UBadge :color="woStatusColors[wo.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ wo.status.replace(/_/g, " ") }}</UBadge>
                       <UBadge color="neutral" variant="soft" size="xs" class="capitalize">{{ wo.priority }}</UBadge>
                     </div>
                     <p class="mt-0.5 truncate text-sm text-slate-600">{{ wo.description ?? "—" }}</p>
-                    <p class="text-xs text-slate-400">Issued: {{ fmtDate(wo.issue_date) }}<span v-if="wo.expected_date"> · Due: {{ fmtDate(wo.expected_date) }}</span></p>
+                    <p class="text-xs text-slate-400 dark:text-slate-500">Issued: {{ fmtDate(wo.issue_date) }}<span v-if="wo.expected_date"> · Due: {{ fmtDate(wo.expected_date) }}</span></p>
                   </div>
                 </div>
               </div>
 
               <!-- Recent Work Orders -->
               <div v-else-if="activeTab === 'recent-wo'">
-                <div v-if="recentWorkOrders.length" class="divide-y divide-slate-50 px-6 py-2">
+                <div v-if="recentWorkOrders.length" class="divide-y divide-slate-50 dark:divide-slate-800 px-6 py-2">
                   <div v-for="wo in recentWorkOrders" :key="wo.work_order_id" class="flex items-start gap-3 py-3">
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-2">
-                        <span class="text-xs font-medium text-slate-700">#{{ wo.work_order_id }}</span>
+                        <span class="text-xs font-medium text-slate-700 dark:text-slate-300">#{{ wo.work_order_id }}</span>
                         <UBadge :color="woStatusColors[wo.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ wo.status.replace(/_/g, " ") }}</UBadge>
                       </div>
                       <p class="mt-0.5 truncate text-sm text-slate-600">{{ wo.description ?? "—" }}</p>
-                      <p class="text-xs text-slate-400">Completed: {{ fmtDate(wo.date_completed) }}</p>
+                      <p class="text-xs text-slate-400 dark:text-slate-500">Completed: {{ fmtDate(wo.date_completed) }}</p>
                     </div>
                   </div>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No completed work orders for this asset.</p>
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No completed work orders for this asset.</p>
                 </div>
               </div>
 
               <!-- Downtime -->
               <div v-else-if="activeTab === 'downtime'">
-                <div v-if="downtimeData.length" class="divide-y divide-slate-100 px-6 py-1">
+                <div v-if="downtimeData.length" class="divide-y divide-slate-100 dark:divide-slate-800 px-6 py-1">
                   <div v-for="d in [...downtimeData].sort((a, b) => (b.start_date ?? '').localeCompare(a.start_date ?? '')).slice(0, 20)" :key="d.downtime_id" class="py-3">
                     <div class="flex items-center justify-between gap-4">
                       <div class="flex items-center gap-2">
-                        <span class="text-sm font-medium text-slate-800">{{ fmtDateShort(d.start_date) }}</span>
-                        <span v-if="d.end_date && d.end_date !== d.start_date" class="text-xs text-slate-400">→ {{ fmtDateShort(d.end_date) }}</span>
+                        <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ fmtDateShort(d.start_date) }}</span>
+                        <span v-if="d.end_date && d.end_date !== d.start_date" class="text-xs text-slate-400 dark:text-slate-500">→ {{ fmtDateShort(d.end_date) }}</span>
                       </div>
                       <div class="flex items-center gap-2 shrink-0">
                         <span class="text-sm font-semibold text-red-600">{{ d.downtime_hours?.toFixed(1) ?? "—" }}h</span>
@@ -819,25 +819,25 @@ function fmtDateShort(v?: string | null) {
                       </div>
                     </div>
                     <p v-if="d.details" class="mt-1 truncate text-sm text-slate-600" :title="d.details">{{ d.details }}</p>
-                    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
-                      <span v-if="d.component_affected"><span class="font-medium text-slate-500">Component:</span> {{ d.component_affected }}</span>
-                      <span v-if="d.root_cause"><span class="font-medium text-slate-500">Cause:</span> {{ d.root_cause }}</span>
+                    <div class="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400 dark:text-slate-500">
+                      <span v-if="d.component_affected"><span class="font-medium text-slate-500 dark:text-slate-400">Component:</span> {{ d.component_affected }}</span>
+                      <span v-if="d.root_cause"><span class="font-medium text-slate-500 dark:text-slate-400">Cause:</span> {{ d.root_cause }}</span>
                       <span v-if="d.temporary_fix" class="text-amber-500">Temporary fix applied</span>
                     </div>
                   </div>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No downtime records for this asset.</p>
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No downtime records for this asset.</p>
                 </div>
               </div>
 
               <!-- Inspections -->
               <div v-else-if="activeTab === 'inspections'">
-                <div v-if="inspectionsData.length" class="divide-y divide-slate-50 px-6 py-2">
+                <div v-if="inspectionsData.length" class="divide-y divide-slate-50 dark:divide-slate-800 px-6 py-2">
                   <div v-for="ins in inspectionsData.slice(0, 15)" :key="ins.id" class="flex items-center justify-between py-3 text-sm">
                     <div>
-                      <p class="font-medium text-slate-700">{{ ins.inspection_no }}</p>
-                      <p class="text-xs text-slate-400">{{ fmtDate(ins.inspection_date) }}</p>
+                      <p class="font-medium text-slate-700 dark:text-slate-300">{{ ins.inspection_no }}</p>
+                      <p class="text-xs text-slate-400 dark:text-slate-500">{{ fmtDate(ins.inspection_date) }}</p>
                     </div>
                     <UBadge :color="ins.overall_result === 'pass' ? 'success' : ins.overall_result === 'fail' ? 'error' : 'warning'" variant="soft" size="xs" class="capitalize">
                       {{ ins.overall_result }}
@@ -845,17 +845,17 @@ function fmtDateShort(v?: string | null) {
                   </div>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No inspection records for this asset.</p>
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No inspection records for this asset.</p>
                 </div>
               </div>
 
               <!-- Issues -->
               <div v-else-if="activeTab === 'issues'">
-                <div v-if="issuesData.length" class="divide-y divide-slate-50 px-6 py-2">
+                <div v-if="issuesData.length" class="divide-y divide-slate-50 dark:divide-slate-800 px-6 py-2">
                   <div v-for="issue in issuesData" :key="issue.id" class="flex items-start justify-between gap-3 py-3 text-sm">
                     <div class="min-w-0 flex-1">
-                      <p class="truncate text-slate-700">{{ issue.description }}</p>
-                      <p class="text-xs text-slate-400">{{ fmtDate(issue.reported_at) }}</p>
+                      <p class="truncate text-slate-700 dark:text-slate-300">{{ issue.description }}</p>
+                      <p class="text-xs text-slate-400 dark:text-slate-500">{{ fmtDate(issue.reported_at) }}</p>
                     </div>
                     <div class="flex shrink-0 gap-1">
                       <UBadge :color="severityColors[issue.severity]" variant="soft" size="xs" class="capitalize">{{ issue.severity }}</UBadge>
@@ -864,14 +864,14 @@ function fmtDateShort(v?: string | null) {
                   </div>
                 </div>
                 <div v-else class="flex h-48 items-center justify-center">
-                  <p class="text-sm text-slate-400">No issues reported for this asset.</p>
+                  <p class="text-sm text-slate-400 dark:text-slate-500">No issues reported for this asset.</p>
                 </div>
               </div>
 
             </div>
 
             <!-- Footer — always pinned at bottom -->
-            <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+            <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
               <UButton variant="ghost" color="neutral" @click="showViewModal = false">Close</UButton>
               <UButton v-if="activeTab === 'details'" :loading="savingEdit" @click="saveEdit">Save Changes</UButton>
             </div>
@@ -886,7 +886,7 @@ function fmtDateShort(v?: string | null) {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Asset</h3></template>
-          <p class="text-sm text-slate-500">Delete asset <strong>{{ deleteTarget?.asset_id }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete asset <strong>{{ deleteTarget?.asset_id }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteTarget = null">Cancel</UButton>

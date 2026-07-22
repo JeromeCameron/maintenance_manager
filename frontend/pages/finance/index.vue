@@ -24,19 +24,19 @@ const activeTab = ref("pos")
 const invoiceStatusColors: Record<string, string> = { processing: "info", submitted: "success", on_hold: "warning" }
 
 const poTypeStyles: Record<string, string> = {
-  corrective:   "bg-red-50 text-red-600",
-  predictive:   "bg-purple-50 text-purple-600",
-  preventative: "bg-teal-50 text-teal-700",
-  consumables:  "bg-amber-50 text-amber-700",
-  rental:       "bg-indigo-50 text-indigo-600",
+  corrective:   "bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400",
+  predictive:   "bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400",
+  preventative: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400",
+  consumables:  "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  rental:       "bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400",
 }
 
 const invoiceTypeStyles: Record<string, string> = {
-  parts:             "bg-blue-50 text-blue-600",
-  parts_and_labour:  "bg-violet-50 text-violet-600",
-  labour:            "bg-orange-50 text-orange-600",
-  consumables:       "bg-amber-50 text-amber-700",
-  services:          "bg-sky-50 text-sky-600",
+  parts:             "bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400",
+  parts_and_labour:  "bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400",
+  labour:            "bg-orange-50 text-orange-600 dark:bg-orange-500/10 dark:text-orange-400",
+  consumables:       "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  services:          "bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400",
 }
 
 const _MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
@@ -49,9 +49,22 @@ function fmtDate(dateStr: string | null | undefined): string {
 }
 
 const search = ref("")
+
+// ── PO balances (subtotal minus all linked invoices) ───────────
+const poInvoicedMap = computed(() => {
+  const m: Record<string, number> = {}
+  for (const i of invoices.value ?? []) { if (i.po_no) m[i.po_no] = (m[i.po_no] ?? 0) + i.subtotal }
+  return m
+})
+function poBalanceFor(po: PurchaseOrder): number {
+  return po.subtotal - (poInvoicedMap.value[po.po_no] ?? 0)
+}
+
+const showOutstandingPOsOnly = ref(false)
 const filteredPOs = computed(() =>
   (pos.value ?? [])
     .filter((p) => !search.value || p.po_no.toLowerCase().includes(search.value.toLowerCase()) || (p.description ?? "").toLowerCase().includes(search.value.toLowerCase()))
+    .filter((p) => !showOutstandingPOsOnly.value || poBalanceFor(p) > 0)
     .sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? ""))
 )
 const filteredInvoices = computed(() =>
@@ -257,10 +270,10 @@ async function confirmDeleteBudget() {
 <template>
   <div class="space-y-4">
     <!-- Tabs -->
-    <div class="flex gap-2 border-b border-gray-200">
+    <div class="flex gap-2 border-b border-gray-200 dark:border-slate-700">
       <button v-for="tab in [{ value: 'pos', label: 'Purchase Orders' }, { value: 'invoices', label: 'Invoices' }, { value: 'budgets', label: 'Budgets' }]" :key="tab.value"
         class="border-b-2 px-4 py-2 text-sm font-medium transition-colors"
-        :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        :class="activeTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'"
         @click="activeTab = tab.value">
         {{ tab.label }}
       </button>
@@ -269,8 +282,13 @@ async function confirmDeleteBudget() {
     <UCard>
       <template #header>
         <div class="flex items-center justify-between gap-3">
-          <UInput v-if="activeTab !== 'budgets'" v-model="search" placeholder="Search..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
-          <div v-else />
+          <div class="flex flex-wrap items-center gap-3">
+            <UInput v-if="activeTab !== 'budgets'" v-model="search" placeholder="Search..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+            <label v-if="activeTab === 'pos'" class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
+              <UCheckbox v-model="showOutstandingPOsOnly" />
+              Open PO's
+            </label>
+          </div>
           <div class="flex gap-2">
             <UButton v-if="activeTab === 'pos'" leading-icon="i-heroicons-plus" @click="openCreatePO" class="!bg-blue-700 hover:!bg-blue-800">New PO</UButton>
             <UButton v-if="activeTab === 'invoices'" leading-icon="i-heroicons-plus" @click="openCreateInvoice" class="!bg-blue-700 hover:!bg-blue-800">New Invoice</UButton>
@@ -281,37 +299,40 @@ async function confirmDeleteBudget() {
 
       <!-- Purchase Orders card list -->
       <div v-if="activeTab === 'pos'" class="space-y-2">
-        <div v-if="filteredPOs.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filteredPOs.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No purchase orders found.
         </div>
         <div
           v-for="po in filteredPOs"
           :key="po.po_no"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4 border-l-transparent"
           @click="openEditPO(po)"
         >
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-document-text" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-document-text" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ po.po_no }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ po.po_no }}</span>
             </div>
-            <p class="mt-0.5 truncate text-xs text-gray-500" :title="po.description ?? ''">{{ po.description ?? "—" }}</p>
+            <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400" :title="po.description ?? ''">{{ po.description ?? "—" }}</p>
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
               <span
                 v-if="po.po_type"
                 class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                :class="poTypeStyles[po.po_type] ?? 'bg-gray-100 text-gray-500'"
+                :class="poTypeStyles[po.po_type] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
               >{{ po.po_type }}</span>
-              <span v-if="po.po_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span v-if="po.po_date" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(po.po_date) }}
               </span>
             </div>
           </div>
-          <div class="shrink-0 flex flex-col items-end gap-2">
-            <span class="text-sm font-semibold text-slate-700">${{ po.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+          <div class="shrink-0 flex flex-col items-end gap-1">
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">${{ po.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <span class="text-[11px] font-medium" :class="poBalanceFor(po) > 0 ? 'text-amber-600' : 'text-gray-400 dark:text-slate-500'">
+              Balance: ${{ poBalanceFor(po).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+            </span>
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deletePOTarget = po" />
           </div>
         </div>
@@ -319,30 +340,30 @@ async function confirmDeleteBudget() {
 
       <!-- Invoices card list -->
       <div v-else-if="activeTab === 'invoices'" class="space-y-2">
-        <div v-if="filteredInvoices.length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="filteredInvoices.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No invoices found.
         </div>
         <div
           v-for="inv in filteredInvoices"
           :key="inv.id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4 border-l-transparent"
           @click="openEditInvoice(inv)"
         >
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ inv.invoice_no }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ inv.invoice_no }}</span>
             </div>
-            <p class="mt-0.5 truncate text-xs text-gray-500" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
+            <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
               <span
                 v-if="inv.invoice_type"
                 class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 text-gray-500'"
+                :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
               >{{ inv.invoice_type.replace(/_/g, " ") }}</span>
-              <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(inv.invoice_date) }}
               </span>
@@ -350,7 +371,7 @@ async function confirmDeleteBudget() {
           </div>
           <div class="shrink-0 flex flex-col items-end gap-2">
             <UBadge :color="invoiceStatusColors[inv.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ inv.status }}</UBadge>
-            <span class="text-sm font-semibold text-slate-700">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteInvoiceTarget = inv" />
           </div>
         </div>
@@ -358,33 +379,33 @@ async function confirmDeleteBudget() {
 
       <!-- Budgets card list -->
       <div v-else class="space-y-2">
-        <div v-if="(budgets ?? []).length === 0" class="py-12 text-center text-sm text-gray-400">
+        <div v-if="(budgets ?? []).length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No budget entries found.
         </div>
         <div
           v-for="b in budgets ?? []"
           :key="b.id"
-          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors border-l-4 border-l-transparent"
+          class="flex cursor-pointer items-start gap-4 rounded-lg px-5 py-4 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors border-l-4 border-l-transparent"
           @click="openEditBudget(b)"
         >
-          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <UIcon name="i-heroicons-chart-pie" class="h-4 w-4 text-gray-400" />
+          <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+            <UIcon name="i-heroicons-chart-pie" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold text-slate-800">{{ b.gl_code }}</span>
-              <span class="text-xs text-slate-400">· {{ b.financial_year }}</span>
+              <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ b.gl_code }}</span>
+              <span class="text-xs text-slate-400 dark:text-slate-500">· {{ b.financial_year }}</span>
             </div>
-            <p class="mt-0.5 truncate text-xs text-gray-500">{{ b.notes ?? "—" }}</p>
+            <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400">{{ b.notes ?? "—" }}</p>
             <div class="mt-1.5 flex flex-wrap items-center gap-2">
-              <span class="flex items-center gap-1 text-[11px] text-gray-400">
+              <span class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(b.month) }}
               </span>
             </div>
           </div>
           <div class="shrink-0 flex flex-col items-end gap-2">
-            <span class="text-sm font-semibold text-slate-700">${{ b.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">${{ b.amount.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
             <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteBudgetTarget = b" />
           </div>
         </div>
@@ -394,10 +415,10 @@ async function confirmDeleteBudget() {
     <!-- PO Modal -->
     <UModal v-model:open="showPOModal" :ui="{ content: 'max-w-2xl' }">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-center gap-3 border-b border-slate-100 px-6 py-5">
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex shrink-0 items-center gap-3 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div class="flex-1 min-w-0">
-              <h3 class="text-base font-semibold text-slate-900 truncate">{{ poEditing ? `Edit PO: ${poEditing.po_no}` : "New Purchase Order" }}</h3>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 truncate">{{ poEditing ? `Edit PO: ${poEditing.po_no}` : "New Purchase Order" }}</h3>
             </div>
             <span
               v-if="poEditing"
@@ -412,12 +433,12 @@ async function confirmDeleteBudget() {
           </div>
 
           <!-- Tab bar (edit mode only) -->
-          <div v-if="poEditing" class="flex shrink-0 gap-0 border-b border-gray-200 px-6">
+          <div v-if="poEditing" class="flex shrink-0 gap-0 border-b border-gray-200 dark:border-slate-700 px-6">
             <button
               v-for="tab in [{ value: 'details', label: 'Details' }, { value: 'invoices', label: `Invoices (${poRelatedInvoices.length})` }]"
               :key="tab.value"
               class="border-b-2 px-4 py-3 text-sm font-medium transition-colors"
-              :class="poModalTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'"
+              :class="poModalTab === tab.value ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-300'"
               @click="poModalTab = tab.value as 'details' | 'invoices'"
             >{{ tab.label }}</button>
           </div>
@@ -449,7 +470,7 @@ async function confirmDeleteBudget() {
                 </UFormField>
                 <UFormField label="Subtotal" required>
                   <UInput v-model.number="poForm.subtotal" type="number" step="0.01" class="w-full">
-                    <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                    <template #leading><span class="text-slate-400 dark:text-slate-500 text-sm select-none">$</span></template>
                   </UInput>
                 </UFormField>
                 <UFormField label="Description" class="col-span-2">
@@ -461,46 +482,46 @@ async function confirmDeleteBudget() {
 
             <!-- Invoices tab -->
             <template v-else-if="poModalTab === 'invoices'">
-              <div class="mb-4 flex items-center gap-4 rounded-lg bg-slate-50 px-4 py-3">
+              <div class="mb-4 flex items-center gap-4 rounded-lg bg-slate-50 dark:bg-slate-800 px-4 py-3">
                 <div>
-                  <p class="text-xs text-slate-400">PO Value</p>
-                  <p class="text-sm font-semibold text-slate-800">${{ (poForm.subtotal ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">PO Value</p>
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">${{ (poForm.subtotal ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-slate-400">Invoiced</p>
-                  <p class="text-sm font-semibold text-slate-800">${{ poInvoicedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
+                  <p class="text-xs text-slate-400 dark:text-slate-500">Invoiced</p>
+                  <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">${{ poInvoicedTotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-slate-400">Balance</p>
-                  <p class="text-sm font-semibold" :class="poBalance < 0 ? 'text-red-600' : 'text-slate-800'">
+                  <p class="text-xs text-slate-400 dark:text-slate-500">Balance</p>
+                  <p class="text-sm font-semibold" :class="poBalance < 0 ? 'text-red-600' : 'text-slate-800 dark:text-slate-100'">
                     ${{ poBalance.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
                   </p>
                 </div>
               </div>
 
-              <div v-if="poRelatedInvoices.length === 0" class="py-10 text-center text-sm text-slate-400">
+              <div v-if="poRelatedInvoices.length === 0" class="py-10 text-center text-sm text-slate-400 dark:text-slate-500">
                 No invoices linked to this PO yet.
               </div>
               <div v-else class="space-y-2">
                 <div
                   v-for="inv in poRelatedInvoices"
                   :key="inv.id"
-                  class="flex cursor-pointer items-start gap-4 rounded-lg px-4 py-3 ring-1 ring-gray-200 hover:bg-blue-50/40 transition-colors"
+                  class="flex cursor-pointer items-start gap-4 rounded-lg px-4 py-3 ring-1 ring-gray-200 dark:ring-slate-700 hover:bg-blue-50/40 dark:hover:bg-blue-500/10 transition-colors"
                   @click="openInvoiceFromPO(inv)"
                 >
-                  <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                    <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400" />
+                  <div class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800">
+                    <UIcon name="i-heroicons-banknotes" class="h-4 w-4 text-gray-400 dark:text-slate-500" />
                   </div>
                   <div class="min-w-0 flex-1">
-                    <span class="text-sm font-semibold text-slate-800">{{ inv.invoice_no }}</span>
-                    <p class="mt-0.5 truncate text-xs text-gray-500" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
+                    <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ inv.invoice_no }}</span>
+                    <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-slate-400" :title="inv.description ?? ''">{{ inv.description ?? "—" }}</p>
                     <div class="mt-1.5 flex flex-wrap items-center gap-2">
                       <span
                         v-if="inv.invoice_type"
                         class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium capitalize"
-                        :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 text-gray-500'"
+                        :class="invoiceTypeStyles[inv.invoice_type] ?? 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-slate-400'"
                       >{{ inv.invoice_type.replace(/_/g, " ") }}</span>
-                      <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400">
+                      <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                         <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                         {{ fmtDate(inv.invoice_date) }}
                       </span>
@@ -508,14 +529,14 @@ async function confirmDeleteBudget() {
                   </div>
                   <div class="shrink-0 flex flex-col items-end gap-2">
                     <UBadge :color="invoiceStatusColors[inv.status] ?? 'neutral'" variant="soft" size="xs" class="capitalize">{{ inv.status }}</UBadge>
-                    <span class="text-sm font-semibold text-slate-700">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+                    <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">${{ inv.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
                   </div>
                 </div>
               </div>
             </template>
           </div>
 
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showPOModal = false">Cancel</UButton>
             <UButton v-if="!poEditing || poModalTab === 'details'" :loading="savingPO" @click="savePO">{{ poEditing ? "Save Changes" : "Create PO" }}</UButton>
           </div>
@@ -526,10 +547,10 @@ async function confirmDeleteBudget() {
     <!-- Invoice Modal -->
     <UModal v-model:open="showInvoiceModal" :ui="{ content: 'max-w-2xl' }">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
+        <div class="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
             <div class="flex items-center gap-3 min-w-0">
-              <h3 class="text-base font-semibold text-slate-900 shrink-0">{{ invoiceEditing ? `Edit Invoice #${invoiceEditing.id}` : "New Invoice" }}</h3>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100 shrink-0">{{ invoiceEditing ? `Edit Invoice #${invoiceEditing.id}` : "New Invoice" }}</h3>
               <UBadge
                 :color="invoiceStatusColors[invoiceForm.status ?? ''] ?? 'neutral'"
                 variant="solid"
@@ -579,7 +600,7 @@ async function confirmDeleteBudget() {
               </UFormField>
               <UFormField label="Subtotal" required>
                 <UInput v-model.number="invoiceForm.subtotal" type="number" step="0.01" class="w-full">
-                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                  <template #leading><span class="text-slate-400 dark:text-slate-500 text-sm select-none">$</span></template>
                 </UInput>
               </UFormField>
               <UFormField label="Tax Certificate">
@@ -591,7 +612,7 @@ async function confirmDeleteBudget() {
             </div>
             <UAlert v-if="invoiceError" color="error" variant="soft" :description="invoiceError" class="mt-4" />
           </div>
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showInvoiceModal = false">Cancel</UButton>
             <UButton :loading="savingInvoice" @click="saveInvoice">{{ invoiceEditing ? "Save Changes" : "Create Invoice" }}</UButton>
           </div>
@@ -602,9 +623,9 @@ async function confirmDeleteBudget() {
     <!-- Budget Modal -->
     <UModal v-model:open="showBudgetModal">
       <template #content>
-        <div class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl bg-white shadow-xl">
-          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-6 py-5">
-            <h3 class="text-base font-semibold text-slate-900">{{ budgetEditing ? "Edit Budget Entry" : "New Budget Entry" }}</h3>
+        <div class="flex max-h-[90vh] w-full max-w-lg flex-col rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex shrink-0 items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ budgetEditing ? "Edit Budget Entry" : "New Budget Entry" }}</h3>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showBudgetModal = false" />
           </div>
           <div class="flex-1 overflow-y-auto px-6 py-5">
@@ -620,7 +641,7 @@ async function confirmDeleteBudget() {
               </UFormField>
               <UFormField label="Amount" required>
                 <UInput v-model.number="budgetForm.amount" type="number" step="0.01" class="w-full">
-                  <template #leading><span class="text-slate-400 text-sm select-none">$</span></template>
+                  <template #leading><span class="text-slate-400 dark:text-slate-500 text-sm select-none">$</span></template>
                 </UInput>
               </UFormField>
               <UFormField label="Notes" class="col-span-2">
@@ -629,7 +650,7 @@ async function confirmDeleteBudget() {
             </div>
             <UAlert v-if="budgetError" color="error" variant="soft" :description="budgetError" class="mt-4" />
           </div>
-          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showBudgetModal = false">Cancel</UButton>
             <UButton :loading="savingBudget" @click="saveBudgetEntry">{{ budgetEditing ? "Save Changes" : "Create Entry" }}</UButton>
           </div>
@@ -642,7 +663,7 @@ async function confirmDeleteBudget() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Purchase Order</h3></template>
-          <p class="text-sm text-slate-500">Delete PO <strong>{{ deletePOTarget?.po_no }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete PO <strong>{{ deletePOTarget?.po_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deletePOTarget = null">Cancel</UButton>
@@ -657,7 +678,7 @@ async function confirmDeleteBudget() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Invoice</h3></template>
-          <p class="text-sm text-slate-500">Delete invoice <strong>{{ deleteInvoiceTarget?.invoice_no }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete invoice <strong>{{ deleteInvoiceTarget?.invoice_no }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteInvoiceTarget = null">Cancel</UButton>
@@ -672,7 +693,7 @@ async function confirmDeleteBudget() {
       <template #content>
         <UCard>
           <template #header><h3 class="font-semibold">Delete Budget Entry</h3></template>
-          <p class="text-sm text-slate-500">Delete budget entry for <strong>{{ deleteBudgetTarget?.month }} {{ deleteBudgetTarget?.financial_year }}</strong>? This cannot be undone.</p>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete budget entry for <strong>{{ deleteBudgetTarget?.month }} {{ deleteBudgetTarget?.financial_year }}</strong>? This cannot be undone.</p>
           <template #footer>
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteBudgetTarget = null">Cancel</UButton>

@@ -139,7 +139,7 @@ const resultColors: Record<string, string> = { pass: "success", fail: "error", n
   <div class="space-y-6">
     <div class="flex items-center gap-3">
       <UButton to="/inspections" variant="ghost" icon="i-heroicons-arrow-left" />
-      <h1 class="text-2xl font-bold text-slate-900">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">
         {{ isNew ? "New Inspection" : `Inspection #${form.inspection_no}` }}
       </h1>
     </div>
@@ -194,23 +194,23 @@ const resultColors: Record<string, string> = { pass: "success", fail: "error", n
           <template #header><h2 class="font-semibold">Summary</h2></template>
           <div class="space-y-2 text-sm">
             <div class="flex justify-between">
-              <span class="text-slate-500">Overall Result</span>
+              <span class="text-slate-500 dark:text-slate-400">Overall Result</span>
               <UBadge :color="resultColors[form.overall_result ?? 'na'] ?? 'neutral'" variant="soft" size="xs">
                 {{ form.overall_result ?? "—" }}
               </UBadge>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Items</span>
+              <span class="text-slate-500 dark:text-slate-400">Items</span>
               <span>{{ templateItems.length }}</span>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Fails</span>
+              <span class="text-slate-500 dark:text-slate-400">Fails</span>
               <span class="font-semibold text-red-600">
                 {{ Object.values(resultDraft).filter(r => r.result === 'fail').length }}
               </span>
             </div>
             <div class="flex justify-between">
-              <span class="text-slate-500">Submitted</span>
+              <span class="text-slate-500 dark:text-slate-400">Submitted</span>
               <UBadge :color="form.submitted ? 'success' : 'neutral'" variant="soft" size="xs">
                 {{ form.submitted ? "Yes" : "No" }}
               </UBadge>
@@ -229,7 +229,7 @@ const resultColors: Record<string, string> = { pass: "success", fail: "error", n
         </div>
       </template>
 
-      <div class="divide-y divide-slate-100">
+      <div class="divide-y divide-slate-100 dark:divide-slate-800">
         <div
           v-for="item in templateItems"
           :key="item.id"
@@ -237,10 +237,10 @@ const resultColors: Record<string, string> = { pass: "success", fail: "error", n
         >
           <div class="sm:col-span-2">
             <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-slate-800">{{ item.order ? `${item.order}.` : "" }} {{ item.question }}</span>
+              <span class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ item.order ? `${item.order}.` : "" }} {{ item.question }}</span>
               <UBadge v-if="item.is_critical" color="error" variant="soft" size="xs">Critical</UBadge>
             </div>
-            <span v-if="item.category" class="text-xs text-slate-400">{{ item.category }}</span>
+            <span v-if="item.category" class="text-xs text-slate-400 dark:text-slate-500">{{ item.category }}</span>
           </div>
 
           <div class="space-y-2" v-if="item.id != null">
@@ -268,7 +268,7 @@ const resultColors: Record<string, string> = { pass: "success", fail: "error", n
     </UCard>
 
     <UCard v-else-if="!isNew && form.template_id">
-      <p class="text-sm text-slate-400 px-2 py-3">No checklist items on this template.</p>
+      <p class="text-sm text-slate-400 dark:text-slate-500 px-2 py-3">No checklist items on this template.</p>
     </UCard>
   </div>
 </template>
