@@ -45,6 +45,8 @@ export { useIssues } from '../composables/useIssues';
 export { useLocations } from '../composables/useLocations';
 export { useMaintenance } from '../composables/useMaintenance';
 export { useSuppliers } from '../composables/useSuppliers';
+export { useTaskReminders } from '../composables/useTaskReminders';
+export { useTasks } from '../composables/useTasks';
 export { useUsers } from '../composables/useUsers';
 export { useWorkOrders } from '../composables/useWorkOrders';
 export { defineLocale, extendLocale } from '../node_modules/@nuxt/ui/dist/runtime/composables/defineLocale';

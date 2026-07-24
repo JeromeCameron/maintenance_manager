@@ -5,6 +5,30 @@ const { get } = useApi()
 const { changePassword } = useUsers()
 const showIdleWarning = useState("idle_warning", () => false)
 
+// ── Task due-soon reminders (bell) ──────────────────────────────
+const { dueSoon: dueSoonTasks, isOverdue: isTaskOverdue, refresh: refreshReminders } = useTaskReminders()
+const showReminders = ref(false)
+
+watch(showReminders, (open) => { if (open) refreshReminders() })
+
+const REMINDERS_POLL_MS = 5 * 60 * 1000 // periodic fallback between task edits/dropdown opens
+let remindersPollHandle: ReturnType<typeof setInterval> | undefined
+onMounted(() => { remindersPollHandle = setInterval(refreshReminders, REMINDERS_POLL_MS) })
+onUnmounted(() => clearInterval(remindersPollHandle))
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+function formatDueDate(value: string | null | undefined): string {
+  if (!value) return "—"
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number)
+  if (!year || !month || !day) return "—"
+  return `${String(day).padStart(2, "0")}-${MONTHS[month - 1]}-${String(year).slice(-2)}`
+}
+
+function goToTasks() {
+  showReminders.value = false
+  navigateTo("/tasks")
+}
+
 // ── Dark mode toggle ────────────────────────────────────────────
 const colorMode = useColorMode()
 const isDark = computed({
@@ -64,6 +88,7 @@ const navGroups = [
       { label: "Dashboard", icon: "i-heroicons-squares-2x2", to: "/" },
       { label: "Assets", icon: "i-heroicons-cube", to: "/assets" },
       { label: "Work Orders", icon: "i-heroicons-clipboard-document-list", to: "/work-orders" },
+      { label: "Tasks", icon: "i-heroicons-check-circle", to: "/tasks" },
       { label: "Issues", icon: "i-heroicons-flag", to: "/issues" },
       { label: "Downtime", icon: "i-heroicons-exclamation-triangle", to: "/downtime" },
     ],
@@ -100,6 +125,7 @@ const isActive = (to: string) =>
 const pageMap: Record<string, { title: string; caption: string }> = {
   "/assets":      { title: "Assets",      caption: "Manage and monitor your equipment fleet." },
   "/work-orders": { title: "Work Orders", caption: "Track and manage maintenance work orders." },
+  "/tasks":       { title: "Tasks",       caption: "Track and manage assigned tasks." },
   "/issues":      { title: "Issues",      caption: "Log and resolve reported equipment issues." },
   "/downtime":    { title: "Downtime",    caption: "Record and analyse equipment downtime events." },
   "/maintenance": { title: "PM Schedule", caption: "Plan and track preventative maintenance." },
@@ -127,23 +153,23 @@ const pageInfo = computed(() => {
   <div class="flex h-screen overflow-hidden bg-white dark:bg-slate-950">
 
     <!-- Sidebar -->
-    <aside class="flex w-60 shrink-0 flex-col bg-slate-900">
+    <aside class="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
 
       <!-- Brand -->
-      <div class="flex h-16 shrink-0 items-center gap-3 border-b border-slate-800 px-4">
+      <div class="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 px-4 dark:border-slate-800">
         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600">
           <UIcon name="i-heroicons-cog-6-tooth" class="h-4 w-4 text-white" />
         </div>
         <div class="leading-tight">
-          <p class="text-sm font-bold text-white">Maintenance</p>
-          <p class="text-[11px] text-slate-400">Manager</p>
+          <p class="text-sm font-bold text-slate-900 dark:text-white">Maintenance</p>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400">Manager</p>
         </div>
       </div>
 
       <!-- Nav groups -->
-      <nav class="flex-1 overflow-y-auto space-y-3 px-3 py-3 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-track]:bg-transparent">
+      <nav class="flex-1 overflow-y-auto space-y-3 px-3 py-3 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-track]:bg-transparent">
         <div v-for="group in navGroups" :key="group.label">
-          <p class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+          <p class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
             {{ group.label }}
           </p>
           <div class="space-y-0.5">
@@ -154,12 +180,12 @@ const pageInfo = computed(() => {
               class="group flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150"
               :class="isActive(item.to)
                 ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'"
+                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white'"
             >
               <UIcon
                 :name="item.icon"
                 class="h-4 w-4 shrink-0"
-                :class="isActive(item.to) ? 'text-blue-100' : 'text-slate-500 group-hover:text-slate-300'"
+                :class="isActive(item.to) ? 'text-blue-100' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'"
               />
               {{ item.label }}
             </NuxtLink>
@@ -168,7 +194,7 @@ const pageInfo = computed(() => {
       </nav>
 
       <!-- User / logout -->
-      <div class="shrink-0 border-t border-slate-800 px-3 py-3">
+      <div class="shrink-0 border-t border-slate-200 px-3 py-3 dark:border-slate-800">
         <div class="flex items-center gap-3 rounded-lg px-3 py-2">
           <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600">
             <span class="text-[10px] font-bold text-white">
@@ -176,7 +202,7 @@ const pageInfo = computed(() => {
             </span>
           </div>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-xs font-medium text-slate-200">{{ user?.firstname }} {{ user?.lastname }}</p>
+            <p class="truncate text-xs font-medium text-slate-700 dark:text-slate-200">{{ user?.firstname }} {{ user?.lastname }}</p>
             <p class="text-[11px] capitalize text-slate-500">{{ user?.role }}</p>
           </div>
           <UButton
@@ -184,7 +210,7 @@ const pageInfo = computed(() => {
             size="xs"
             icon="i-heroicons-arrow-right-on-rectangle"
             color="neutral"
-            class="text-slate-500 hover:text-white"
+            class="text-slate-500 hover:text-slate-900 dark:hover:text-white"
             @click="logout"
           />
         </div>
@@ -284,7 +310,54 @@ const pageInfo = computed(() => {
             :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
             @click="isDark = !isDark"
           />
-          <UButton variant="ghost" size="sm" icon="i-heroicons-bell" color="neutral" />
+          <UPopover v-model:open="showReminders">
+            <button
+              type="button"
+              class="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              title="Task reminders"
+            >
+              <UIcon name="i-heroicons-bell" class="h-4 w-4" />
+              <span
+                v-if="dueSoonTasks.length"
+                class="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white"
+              >{{ dueSoonTasks.length }}</span>
+            </button>
+
+            <template #content>
+              <div class="w-80 rounded-xl bg-white shadow-xl ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-700">
+                <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-slate-800">
+                  <p class="text-sm font-semibold text-slate-900 dark:text-slate-100">Task Reminders</p>
+                  <span class="text-xs text-slate-400 dark:text-slate-500">Due soon or overdue</span>
+                </div>
+                <div class="max-h-80 overflow-y-auto">
+                  <div v-if="dueSoonTasks.length === 0" class="px-4 py-8 text-center text-sm text-gray-400 dark:text-slate-500">
+                    No tasks due soon.
+                  </div>
+                  <button
+                    v-for="task in dueSoonTasks"
+                    :key="task.id"
+                    type="button"
+                    class="flex w-full items-start gap-3 border-b border-gray-50 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-blue-50/40 dark:border-slate-800 dark:hover:bg-blue-500/10"
+                    @click="goToTasks"
+                  >
+                    <span class="mt-1 h-2 w-2 shrink-0 rounded-full" :class="isTaskOverdue(task) ? 'bg-red-500' : 'bg-amber-400'" />
+                    <span class="min-w-0 flex-1">
+                      <span class="block truncate text-sm font-medium text-slate-800 dark:text-slate-100">{{ task.title }}</span>
+                      <span class="mt-0.5 flex items-center gap-1 text-xs" :class="isTaskOverdue(task) ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'">
+                        <UIcon name="i-heroicons-clock" class="h-3 w-3" />
+                        {{ isTaskOverdue(task) ? 'Overdue' : 'Due' }} {{ formatDueDate(task.due_date) }}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+                <div class="border-t border-gray-100 px-4 py-2.5 dark:border-slate-800">
+                  <button type="button" class="text-xs font-medium text-primary-600 hover:underline" @click="goToTasks">
+                    View all tasks
+                  </button>
+                </div>
+              </div>
+            </template>
+          </UPopover>
           <button
             class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
             title="View profile"

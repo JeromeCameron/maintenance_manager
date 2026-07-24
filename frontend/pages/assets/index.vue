@@ -55,6 +55,7 @@ const locationMap = computed(() => {
   return m
 })
 const locationOptions = computed(() => (locations.value ?? []).map((l) => ({ label: l.name, value: l.location_id })))
+const locationFilterOptions = computed(() => [{ label: "All locations", value: null }, ...locationOptions.value])
 
 const columns = [
   { accessorKey: "asset_id", header: "Asset ID" },
@@ -70,6 +71,9 @@ const statusOptions = ["operational", "maintenance", "out_of_service", "disposed
 const categoryOptions = ["baler", "conveyor", "bobcat", "forklift", "scale"]
 const ownershipOptions = ["owned", "rented", "leased"]
 
+const statusFilterOptions = [{ label: "All statuses", value: null }, ...statusOptions.map((s) => ({ label: s.replace(/_/g, " "), value: s }))]
+const categoryFilterOptions = [{ label: "All types", value: null }, ...categoryOptions.map((c) => ({ label: c, value: c }))]
+
 const validSubStatuses: Record<string, string[]> = {
   operational:    ["watch_list", "limited_duty", "pending_inspection"],
   maintenance:    ["in_repair", "awaiting_parts", "pending_inspection"],
@@ -81,11 +85,21 @@ const subStatusOptions = computed(() => {
 })
 
 const search = ref("")
+const statusFilter = ref<string | null>(null)
+const categoryFilter = ref<string | null>(null)
+const locationFilter = ref<number | null>(null)
+
 const filtered = computed(() =>
-  (assets.value ?? []).filter((a) => {
-    const q = search.value.toLowerCase()
-    return !q || a.asset_id.toLowerCase().includes(q) || a.manufacturer.toLowerCase().includes(q)
-  })
+  (assets.value ?? [])
+    .filter((a) => {
+      const q = search.value.toLowerCase()
+      const matchSearch = !q || a.asset_id.toLowerCase().includes(q) || a.manufacturer.toLowerCase().includes(q)
+      const matchStatus = !statusFilter.value || a.status === statusFilter.value
+      const matchCategory = !categoryFilter.value || a.category === categoryFilter.value
+      const matchLocation = !locationFilter.value || a.location_id === locationFilter.value
+      return matchSearch && matchStatus && matchCategory && matchLocation
+    })
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
 )
 
 // ── Create modal (simple, no tabs) ───────────────────────────
@@ -345,8 +359,13 @@ function fmtDateShort(v?: string | null) {
   <div class="flex min-h-full flex-col gap-4">
     <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <UInput v-model="search" placeholder="Search by ID or manufacturer..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+            <USelect v-model="statusFilter" :items="statusFilterOptions" class="w-40" />
+            <USelect v-model="categoryFilter" :items="categoryFilterOptions" class="w-36" />
+            <USelect v-model="locationFilter" :items="locationFilterOptions" class="w-48" />
+          </div>
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Asset</UButton>
         </div>
       </template>

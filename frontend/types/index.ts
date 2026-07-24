@@ -17,6 +17,8 @@ export type PmTrigger = "operating_hours" | "calendar_based"
 export type IssueSeverity = "low" | "medium" | "high" | "critical"
 export type IssueStatus = "open" | "in_review" | "converted" | "dismissed"
 export type PmOwner = "operator" | "maintenance_team" | "coantactor"
+export type TaskStatus = "not_started" | "in_progress" | "on_hold" | "completed" | "archived"
+export type TaskPriority = "low" | "medium" | "high" | "urgent"
 
 // Models
 export interface Holiday {
@@ -141,6 +143,8 @@ export interface WorkOrderPart {
   quantity_used: number
   unit_cost?: number
   total_cost?: number
+  location_id?: number
+  stock_transaction_id?: number
 }
 
 export interface Supplier {
@@ -167,6 +171,7 @@ export interface Invoice {
   location_id?: number
   description?: string
   po_no?: string
+  cost_centre_id?: string
   subtotal: number
   status: InvoiceStatus
   tax_cert?: boolean
@@ -327,6 +332,27 @@ export interface Issue {
   severity: IssueSeverity
   status: IssueStatus
   work_order_id?: number
+}
+
+export interface Task {
+  id?: number
+  title: string
+  description?: string
+  status: TaskStatus
+  priority: TaskPriority
+  due_date?: string
+  completed_at?: string
+  created_at?: string
+  updated_at?: string
+  user_id?: number
+  assigned_to?: number
+  asset_id?: string
+  work_order_id?: number
+  inspection_id?: number
+  downtime_id?: number
+  issue_id?: number
+  po_no?: string
+  invoice_id?: number
 }
 
 export interface User {

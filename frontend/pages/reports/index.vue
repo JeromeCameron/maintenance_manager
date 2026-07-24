@@ -527,13 +527,15 @@ async function downloadPOBalances() {
 }
 
 async function downloadInvoices() {
-  const [invs, invSuppliers, invLocs] = await Promise.all([
+  const [invs, invSuppliers, invLocs, invCCs] = await Promise.all([
     get<Invoice[]>("/invoices"),
     get<{ supplier_id: number; name: string }[]>("/suppliers"),
     get<{ location_id: number; name: string }[]>("/depots"),
+    getCostCentres(),
   ])
   const supMap: Record<number, string> = {}; for (const s of invSuppliers ?? []) if (s.supplier_id != null) supMap[s.supplier_id] = s.name
   const locMap: Record<number, string> = {}; for (const l of invLocs ?? []) if (l.location_id != null) locMap[l.location_id] = l.name
+  const ccMap: Record<string, string> = {}; for (const c of invCCs ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? c.gl_code
   const { from, to } = dateRange.value
   const rows = (invs ?? [])
     .filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
@@ -544,9 +546,10 @@ async function downloadInvoices() {
       i.asset_id ?? "",
       i.location_id != null ? (locMap[i.location_id] ?? i.location_id) : "",
       i.po_no ?? "", i.work_order_id ?? "",
+      i.cost_centre_id ? (ccMap[i.cost_centre_id] ?? i.cost_centre_id) : "",
       i.invoice_type, i.status, i.subtotal.toFixed(2), i.tax_cert ? "Yes" : "No", i.description ?? "",
     ])
-  triggerDownload(`invoices-${slugDate(to)}.csv`, toCSV(["Invoice No", "Invoice Date", "Job Date", "Received Date", "Supplier", "Asset", "Location", "PO No", "Work Order ID", "Type", "Status", "Subtotal", "Tax Cert", "Description"], rows))
+  triggerDownload(`invoices-${slugDate(to)}.csv`, toCSV(["Invoice No", "Invoice Date", "Job Date", "Received Date", "Supplier", "Asset", "Location", "PO No", "Work Order ID", "Budget Line (GL Code)", "Type", "Status", "Subtotal", "Tax Cert", "Description"], rows))
 }
 
 async function downloadBudgets() {
@@ -1269,17 +1272,39 @@ const fyOptions = computed(() => {
 
 const selectedFYRange = computed(() => fyToRange(selectedFY.value))
 
+// Location filter — Budget has no location of its own, so it's resolved via its cost centre's location.
+const selectedSpendLocationId = ref<number | null>(null)
+
+const spendLocationOptions = computed(() => [
+  { label: "All Locations", value: null as number | null },
+  ...[...(locations.value ?? [])]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((l) => ({ label: l.name, value: l.location_id as number | null })),
+])
+
+const glCodeLocationMap = computed(() => {
+  const m: Record<string, number> = {}
+  for (const c of costCentres.value ?? []) if (c.gl_code && c.location_id != null) m[c.gl_code] = c.location_id
+  return m
+})
+
 const fyFilteredPOs = computed(() => {
   const { from, to } = selectedFYRange.value
-  return (purchaseOrders.value ?? []).filter((p) => inRange(p.po_date, from, to))
+  return (purchaseOrders.value ?? [])
+    .filter((p) => inRange(p.po_date, from, to))
+    .filter((p) => selectedSpendLocationId.value == null || p.location_id === selectedSpendLocationId.value)
 })
 const fyFilteredInvoices = computed(() => {
   const { from, to } = selectedFYRange.value
-  return (invoices.value ?? []).filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+  return (invoices.value ?? [])
+    .filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+    .filter((i) => selectedSpendLocationId.value == null || i.location_id === selectedSpendLocationId.value)
 })
 const fyFilteredBudgets = computed(() => {
   const { from, to } = selectedFYRange.value
-  return (budgets.value ?? []).filter((b) => inRange(b.month, from, to))
+  return (budgets.value ?? [])
+    .filter((b) => inRange(b.month, from, to))
+    .filter((b) => selectedSpendLocationId.value == null || (b.gl_code != null && glCodeLocationMap.value[b.gl_code] === selectedSpendLocationId.value))
 })
 
 const periodPOValue      = computed(() => fyFilteredPOs.value.reduce((s, p) => s + p.subtotal, 0))
@@ -1301,13 +1326,19 @@ const spendSeries = computed(() => [
   {
     name: "Budget",
     data: spendChartMonths.value.map(({ year, month }) =>
-      (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, b) => s + b.amount, 0)
+      (budgets.value ?? [])
+        .filter((b) => selectedSpendLocationId.value == null || (b.gl_code != null && glCodeLocationMap.value[b.gl_code] === selectedSpendLocationId.value))
+        .filter((b) => { const d = new Date(b.month); return d.getUTCFullYear() === year && d.getUTCMonth() === month })
+        .reduce((s, b) => s + b.amount, 0)
     ),
   },
   {
     name: "Actual Spend",
     data: spendChartMonths.value.map(({ year, month }) =>
-      (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
+      (invoices.value ?? [])
+        .filter((i) => selectedSpendLocationId.value == null || i.location_id === selectedSpendLocationId.value)
+        .filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month })
+        .reduce((s, i) => s + i.subtotal, 0)
     ),
   },
 ])
@@ -1326,7 +1357,9 @@ const spendChartOptions = computed(() => ({
   tooltip: { y: { formatter: (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2 })}` } },
 }))
 
-// Cost-centre budget vs actual (resolves invoice → PO → cost centre)
+// Cost-centre budget vs actual. An invoice's budget line is its own cost_centre_id
+// if set, falling back to invoice → PO → cost centre for older invoices that only
+// have a PO link.
 const poCostCentreMap = computed(() => {
   const m: Record<string, string> = {}
   for (const p of purchaseOrders.value ?? []) if (p.cost_centre_id) m[p.po_no] = p.cost_centre_id
@@ -1342,7 +1375,7 @@ const costCentreBreakdown = computed(() => {
 
   const actualByGL: Record<string, number> = {}
   for (const i of fyFilteredInvoices.value) {
-    const gl = i.po_no ? poCostCentreMap.value[i.po_no] : undefined
+    const gl = i.cost_centre_id ?? (i.po_no ? poCostCentreMap.value[i.po_no] : undefined)
     if (!gl) continue
     actualByGL[gl] = (actualByGL[gl] ?? 0) + i.subtotal
   }
@@ -2271,12 +2304,18 @@ const topSuppliersBySpend = computed(() => {
     <!-- ═══════════════════════════════════════════════════════════ -->
     <template v-else-if="activeReportTab === 'budget'">
 
-      <!-- Financial year filter -->
+      <!-- Financial year + location filter -->
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
           <UIcon name="i-heroicons-calendar" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
           <select v-model="selectedFY" class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none">
             <option v-for="fy in fyOptions" :key="fy" :value="fy">{{ fy }}</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 shadow-sm">
+          <UIcon name="i-heroicons-map-pin" class="h-4 w-4 text-slate-400 dark:text-slate-500" />
+          <select v-model="selectedSpendLocationId" class="bg-transparent text-sm text-slate-700 dark:text-slate-300 focus:outline-none">
+            <option v-for="opt in spendLocationOptions" :key="opt.value ?? 'all'" :value="opt.value">{{ opt.label }}</option>
           </select>
         </div>
         <span class="text-xs text-slate-400 dark:text-slate-500">{{ spendChartMonths[0]?.label }} – {{ spendChartMonths[spendChartMonths.length - 1]?.label }}</span>

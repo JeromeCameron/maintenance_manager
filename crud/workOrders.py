@@ -3,7 +3,15 @@ from typing import Optional, Sequence
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
+from crud.inventory import _apply_transaction
+from schema.models import (
+    ReactivityStats,
+    ReactivityTrendMonth,
+    StockTransaction,
+    TransactionType,
+    WorkOrder,
+    WorkOrderPart,
+)
 from utils.utils import clean_update_payload
 
 
@@ -147,6 +155,25 @@ def get_work_order_part(session: Session, work_order_part_id: int) -> Optional[W
 
 def add_work_order_part(session: Session, work_order_part: WorkOrderPart) -> WorkOrderPart:
     session.add(work_order_part)
+    session.flush()  # assign work_order_part.id before it's referenced by the transaction
+
+    if work_order_part.part_no:
+        tx = StockTransaction(
+            part_no=work_order_part.part_no,
+            location_id=work_order_part.location_id,
+            transaction_type=TransactionType.issue,
+            quantity=work_order_part.quantity_used,
+            work_order_id=work_order_part.work_order_id,
+            notes=f"Auto-issued for WO #{work_order_part.work_order_id}"
+            if work_order_part.work_order_id
+            else "Auto-issued for work order",
+        )
+        session.add(tx)
+        _apply_transaction(session, tx)
+        session.flush()
+        work_order_part.stock_transaction_id = tx.id
+        session.add(work_order_part)
+
     session.commit()
     session.refresh(work_order_part)
     return work_order_part
@@ -158,8 +185,37 @@ def update_work_order_part(
     db_wop: Optional[WorkOrderPart] = session.get(WorkOrderPart, work_order_part_id)
     if db_wop is None:
         return None
-    for key, value in clean_update_payload(data.model_dump(exclude_unset=True)).items():
+
+    payload = clean_update_payload(data.model_dump(exclude_unset=True))
+    payload.pop("stock_transaction_id", None)  # managed internally, not client-settable
+
+    linked_tx = (
+        session.get(StockTransaction, db_wop.stock_transaction_id)
+        if db_wop.stock_transaction_id
+        else None
+    )
+    if linked_tx is not None:
+        _apply_transaction(session, linked_tx, reverse=True)  # undo old quantity
+
+    for key, value in payload.items():
         setattr(db_wop, key, value)
+
+    if db_wop.part_no:
+        if linked_tx is None:
+            linked_tx = StockTransaction(transaction_type=TransactionType.issue)
+        linked_tx.part_no = db_wop.part_no
+        linked_tx.location_id = db_wop.location_id
+        linked_tx.quantity = db_wop.quantity_used
+        linked_tx.work_order_id = db_wop.work_order_id
+        session.add(linked_tx)
+        _apply_transaction(session, linked_tx)  # apply new quantity
+        session.flush()
+        db_wop.stock_transaction_id = linked_tx.id
+    elif linked_tx is not None:
+        # part_no was cleared — the line no longer represents a stock issue
+        session.delete(linked_tx)
+        db_wop.stock_transaction_id = None
+
     session.add(db_wop)
     session.commit()
     session.refresh(db_wop)
@@ -170,6 +226,11 @@ def delete_work_order_part(session: Session, work_order_part_id: int) -> bool:
     wop = session.get(WorkOrderPart, work_order_part_id)
     if wop is None:
         return False
+    if wop.stock_transaction_id:
+        linked_tx = session.get(StockTransaction, wop.stock_transaction_id)
+        if linked_tx is not None:
+            _apply_transaction(session, linked_tx, reverse=True)
+            session.delete(linked_tx)
     session.delete(wop)
     session.commit()
     return True

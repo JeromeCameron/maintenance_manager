@@ -7,15 +7,25 @@ from utils.utils import clean_update_payload
 
 
 def get_purchase_orders(session: Session) -> Sequence[PurchaseOrder]:
-    return session.exec(select(PurchaseOrder)).all()
+    return session.exec(
+        select(PurchaseOrder).order_by(PurchaseOrder.po_date.desc().nulls_last())
+    ).all()
 
 
 def get_purchase_orders_by_asset(session: Session, asset_id: str) -> Sequence[PurchaseOrder]:
-    return session.exec(select(PurchaseOrder).where(PurchaseOrder.asset_id == asset_id)).all()
+    return session.exec(
+        select(PurchaseOrder)
+        .where(PurchaseOrder.asset_id == asset_id)
+        .order_by(PurchaseOrder.po_date.desc().nulls_last())
+    ).all()
 
 
 def get_purchase_orders_by_supplier(session: Session, supplier_id: int) -> Sequence[PurchaseOrder]:
-    return session.exec(select(PurchaseOrder).where(PurchaseOrder.supplier_id == supplier_id)).all()
+    return session.exec(
+        select(PurchaseOrder)
+        .where(PurchaseOrder.supplier_id == supplier_id)
+        .order_by(PurchaseOrder.po_date.desc().nulls_last())
+    ).all()
 
 
 def get_purchase_order(session: Session, po_no: str) -> Optional[PurchaseOrder]:

@@ -219,6 +219,8 @@ declare global {
   const useSlots: typeof import('vue').useSlots
   const useState: typeof import('../../node_modules/nuxt/dist/app/composables/state').useState
   const useSuppliers: typeof import('../../composables/useSuppliers').useSuppliers
+  const useTaskReminders: typeof import('../../composables/useTaskReminders').useTaskReminders
+  const useTasks: typeof import('../../composables/useTasks').useTasks
   const useTemplateRef: typeof import('vue').useTemplateRef
   const useToast: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useToast').useToast
   const useTransitionState: typeof import('vue').useTransitionState
@@ -469,6 +471,8 @@ declare module 'vue' {
     readonly useSlots: UnwrapRef<typeof import('vue')['useSlots']>
     readonly useState: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/state')['useState']>
     readonly useSuppliers: UnwrapRef<typeof import('../../composables/useSuppliers')['useSuppliers']>
+    readonly useTaskReminders: UnwrapRef<typeof import('../../composables/useTaskReminders')['useTaskReminders']>
+    readonly useTasks: UnwrapRef<typeof import('../../composables/useTasks')['useTasks']>
     readonly useTemplateRef: UnwrapRef<typeof import('vue')['useTemplateRef']>
     readonly useToast: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useToast')['useToast']>
     readonly useTransitionState: UnwrapRef<typeof import('vue')['useTransitionState']>

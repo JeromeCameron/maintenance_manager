@@ -7,13 +7,19 @@ from utils.utils import clean_update_payload
 
 
 def get_invoices(session: Session) -> Sequence[Invoice]:
-    statement = select(Invoice)
+    statement = select(Invoice).order_by(
+        Invoice.invoice_date.desc().nulls_last(), Invoice.invoice_no
+    )
     results = session.exec(statement).all()
     return results
 
 
 def get_invoices_by_supplier(session: Session, supplier_id: int) -> Sequence[Invoice]:
-    return session.exec(select(Invoice).where(Invoice.supplier_id == supplier_id)).all()
+    return session.exec(
+        select(Invoice)
+        .where(Invoice.supplier_id == supplier_id)
+        .order_by(Invoice.invoice_date.desc().nulls_last(), Invoice.invoice_no)
+    ).all()
 
 
 def get_invoice(session: Session, id: int) -> Optional[Invoice]:

@@ -10,12 +10,15 @@ const { getOne, update, getPartsByWorkOrder, addPart, updatePart, removePart } =
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
 const { getPMsByAsset } = useMaintenance()
-const { getParts } = useInventory()
+const { getParts, getStockLevels } = useInventory()
+const { getAll: getLocations } = useLocations()
 
-const [{ data: assets }, { data: suppliers }, { data: inventoryParts }] = await Promise.all([
+const [{ data: assets }, { data: suppliers }, { data: inventoryParts }, { data: locations }, { data: stockLevels }] = await Promise.all([
   useAsyncData("wo-modal-assets", () => getAssets()),
   useAsyncData("wo-modal-suppliers", () => getSuppliers()),
   useAsyncData("wo-modal-parts", () => getParts()),
+  useAsyncData("wo-modal-locations", () => getLocations()),
+  useAsyncData("wo-modal-stock-levels", () => getStockLevels()),
 ])
 
 const woStatusColors: Record<string, string> = {
@@ -43,6 +46,23 @@ const supplierOptions = computed(() =>
 const partOptions = computed(() =>
   (inventoryParts.value ?? []).map((p) => ({ label: `${p.part_no} — ${p.part_name}`, value: p.part_no }))
 )
+const locationOptions = computed(() =>
+  (locations.value ?? []).map((l) => ({ label: l.name, value: l.location_id }))
+)
+const locationMap = computed(() => {
+  const m: Record<number, string> = {}
+  for (const l of locations.value ?? []) if (l.location_id != null) m[l.location_id] = l.name
+  return m
+})
+// The asset's home depot, used as the default location to pull stock from.
+const defaultLocationId = computed(() =>
+  (assets.value ?? []).find((a) => a.asset_id === form.value.asset_id)?.location_id
+)
+function stockAvailable(partNo: string | undefined, locationId: number | undefined): number | null {
+  if (!partNo) return null
+  const sl = (stockLevels.value ?? []).find((s) => s.part_no === partNo && (locationId == null ? s.location_id == null : s.location_id === locationId))
+  return sl?.quantity ?? 0
+}
 
 // ── Form state ────────────────────────────────────────────────
 const form = ref<Partial<WorkOrder>>({})
@@ -62,8 +82,10 @@ watch(() => form.value.asset_id, async (id, oldId) => {
 })
 
 // ── Parts ─────────────────────────────────────────────────────
+// Adding a part here also auto-issues a matching stock transaction (backend-side),
+// so stock no longer needs a separate manual entry on the Inventory page.
 const parts = ref<WorkOrderPart[]>([])
-const newPart = ref<Partial<WorkOrderPart>>({ quantity_used: 1 })
+const newPart = ref<Partial<WorkOrderPart>>({ quantity_used: 1, location_id: defaultLocationId.value })
 const addingPart = ref(false)
 const editingPart = ref<WorkOrderPart | null>(null)
 const editPartDraft = ref<Partial<WorkOrderPart>>({})
@@ -74,6 +96,7 @@ const partColumns = [
   { accessorKey: "quantity_used", header: "Qty" },
   { accessorKey: "unit_cost", header: "Unit Cost" },
   { accessorKey: "total_cost", header: "Total" },
+  { accessorKey: "location_id", header: "Issued From" },
   { id: "part-actions", header: "" },
 ]
 
@@ -83,7 +106,7 @@ async function submitPart() {
   try {
     const created = await addPart({ ...newPart.value, work_order_id: props.workOrderId } as WorkOrderPart)
     parts.value = [...parts.value, created]
-    newPart.value = { quantity_used: 1 }
+    newPart.value = { quantity_used: 1, location_id: defaultLocationId.value }
   } finally { addingPart.value = false }
 }
 
@@ -133,6 +156,7 @@ watch([open, () => props.workOrderId], async ([isOpen, id]) => {
     if (isStale()) return
     assetPMs.value = pms ?? []
     parts.value = woParts ?? []
+    newPart.value = { quantity_used: 1, location_id: defaultLocationId.value }
   } catch (e: unknown) {
     if (isStale()) return
     error.value = (e as { message?: string }).message ?? "Failed to load work order"
@@ -269,6 +293,9 @@ async function save() {
           <!-- Parts tab -->
           <div v-else-if="modalTab === 'parts'" class="flex-1 overflow-y-auto px-6 py-5 space-y-4">
             <UTable :data="parts" :columns="partColumns">
+              <template #location_id-cell="{ row: { original: row } }">
+                {{ row.location_id != null ? (locationMap[row.location_id] ?? row.location_id) : "—" }}
+              </template>
               <template #part-actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
                   <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="startEditPart(row)" />
@@ -276,8 +303,11 @@ async function save() {
                 </div>
               </template>
             </UTable>
+            <p class="text-xs text-slate-400 dark:text-slate-500">
+              Adding or editing a part here automatically issues a matching stock transaction — no need to record it separately on the Inventory page.
+            </p>
 
-            <div v-if="editingPart" class="grid grid-cols-5 gap-3 rounded-lg border border-primary-200 dark:border-primary-500/20 bg-primary-50 dark:bg-primary-500/10 p-3">
+            <div v-if="editingPart" class="grid grid-cols-6 gap-3 rounded-lg border border-primary-200 dark:border-primary-500/20 bg-primary-50 dark:bg-primary-500/10 p-3">
               <UFormField label="Part No" class="col-span-2">
                 <USelect v-model="editPartDraft.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
@@ -287,13 +317,19 @@ async function save() {
               <UFormField label="Unit Cost">
                 <UInput v-model.number="editPartDraft.unit_cost" type="number" step="0.01" class="w-full" />
               </UFormField>
+              <UFormField label="Issue From">
+                <USelect v-model="editPartDraft.location_id" :items="locationOptions" placeholder="Location…" class="w-full" />
+                <p v-if="editPartDraft.part_no" class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  {{ stockAvailable(editPartDraft.part_no, editPartDraft.location_id) }} in stock
+                </p>
+              </UFormField>
               <div class="flex items-end gap-2">
                 <UButton size="sm" :loading="savingPart" @click="saveEditPart">Update</UButton>
                 <UButton size="sm" variant="ghost" color="neutral" @click="cancelEditPart">Cancel</UButton>
               </div>
             </div>
 
-            <div v-else class="grid grid-cols-5 gap-3 rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 p-3">
+            <div v-else class="grid grid-cols-6 gap-3 rounded-lg border border-gray-100 dark:border-slate-800 bg-gray-50 dark:bg-slate-800 p-3">
               <UFormField label="Part No" class="col-span-2">
                 <USelect v-model="newPart.part_no" :items="partOptions" placeholder="Select part…" class="w-full" />
               </UFormField>
@@ -302,6 +338,12 @@ async function save() {
               </UFormField>
               <UFormField label="Unit Cost">
                 <UInput v-model.number="newPart.unit_cost" type="number" step="0.01" class="w-full" />
+              </UFormField>
+              <UFormField label="Issue From">
+                <USelect v-model="newPart.location_id" :items="locationOptions" placeholder="Location…" class="w-full" />
+                <p v-if="newPart.part_no" class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                  {{ stockAvailable(newPart.part_no, newPart.location_id) }} in stock
+                </p>
               </UFormField>
               <div class="flex items-end">
                 <UButton size="sm" :loading="addingPart" @click="submitPart">Add Part</UButton>

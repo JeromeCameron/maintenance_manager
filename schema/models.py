@@ -6,6 +6,8 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from sqlalchemy import CheckConstraint, Text
 from sqlmodel import Field, Relationship, SQLModel
 
+from utils.utils import now_local
+
 
 class UserRole(str, Enum):
     admin = "admin"
@@ -167,6 +169,21 @@ class IssueStatus(str, Enum):
     in_review = "in_review"
     converted = "converted"
     dismissed = "dismissed"
+
+
+class TaskStatus(str, Enum):
+    not_started = "not_started"
+    in_progress = "in_progress"
+    on_hold = "on_hold"
+    completed = "completed"
+    archived = "archived"
+
+
+class TaskPriority(str, Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    urgent = "urgent"
 
 
 # ----------------------------------------------------------------------------- #
@@ -445,6 +462,10 @@ class WorkOrderPart(SQLModel, table=True):
     quantity_used: int
     unit_cost: Optional[float] = Field(default=None)
     total_cost: Optional[float] = Field(default=None)
+    location_id: Optional[int] = Field(default=None, foreign_key="location.location_id")
+    stock_transaction_id: Optional[int] = Field(
+        default=None, foreign_key="stocktransaction.id"
+    )
 
     work_order: Optional["WorkOrder"] = Relationship(back_populates="parts_used")
     part: Optional["Part"] = Relationship(back_populates="work_order_usage")
@@ -472,6 +493,46 @@ class Issue(SQLModel, table=True):
     asset: Optional["Asset"] = Relationship(back_populates="issues")
     reporter: Optional["User"] = Relationship(back_populates="issues")
     work_order: Optional["WorkOrder"] = Relationship(back_populates="issues")
+
+
+# ------------- Tasks ----------------------- #
+class Task(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    title: str
+    description: Optional[str] = Field(default=None, sa_type=Text)
+    status: TaskStatus = Field(default=TaskStatus.not_started)
+    priority: TaskPriority = Field(default=TaskPriority.medium)
+    due_date: Optional[date] = Field(default=None)
+    completed_at: Optional[datetime] = Field(default=None)
+    created_at: Optional[datetime] = Field(default_factory=now_local)
+    updated_at: Optional[datetime] = Field(default_factory=now_local)
+
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    assigned_to: Optional[int] = Field(default=None, foreign_key="user.id")
+
+    asset_id: Optional[str] = Field(default=None, foreign_key="asset.asset_id")
+    work_order_id: Optional[int] = Field(
+        default=None, foreign_key="workorder.work_order_id"
+    )
+    inspection_id: Optional[int] = Field(default=None, foreign_key="inspection.id")
+    downtime_id: Optional[int] = Field(default=None, foreign_key="downtime.downtime_id")
+    issue_id: Optional[int] = Field(default=None, foreign_key="issue.id")
+    po_no: Optional[str] = Field(default=None, foreign_key="purchaseorder.po_no")
+    invoice_id: Optional[int] = Field(default=None, foreign_key="invoice.id")
+
+    owner: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "Task.user_id"}
+    )
+    assignee: Optional["User"] = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "Task.assigned_to"}
+    )
+    asset: Optional["Asset"] = Relationship()
+    work_order: Optional["WorkOrder"] = Relationship()
+    inspection: Optional["Inspection"] = Relationship()
+    downtime: Optional["Downtime"] = Relationship()
+    issue: Optional["Issue"] = Relationship()
+    purchase_order: Optional["PurchaseOrder"] = Relationship()
+    invoice: Optional["Invoice"] = Relationship()
 
 
 # ------------- Supplier Managment ----------------------- #
@@ -537,6 +598,7 @@ class Invoice(SQLModel, table=True):
     location_id: Optional[int] = Field(default=None, foreign_key="location.location_id")
     description: Optional[str] = Field(default=None, sa_type=Text)
     po_no: Optional[str] = Field(default=None, foreign_key="purchaseorder.po_no")
+    cost_centre_id: Optional[str] = Field(default=None, foreign_key="costcentre.gl_code")
     subtotal: float
     status: InvoiceStatus = Field(default=InvoiceStatus.processing)
     tax_cert: Optional[bool] = Field(default=False)

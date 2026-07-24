@@ -32,6 +32,7 @@ from routers.issues import router as issue_router
 from routers.maintenance import asset_pm_router, pm_plan_router
 from routers.po import router as po_router
 from routers.supplier import router as supplier_router
+from routers.tasks import router as task_router
 from routers.user import router as user_router, self_router as user_self_router
 from routers.utility import router as utility_router
 from routers.reports import router as reports_router
@@ -93,6 +94,7 @@ app.include_router(stock_level_router, dependencies=[Depends(write_on_write)])
 app.include_router(stock_transaction_router, dependencies=[Depends(write_on_write)])
 app.include_router(po_router, dependencies=[Depends(write_on_write)])
 app.include_router(invoice_router, dependencies=[Depends(write_on_write)])
+app.include_router(task_router, dependencies=[Depends(write_on_write)])
 
 app.include_router(commodity_rate_router, dependencies=[Depends(admin_on_write)])
 

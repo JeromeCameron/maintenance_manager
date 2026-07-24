@@ -170,6 +170,14 @@ async function openEditInvoice(row: Invoice) {
   showInvoiceModal.value = true
 }
 
+// Prefill the budget line from the selected PO's cost centre, without overwriting
+// a value the user already chose directly (e.g. for invoices with no PO).
+watch(() => invoiceForm.value.po_no, (poNo) => {
+  if (!poNo || invoiceForm.value.cost_centre_id) return
+  const po = (pos.value ?? []).find((p) => p.po_no === poNo)
+  if (po?.cost_centre_id) invoiceForm.value.cost_centre_id = po.cost_centre_id
+})
+
 async function saveInvoice() {
   savingInvoice.value = true
   invoiceError.value = null
@@ -366,6 +374,10 @@ async function confirmDeleteBudget() {
               <span v-if="inv.invoice_date" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
                 <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
                 {{ fmtDate(inv.invoice_date) }}
+              </span>
+              <span v-if="inv.cost_centre_id" class="flex items-center gap-1 text-[11px] text-gray-400 dark:text-slate-500">
+                <UIcon name="i-heroicons-banknotes" class="h-3 w-3" />
+                {{ inv.cost_centre_id }}
               </span>
             </div>
           </div>
@@ -591,6 +603,10 @@ async function confirmDeleteBudget() {
               </UFormField>
               <UFormField label="Work Order ID">
                 <USelect v-model="invoiceForm.work_order_id" :items="workOrderOptions" placeholder="Select work order" searchable searchable-placeholder="Type WO number…" class="w-full" />
+              </UFormField>
+              <UFormField label="Budget Line (GL Code)" class="col-span-2">
+                <USelect v-model="invoiceForm.cost_centre_id" :items="costCentreOptions" placeholder="Select budget line" class="w-full" />
+                <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">Which cost centre this invoice's spend counts against. Prefilled from the PO when one is selected, but can be overridden or set directly for invoices with no PO.</p>
               </UFormField>
               <UFormField label="Invoice Type">
                 <USelect v-model="invoiceForm.invoice_type" :items="invoiceTypeOptions" class="w-full" />
