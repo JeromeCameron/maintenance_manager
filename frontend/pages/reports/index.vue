@@ -429,16 +429,34 @@ async function downloadAvailabilityByCategory() {
   const months = [...new Set(filtered.map(r => r.month))].sort()
   const categories = Object.keys(categoryHoursPerDay).sort()
 
-  const headers = ["Month", ...categories.map(c => `${c} availability %`), ...categories.map(c => `${c} downtime hrs`)]
+  // "Fleet Total" is hours-weighted (total downtime / total scheduled across all
+  // categories), not an average of the per-category percentages below — averaging
+  // percentages would weight a 2-asset category the same as a 50-asset one and
+  // wouldn't reconcile with the dashboard's fleet-wide availability figure.
+  const headers = [
+    "Month",
+    "Fleet Total availability %", ...categories.map(c => `${c} availability %`),
+    "Fleet Total downtime hrs", ...categories.map(c => `${c} downtime hrs`),
+  ]
   const rows = months.map(month => {
     const [y, m] = month.split("-").map(Number)
     const wdays = workingDays(y, m)
     const row: (string | number)[] = [month]
+
+    let totalScheduled = 0
+    let totalDtHrs = 0
+    const availCols: string[] = []
     for (const cat of categories) {
       const dtHrs = dtMap[`${month}|${cat}`] ?? 0
       const scheduled = (categoryHoursPerDay[cat] ?? 0) * wdays
-      row.push(scheduled > 0 ? (((scheduled - dtHrs) / scheduled) * 100).toFixed(1) + "%" : "100%")
+      totalScheduled += scheduled
+      totalDtHrs += dtHrs
+      availCols.push(scheduled > 0 ? (((scheduled - dtHrs) / scheduled) * 100).toFixed(1) + "%" : "100%")
     }
+    row.push(totalScheduled > 0 ? (((totalScheduled - totalDtHrs) / totalScheduled) * 100).toFixed(1) + "%" : "100%")
+    row.push(...availCols)
+
+    row.push(totalDtHrs.toFixed(1))
     for (const cat of categories) row.push((dtMap[`${month}|${cat}`] ?? 0).toFixed(1))
     return row
   })
@@ -613,7 +631,7 @@ const reports: ReportDef[] = [
   { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
   { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-cube",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
   { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
-  { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.).", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
+  { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.), plus a fleet-wide total that reconciles with the dashboard.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
   { id: "dt-by-cat",    name: "Downtime by Equipment Category", description: "Unplanned downtime hours and failure events aggregated by equipment category per month.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-squares-2x2",                 dateNote: "Monthly aggregation", download: makeDownloader("dt-by-cat",    downloadDowntimeByCategory) },
   { id: "failure-drv",  name: "Failure Drivers",                description: "Downtime events and hours grouped by root cause, sorted by highest impact.",  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-exclamation-circle",           dateNote: "By start date",       download: makeDownloader("failure-drv",  downloadFailureDrivers) },
   { id: "purchase-orders", name: "Purchase Orders",             description: "All purchase orders with supplier, cost centre and subtotal.",                category: "Finance",     categoryColor: "primary", icon: "i-heroicons-document-text",               dateNote: "By PO date",          download: makeDownloader("purchase-orders", downloadPurchaseOrders) },
@@ -1240,6 +1258,72 @@ const dtTotalHours = computed(() => filteredDowntimes.value.reduce((s, d) => s +
 const dtUnplannedHours = computed(() => filteredDowntimes.value.filter(d => !d.planned).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))
 const dtUnplannedEvents = computed(() => filteredDowntimes.value.filter(d => !d.planned).length)
 const dtRepeatFailures = computed(() => filteredDowntimes.value.filter(d => d.repeat_failure).length)
+
+// 12-month downtime trend — always the trailing 12 months, independent of the date filter above.
+// Unplanned only: planned (scheduled) downtime isn't a reliability signal worth trending here.
+//
+// Pulled from /downtimes/monthly-metrics (the same source the dashboard's "Unplanned
+// Downtime" KPI uses) rather than recomputed from raw downtime rows here. That endpoint
+// splits each event's hours across month boundaries (e.g. a failure starting July 30th
+// and ending in August is apportioned to both months); summing each row's total
+// downtime_hours into its start-date's month, as this chart used to do, double-counts
+// nothing but misattributes hours for any event crossing a month boundary, which is
+// exactly the kind of mismatch that showed up between this chart and the dashboard.
+const dtTrendMetricsMap = computed(() => new Map((monthlyMetricsData.value ?? []).map((m) => [m.month, m])))
+const dtTrendUnplannedHours = computed(() =>
+  analysisMonths.value.map(({ key }) => +(dtTrendMetricsMap.value.get(key)?.downtime_hours ?? 0).toFixed(1))
+)
+const dtTrendEvents = computed(() =>
+  analysisMonths.value.map(({ key }) => dtTrendMetricsMap.value.get(key)?.num_failures ?? 0)
+)
+// Avg hours per failure event (MTTR). null in months with no failures, shown as 0.
+const dtTrendMTTR = computed(() =>
+  analysisMonths.value.map(({ key }) => +(dtTrendMetricsMap.value.get(key)?.mttr ?? 0).toFixed(1))
+)
+
+const dtTrendSeries = computed(() => [
+  { name: "Unplanned Hours", type: "line",   data: dtTrendUnplannedHours.value },
+  { name: "Avg Hrs/Event",   type: "line",   data: dtTrendMTTR.value },
+  { name: "Events",          type: "column", data: dtTrendEvents.value },
+])
+
+const dtTrendOptions = computed(() => ({
+  chart: { type: "line", toolbar: { show: false }, fontFamily: "inherit", animations: { enabled: true, speed: 400 }, background: "transparent" },
+  theme: chartTheme.value,
+  plotOptions: { bar: { columnWidth: "45%", borderRadius: 3 } },
+  stroke: { width: [2, 2, 0], curve: "smooth", dashArray: [0, 4, 0] },
+  markers: { size: 3, strokeWidth: 0 },
+  colors: ["#ef4444", "#f59e0b", "#3b82f6"],
+  dataLabels: { enabled: false },
+  xaxis: {
+    categories: analysisMonths.value.map((m) => m.label),
+    labels: { style: { fontSize: "11px", colors: "#94a3b8" } },
+    axisBorder: { show: false },
+    axisTicks: { show: false },
+  },
+  // One yaxis entry per series (ApexCharts maps them by index): Unplanned Hours and
+  // Avg Hrs/Event share the "Hours" scale (the second is hidden to avoid a duplicate
+  // axis), Events gets its own scale on the opposite side.
+  yaxis: [
+    {
+      title: { text: "Hours", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => v.toFixed(0) + "h" },
+    },
+    {
+      show: false,
+      title: { text: "Hours" },
+      labels: { formatter: (v: number) => v.toFixed(1) + "h" },
+    },
+    {
+      opposite: true, min: 0,
+      title: { text: "Events", style: { fontSize: "11px", color: "#94a3b8" } },
+      labels: { style: { fontSize: "11px", colors: "#94a3b8" }, formatter: (v: number) => Math.round(v).toString() },
+    },
+  ],
+  grid: { borderColor: chartGridColor.value, strokeDashArray: 4 },
+  legend: { show: true, fontSize: "11px", labels: { colors: "#94a3b8" } },
+  tooltip: { shared: true },
+}))
 
 // ── Budget & Spend tab ──────────────────────────────────────────
 function fmtMoney(n: number) {
@@ -2203,6 +2287,27 @@ const topSuppliersBySpend = computed(() => {
             {{ dtUnplannedEvents > 0 ? (dtUnplannedHours / dtUnplannedEvents).toFixed(1) : '—' }}<span v-if="dtUnplannedEvents > 0" class="ml-0.5 text-sm font-medium text-slate-400 dark:text-slate-500">h</span>
           </p>
           <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">MTTR (unplanned)</p>
+        </div>
+      </div>
+
+      <!-- ── 12-month downtime trend ───────────────────────────────── -->
+      <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">12-Month Downtime Trend</h2>
+            <p class="text-xs text-slate-400 dark:text-slate-500">{{ analysisMonths[0]?.label }} – {{ analysisMonths[analysisMonths.length - 1]?.label }} · unplanned downtime hours, avg hours per event and failure events, fleet-wide</p>
+          </div>
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-red-50 dark:bg-red-500/10">
+            <UIcon name="i-heroicons-chart-bar" class="h-4 w-4 text-red-500 dark:text-red-400" />
+          </div>
+        </div>
+        <div class="p-5">
+          <ClientOnly>
+            <apexchart type="line" height="260" :options="dtTrendOptions" :series="dtTrendSeries" />
+            <template #fallback>
+              <div class="flex h-[260px] items-center justify-center text-sm text-slate-400 dark:text-slate-500">Loading chart…</div>
+            </template>
+          </ClientOnly>
         </div>
       </div>
 

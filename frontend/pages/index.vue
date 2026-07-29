@@ -193,7 +193,7 @@ const pmsDueSoon = computed(() => {
 const kpiCards = computed(() => [
   { label: "Total Assets",       value: assets.value?.length ?? 0,         suffix: "",   icon: "i-heroicons-cube",     color: "text-blue-500",   bg: "bg-blue-50 dark:bg-blue-500/10" },
   { label: "Assets Down",        value: assetsDown.value,                   suffix: "",   icon: "i-heroicons-x-circle",               color: "text-red-500",    bg: "bg-red-50 dark:bg-red-500/10" },
-  { label: "Availability (30d)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50 dark:bg-green-500/10" },
+  { label: "Availability (MTD)", value: availability.value,                 suffix: "%",  icon: "i-heroicons-check-circle",           color: "text-green-500",  bg: "bg-green-50 dark:bg-green-500/10" },
   { label: "Open Work Orders",   value: openWorkOrders.value.length,        suffix: "",   icon: "i-heroicons-clipboard-document-list", color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10" },
   { label: "Unplanned Downtime (this month)", value: currentMonthDowntimeHours.value.toFixed(1), suffix: "h", icon: "i-heroicons-exclamation-triangle", color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-500/10", caption: `${prevMonthLabel}: ${prevMonthDowntimeHours.value.toFixed(1)}h` },
   { label: "PMs Due (30 days)",  value: pmsDueSoon.value.length,            suffix: "",   icon: "i-heroicons-calendar-days",          color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10" },
