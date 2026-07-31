@@ -29,6 +29,12 @@ const severityColors: Record<string, string> = {
 const statusColors: Record<string, string> = {
   open: "info", in_review: "warning", converted: "success", dismissed: "neutral",
 }
+const statusDotClass: Record<string, string> = {
+  open: "bg-blue-500", in_review: "bg-amber-500", converted: "bg-green-500", dismissed: "bg-slate-400",
+}
+const statusLabels: Record<string, string> = {
+  open: "Open", in_review: "In Review", converted: "Converted", dismissed: "Dismissed",
+}
 
 const userMap = computed(() => {
   const m: Record<number, string> = {}
@@ -59,6 +65,42 @@ const filtered = computed(() =>
     return matchSearch && matchStatus && matchSeverity
   })
 )
+
+// ── View switcher (List / Kanban) ───────────────────────────────
+const viewMode = ref<"list" | "kanban">("list")
+
+const groups = computed(() =>
+  statusOptions
+    .filter((s) => !statusFilter.value || s === statusFilter.value)
+    .map((s) => ({
+      status: s,
+      label: statusLabels[s],
+      dot: statusDotClass[s],
+      issues: filtered.value.filter((i) => i.status === s),
+    }))
+)
+
+// ── Kanban drag-and-drop (native HTML5 DnD, no extra dependency) ──
+const draggedIssue = ref<Issue | null>(null)
+const dragOverStatus = ref<string | null>(null)
+
+function onDragStart(issue: Issue) {
+  draggedIssue.value = issue
+}
+async function onDrop(status: string) {
+  dragOverStatus.value = null
+  const issue = draggedIssue.value
+  draggedIssue.value = null
+  if (!issue || issue.status === status) return
+  // "Converted" requires an actual linked work order, so route through the
+  // existing convert flow rather than silently flipping the status.
+  if (status === "converted") {
+    openConvert(issue)
+    return
+  }
+  await update(issue.id!, { ...issue, status: status as Issue["status"] })
+  await refresh()
+}
 
 // ── Create / Edit modal ───────────────────────────────────────
 const showFormModal = ref(false)
@@ -186,8 +228,28 @@ function formatDate(val: string | undefined) {
 
     <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-0.5 rounded-lg bg-slate-100 p-0.5 dark:bg-slate-800">
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                :class="viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'"
+                @click="viewMode = 'list'"
+              >
+                <UIcon name="i-heroicons-bars-3-bottom-left" class="h-3.5 w-3.5" />
+                List
+              </button>
+              <button
+                type="button"
+                class="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                :class="viewMode === 'kanban' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'"
+                @click="viewMode = 'kanban'"
+              >
+                <UIcon name="i-heroicons-view-columns" class="h-3.5 w-3.5" />
+                Kanban
+              </button>
+            </div>
             <UInput v-model="search" placeholder="Search by asset or description..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
             <USelect v-model="statusFilter" :items="filterStatusOptions" class="w-44" />
             <USelect v-model="severityFilter" :items="filterSeverityOptions" class="w-44" />
@@ -197,7 +259,7 @@ function formatDate(val: string | undefined) {
       </template>
 
       <!-- Issue card list -->
-      <div class="overflow-auto h-full p-4 space-y-2">
+      <div v-if="viewMode === 'list'" class="overflow-auto h-full p-4 space-y-2">
         <div v-if="filtered.length === 0" class="py-12 text-center text-sm text-gray-400 dark:text-slate-500">
           No issues found.
         </div>
@@ -246,6 +308,64 @@ function formatDate(val: string | undefined) {
                 @click.stop="openConvert(issue)"
               />
               <UButton v-if="isAdmin" variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click.stop="deleteTarget = issue" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kanban view -->
+      <div v-else class="flex h-full gap-3 overflow-x-auto p-3">
+        <div
+          v-for="group in groups"
+          :key="group.status"
+          class="flex w-72 shrink-0 flex-col rounded-lg bg-slate-50 transition-colors dark:bg-slate-800/60"
+          :class="dragOverStatus === group.status ? 'ring-2 ring-blue-400' : ''"
+          @dragover.prevent="dragOverStatus = group.status"
+          @dragleave="dragOverStatus = null"
+          @drop="onDrop(group.status)"
+        >
+          <div class="flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 py-2.5 dark:border-slate-700">
+            <span class="h-2.5 w-2.5 rounded-full" :class="group.dot" />
+            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">{{ group.label }}</span>
+            <span class="ml-auto rounded-full bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-400 ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-500 dark:ring-slate-700">
+              {{ group.issues.length }}
+            </span>
+          </div>
+
+          <div class="flex-1 space-y-2 overflow-y-auto p-2">
+            <div v-if="group.issues.length === 0" class="py-6 text-center text-xs text-gray-400 dark:text-slate-500">
+              No issues
+            </div>
+
+            <div
+              v-for="issue in group.issues"
+              :key="issue.id"
+              draggable="true"
+              class="cursor-pointer rounded-lg border-l-4 bg-white p-3 shadow-sm ring-1 ring-gray-200 transition-shadow hover:ring-blue-300 dark:bg-slate-900 dark:ring-slate-700"
+              :class="issue.severity === 'critical' || issue.severity === 'high' ? 'border-l-red-400' : issue.severity === 'medium' ? 'border-l-yellow-400' : 'border-l-transparent'"
+              @dragstart="onDragStart(issue)"
+              @dragend="dragOverStatus = null"
+              @click="openEdit(issue)"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <span class="line-clamp-2 text-sm font-semibold text-slate-800 dark:text-slate-100">{{ issue.description }}</span>
+                <UButton
+                  v-if="issue.status === 'open' || issue.status === 'in_review'"
+                  variant="ghost" size="xs" icon="i-heroicons-arrow-path"
+                  color="success" title="Convert to Work Order"
+                  @click.stop="openConvert(issue)"
+                />
+              </div>
+
+              <p class="mt-1 text-xs text-gray-500 dark:text-slate-400">Asset: {{ issue.asset_id ?? "—" }}</p>
+
+              <div class="mt-2 flex items-center justify-between gap-2">
+                <UBadge :color="severityColors[issue.severity]" variant="soft" size="xs" class="capitalize">{{ issue.severity }}</UBadge>
+                <span class="flex items-center gap-1 text-[10px] text-gray-400 dark:text-slate-500">
+                  <UIcon name="i-heroicons-calendar" class="h-3 w-3" />
+                  {{ formatDate(issue.reported_at) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
