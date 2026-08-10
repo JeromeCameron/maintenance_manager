@@ -24,7 +24,9 @@ if (!isNew && pmId) {
 }
 
 const assetOptions = computed(() =>
-  (assets.data.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
+  [...(assets.data.value ?? [])]
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
+    .map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
 )
 
 const planOptions = computed(() =>

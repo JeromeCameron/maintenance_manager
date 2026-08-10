@@ -15,7 +15,9 @@ const [{ data: assets }, { data: users }] = await Promise.all([
 
 // ── Options ───────────────────────────────────────────────────
 const assetOptions = computed(() =>
-  (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
+  [...(assets.value ?? [])]
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
+    .map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
 )
 const userOptions = computed(() =>
   [{ label: "Unknown", value: undefined }, ...(users.value ?? []).map((u) => ({ label: `${u.firstname} ${u.lastname}`, value: u.id }))]

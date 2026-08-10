@@ -177,13 +177,13 @@ function onDrop(status: TaskStatus) {
 
 // ── Form options ──────────────────────────────────────────────
 const userOptions = computed(() => (users.value ?? []).map((u) => ({ label: `${u.firstname} ${u.lastname}`, value: u.id })))
-const assetOptions = computed(() => [{ label: "None", value: undefined }, ...(assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))])
-const workOrderOptions = computed(() => [{ label: "None", value: undefined }, ...(workOrders.value ?? []).map((w) => ({ label: `#${w.work_order_id} — ${(w.description ?? "").slice(0, 40)}`, value: w.work_order_id }))])
-const inspectionOptions = computed(() => [{ label: "None", value: undefined }, ...(inspections.value ?? []).map((i) => ({ label: i.inspection_no, value: i.id }))])
-const downtimeOptions = computed(() => [{ label: "None", value: undefined }, ...(downtimes.value ?? []).map((d) => ({ label: `#${d.downtime_id} — ${(d.details ?? d.asset_id ?? "").toString().slice(0, 30)}`, value: d.downtime_id }))])
-const issueOptions = computed(() => [{ label: "None", value: undefined }, ...(issues.value ?? []).map((i) => ({ label: `#${i.id} — ${i.description.slice(0, 40)}`, value: i.id }))])
-const poOptions = computed(() => [{ label: "None", value: undefined }, ...(pos.value ?? []).map((p) => ({ label: p.po_no, value: p.po_no }))])
-const invoiceOptions = computed(() => [{ label: "None", value: undefined }, ...(invoices.value ?? []).map((inv) => ({ label: inv.invoice_no, value: inv.id }))])
+const assetOptions = computed(() => [{ label: "None", value: undefined }, ...[...(assets.value ?? [])].sort((a, b) => a.asset_id.localeCompare(b.asset_id)).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))])
+const workOrderOptions = computed(() => [{ label: "None", value: undefined }, ...[...(workOrders.value ?? [])].sort((a, b) => (b.work_order_id ?? 0) - (a.work_order_id ?? 0)).map((w) => ({ label: `#${w.work_order_id} — ${(w.description ?? "").slice(0, 40)}`, value: w.work_order_id }))])
+const inspectionOptions = computed(() => [{ label: "None", value: undefined }, ...[...(inspections.value ?? [])].sort((a, b) => (b.inspection_date ?? "").localeCompare(a.inspection_date ?? "")).map((i) => ({ label: i.inspection_no, value: i.id }))])
+const downtimeOptions = computed(() => [{ label: "None", value: undefined }, ...[...(downtimes.value ?? [])].sort((a, b) => (b.start_date ?? b.log_date ?? "").localeCompare(a.start_date ?? a.log_date ?? "")).map((d) => ({ label: `#${d.downtime_id} — ${(d.details ?? d.asset_id ?? "").toString().slice(0, 30)}`, value: d.downtime_id }))])
+const issueOptions = computed(() => [{ label: "None", value: undefined }, ...[...(issues.value ?? [])].sort((a, b) => (b.reported_at ?? "").localeCompare(a.reported_at ?? "")).map((i) => ({ label: `#${i.id} — ${i.description.slice(0, 40)}`, value: i.id }))])
+const poOptions = computed(() => [{ label: "None", value: undefined }, ...[...(pos.value ?? [])].sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? "")).map((p) => ({ label: p.po_no, value: p.po_no }))])
+const invoiceOptions = computed(() => [{ label: "None", value: undefined }, ...[...(invoices.value ?? [])].sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? "")).map((inv) => ({ label: inv.invoice_no, value: inv.id }))])
 
 // ── Create / Edit modal ─────────────────────────────────────────
 const showModal = ref(false)

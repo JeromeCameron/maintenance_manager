@@ -23,7 +23,7 @@ const pmsDueSoon = computed(() =>
   (assetPMs.value ?? []).filter((pm) => pm.next_service && new Date(pm.next_service) <= in30Days && pm.active)
 )
 
-const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const assetOptions = computed(() => [...(assets.value ?? [])].sort((a, b) => a.asset_id.localeCompare(b.asset_id)).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const planOptions = computed(() => (plans.value ?? []).map((p) => ({ label: `${p.pm_id} — ${p.description ?? p.frequency}`, value: p.pm_id })))
 
 const activeTab = ref("all")

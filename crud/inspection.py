@@ -129,11 +129,17 @@ def delete_inspection_template_item(session: Session, item_id: int) -> bool:
 
 
 def get_inspections(session: Session) -> Sequence[Inspection]:
-    return session.exec(select(Inspection)).all()
+    return session.exec(
+        select(Inspection).order_by(Inspection.inspection_date.desc().nulls_last())
+    ).all()
 
 
 def get_inspections_by_asset(session: Session, asset_id: str) -> Sequence[Inspection]:
-    return session.exec(select(Inspection).where(Inspection.asset_id == asset_id)).all()
+    return session.exec(
+        select(Inspection)
+        .where(Inspection.asset_id == asset_id)
+        .order_by(Inspection.inspection_date.desc().nulls_last())
+    ).all()
 
 
 def get_inspection(session: Session, inspection_id: int) -> Optional[Inspection]:

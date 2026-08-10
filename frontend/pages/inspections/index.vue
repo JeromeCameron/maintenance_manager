@@ -17,7 +17,11 @@ function fmtDate(v?: string | null) {
   return new Date(y, m - 1, d).toLocaleDateString()
 }
 
-const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const assetOptions = computed(() =>
+  [...(assets.value ?? [])]
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
+    .map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
+)
 const templateOptions = computed(() => (templates.value ?? []).map((t) => ({ label: t.name, value: t.id })))
 const templateMap = computed(() => {
   const m: Record<number, string> = {}
@@ -29,13 +33,21 @@ const resultOptions = ["pass", "fail", "na"]
 const search = ref("")
 const resultFilter = ref<string | null>(null)
 const resultOptions2 = [{ label: "All", value: null }, ...resultOptions.map((r) => ({ label: r, value: r }))]
+const dateFrom = ref("")
+const dateTo = ref("")
+const assetFilter = ref<string | null>(null)
+const assetFilterOptions = computed(() => [{ label: "All assets", value: null }, ...assetOptions.value])
 
 const filtered = computed(() =>
   (inspections.value ?? []).filter((i) => {
     const q = search.value.toLowerCase()
     const matchSearch = !q || (i.asset_id ?? "").toLowerCase().includes(q) || i.inspection_no.toLowerCase().includes(q)
     const matchResult = !resultFilter.value || i.overall_result === resultFilter.value
-    return matchSearch && matchResult
+    const matchAsset = !assetFilter.value || i.asset_id === assetFilter.value
+    const d = i.inspection_date?.slice(0, 10)
+    const matchDateFrom = !dateFrom.value || (!!d && d >= dateFrom.value)
+    const matchDateTo = !dateTo.value || (!!d && d <= dateTo.value)
+    return matchSearch && matchResult && matchAsset && matchDateFrom && matchDateTo
   })
 )
 
@@ -275,10 +287,22 @@ async function confirmDelete() {
   <div class="flex min-h-full flex-col gap-4">
     <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <div class="flex flex-wrap gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
             <UInput v-model="search" placeholder="Search by asset or inspection no..." leading-icon="i-heroicons-magnifying-glass" class="max-w-xs" />
+            <USelect v-model="assetFilter" :items="assetFilterOptions" placeholder="Filter by asset" searchable searchable-placeholder="Type asset ID…" class="w-52" />
             <USelect v-model="resultFilter" :items="resultOptions2" placeholder="Filter by result" class="w-40" />
+            <div class="flex items-center gap-1.5">
+              <UInput v-model="dateFrom" type="date" class="w-36" />
+              <span class="text-xs text-slate-400 dark:text-slate-500">to</span>
+              <UInput v-model="dateTo" type="date" class="w-36" />
+              <UButton
+                v-if="dateFrom || dateTo"
+                variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral"
+                title="Clear date filter"
+                @click="dateFrom = ''; dateTo = ''"
+              />
+            </div>
           </div>
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Inspection</UButton>
         </div>

@@ -73,16 +73,16 @@ const filteredInvoices = computed(() =>
     .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""))
 )
 // ── Shared options ────────────────────────────────────────────
-const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const assetOptions = computed(() => [...(assets.value ?? [])].sort((a, b) => a.asset_id.localeCompare(b.asset_id)).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const supplierOptions = computed(() => (suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id })))
 const locationOptions = computed(() => (locations.value ?? []).map((l) => ({ label: l.name, value: l.location_id })))
 const poOptions = computed(() => [
   { label: "— None —", value: null },
-  ...[...(pos.value ?? [])].sort((a, b) => a.po_no.localeCompare(b.po_no)).map((p) => ({ label: `${p.po_no}${p.description ? ` — ${p.description}` : ""}`, value: p.po_no })),
+  ...[...(pos.value ?? [])].sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? "")).map((p) => ({ label: `${p.po_no}${p.description ? ` — ${p.description}` : ""}`, value: p.po_no })),
 ])
 const workOrderOptions = computed(() => [
   { label: "— None —", value: null },
-  ...[...(workOrders.value ?? [])].sort((a, b) => (a.work_order_id ?? 0) - (b.work_order_id ?? 0)).map((w) => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
+  ...[...(workOrders.value ?? [])].sort((a, b) => (b.work_order_id ?? 0) - (a.work_order_id ?? 0)).map((w) => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
 ])
 const costCentreOptions = computed(() => (costCentres.value ?? []).map((c) => ({ label: `${c.gl_code}${c.description ? ` — ${c.description}` : ""}`, value: c.gl_code })))
 const poTypeOptions = ["corrective", "predictive", "preventative", "consumables", "rental"]

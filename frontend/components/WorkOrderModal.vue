@@ -38,7 +38,9 @@ const plannedOptions = [
 ]
 
 const assetOptions = computed(() =>
-  (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
+  [...(assets.value ?? [])]
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
+    .map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
 )
 const supplierOptions = computed(() =>
   [{ label: "None", value: undefined }, ...(suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id }))]

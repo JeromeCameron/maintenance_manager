@@ -113,7 +113,9 @@ const plannedOptions = [
 const woStatusOptions = ["requested", "scheduled", "awaiting_parts", "awaiting_po", "in_progress", "on_hold", "cancelled", "completed", "closed"]
 
 const assetOptions = computed(() =>
-  (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
+  [...(assets.value ?? [])]
+    .sort((a, b) => a.asset_id.localeCompare(b.asset_id))
+    .map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id }))
 )
 const supplierOptions = computed(() =>
   [{ label: "None", value: undefined }, ...(suppliers.value ?? []).map((s) => ({ label: s.name, value: s.supplier_id }))]

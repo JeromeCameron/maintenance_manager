@@ -18,7 +18,7 @@ const causeMap = computed(() => {
 })
 
 const causeOptions = computed(() => (causes.value ?? []).map((c) => ({ label: c.name, value: c.cause_id })))
-const assetOptions = computed(() => (assets.value ?? []).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
+const assetOptions = computed(() => [...(assets.value ?? [])].sort((a, b) => a.asset_id.localeCompare(b.asset_id)).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const workOrderOptions = computed(() =>
   [...(workOrders.value ?? [])]
     .sort((a, b) => (b.work_order_id ?? 0) - (a.work_order_id ?? 0))

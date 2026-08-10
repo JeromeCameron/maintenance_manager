@@ -51,12 +51,14 @@ const locationOptions = computed(() => [
 ])
 const poOptions = computed(() => [
   { label: "— None —", value: null },
-  ...(purchaseOrders.value ?? []).map(p => ({ label: p.po_no, value: p.po_no })),
+  ...[...(purchaseOrders.value ?? [])]
+    .sort((a, b) => (b.po_date ?? "").localeCompare(a.po_date ?? ""))
+    .map(p => ({ label: p.po_no, value: p.po_no })),
 ])
 const workOrderOptions = computed(() => [
   { label: "— None —", value: null },
   ...[...(workOrders.value ?? [])]
-    .sort((a, b) => (a.work_order_id ?? 0) - (b.work_order_id ?? 0))
+    .sort((a, b) => (b.work_order_id ?? 0) - (a.work_order_id ?? 0))
     .map(w => ({ label: `WO-${w.work_order_id}${w.description ? ` — ${w.description}` : ""}`, value: w.work_order_id })),
 ])
 const uomOptions = ["unit", "pieces", "gallons", "drums", "boxes", "pairs", "quart", "liter", "meter", "bag"]
