@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkOrder, Downtime, Issue, AssetPM, Asset, AssetModel, AssetShiftHistory, Budget, Invoice, Location } from "~/types"
+import type { WorkOrder, Downtime, Issue, AssetPM, Asset, AssetModel, AssetShiftHistory, Budget, Invoice, Location, ReportFieldMeta, ReportFilter, ReportFilterOp, CustomReportResponse } from "~/types"
 import type { CommodityRate } from "~/composables/useCommodityRates"
 
 interface MonthlyMetrics {
@@ -19,6 +19,7 @@ const chartGridColor = computed(() => colorMode.value === "dark" ? "#1e293b" : "
 const { getAll: getCommodityRates } = useCommodityRates()
 const { getPOs, getCostCentres } = useFinance()
 const { getAll: getSuppliers } = useSuppliers()
+const { getMetadata: getReportBuilderMetadata, runReport: runBuilderQuery } = useReportBuilder()
 
 // ── Data fetches ───────────────────────────────────────────────
 const { data: allAssets }          = useAsyncData("rpt-assets",            () => get<Asset[]>("/assets"))
@@ -35,6 +36,7 @@ const { data: commodityRates }     = await useAsyncData("rpt-commodity-rates", (
 const { data: holidays }           = useAsyncData("rpt-holidays",          () => get<{ holiday_date: string }[]>("/holidays"))
 const { data: locations }          = useAsyncData("rpt-locations",         () => get<Location[]>("/depots"))
 const { data: downtimeCauses }     = useAsyncData("rpt-downtime-causes",   () => get<{ cause_id: number; name: string }[]>("/downtime-causes"))
+const { data: reportMetadata }     = useAsyncData("rpt-builder-metadata",  () => getReportBuilderMetadata())
 
 // ── Timeline filter ────────────────────────────────────────────
 const timelineOptions = [
@@ -665,7 +667,7 @@ async function exportAll() {
 }
 
 // ── Asset Analysis ─────────────────────────────────────────────
-const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime' | 'budget'>('reports')
+const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime' | 'budget' | 'custom'>('reports')
 const selectedAssetId = ref<string | null>(null)
 
 const assetShiftHistory = ref<AssetShiftHistory[]>([])
@@ -1511,6 +1513,153 @@ const topSuppliersBySpend = computed(() => {
     .sort((a, b) => b.total - a.total)
     .slice(0, 8)
 })
+
+// ═══════════════════════════════════════════════════════════════
+// Custom Report Builder
+// ═══════════════════════════════════════════════════════════════
+interface BuilderFilterRow {
+  id: number
+  field: string | null
+  op: ReportFilterOp | null
+  value: any
+  dateFrom: string
+  dateTo: string
+}
+
+const builderSource = ref<string | null>(null)
+const builderFields = ref<string[]>([])
+const builderFilters = ref<BuilderFilterRow[]>([])
+const builderLoading = ref(false)
+const builderError = ref<string | null>(null)
+const builderResults = ref<CustomReportResponse | null>(null)
+
+const sourceOptions = computed(() => (reportMetadata.value?.sources ?? []).map((s) => ({ label: s.label, value: s.name })))
+const selectedSourceMeta = computed(() => reportMetadata.value?.sources.find((s) => s.name === builderSource.value) ?? null)
+const filterableFields = computed(() => (selectedSourceMeta.value?.fields ?? []).filter((f) => f.allowed_ops.length > 0))
+const filterableFieldOptions = computed(() => filterableFields.value.map((f) => ({ label: f.label, value: f.name })))
+const fieldMetaByName = computed(() => {
+  const map: Record<string, ReportFieldMeta> = {}
+  for (const f of selectedSourceMeta.value?.fields ?? []) map[f.name] = f
+  return map
+})
+
+const causeIdOptions = computed(() =>
+  [...(downtimeCauses.value ?? [])].sort((a, b) => a.name.localeCompare(b.name))
+    .map((c) => ({ label: c.name, value: c.cause_id }))
+)
+const causeNameOptions = computed(() =>
+  [...(downtimeCauses.value ?? [])].sort((a, b) => a.name.localeCompare(b.name))
+    .map((c) => ({ label: c.name, value: c.name }))
+)
+const supplierSelectOptions = computed(() =>
+  [...(suppliers.value ?? [])].sort((a, b) => a.name.localeCompare(b.name))
+    .map((s) => ({ label: s.name, value: s.name }))
+)
+
+const opLabels: Record<ReportFilterOp, string> = { eq: "is", in: "is one of", gte: "≥", lte: "≤", contains: "contains" }
+function opOptions(fmeta: ReportFieldMeta) {
+  return fmeta.allowed_ops.map((op) => ({ label: opLabels[op], value: op }))
+}
+
+watch(builderSource, () => {
+  builderFields.value = []
+  builderFilters.value = []
+  builderResults.value = null
+  builderError.value = null
+})
+
+function toggleBuilderField(name: string, checked: boolean) {
+  if (checked) {
+    if (!builderFields.value.includes(name)) builderFields.value.push(name)
+  } else {
+    builderFields.value = builderFields.value.filter((f) => f !== name)
+  }
+}
+
+function addFilterRow() {
+  builderFilters.value.push({ id: Date.now() + Math.random(), field: null, op: null, value: null, dateFrom: "", dateTo: "" })
+}
+function removeFilterRow(id: number) {
+  builderFilters.value = builderFilters.value.filter((r) => r.id !== id)
+}
+
+function onFilterFieldChange(row: BuilderFilterRow) {
+  row.value = null
+  row.dateFrom = ""
+  row.dateTo = ""
+  const fmeta = row.field ? fieldMetaByName.value[row.field] : null
+  if (!fmeta) { row.op = null; return }
+  if (fmeta.type === "date" || fmeta.type === "datetime") { row.op = null; return }
+  if (fmeta.type === "boolean") { row.op = "eq"; row.value = true; return }
+  const isSelectDriven = fmeta.type === "enum" || ["asset_id", "cause_id", "cause_name", "supplier_name"].includes(row.field!)
+  if (isSelectDriven) {
+    row.op = fmeta.allowed_ops.includes("in") ? "in" : "eq"
+    row.value = []
+    return
+  }
+  row.op = fmeta.allowed_ops[0] ?? null
+}
+
+function buildBuilderFilters(): ReportFilter[] {
+  const out: ReportFilter[] = []
+  for (const row of builderFilters.value) {
+    if (!row.field) continue
+    const fmeta = fieldMetaByName.value[row.field]
+    if (!fmeta) continue
+    if (fmeta.type === "date" || fmeta.type === "datetime") {
+      if (row.dateFrom) out.push({ field: row.field, op: "gte", value: row.dateFrom })
+      if (row.dateTo) out.push({ field: row.field, op: "lte", value: row.dateTo })
+      continue
+    }
+    if (!row.op) continue
+    if (row.op === "in") {
+      const arr = Array.isArray(row.value) ? row.value : (typeof row.value === "string" ? row.value.split(",").map((v) => v.trim()).filter(Boolean) : [])
+      if (arr.length) out.push({ field: row.field, op: "in", value: arr })
+    } else if (row.value !== null && row.value !== "" && row.value !== undefined) {
+      out.push({ field: row.field, op: row.op, value: row.value })
+    }
+  }
+  return out
+}
+
+async function runBuilderReport() {
+  if (!builderSource.value || builderFields.value.length === 0) return
+  builderLoading.value = true
+  builderError.value = null
+  builderResults.value = null
+  try {
+    builderResults.value = await runBuilderQuery({
+      data_source: builderSource.value,
+      fields: [...builderFields.value],
+      filters: buildBuilderFilters(),
+      limit: 1000,
+    })
+  } catch (e: any) {
+    builderError.value = e?.data?.detail ?? e?.message ?? "Failed to run report"
+  } finally {
+    builderLoading.value = false
+  }
+}
+
+function builderColumnLabel(name: string) {
+  return fieldMetaByName.value[name]?.label ?? name
+}
+const builderTableColumns = computed(() => (builderResults.value?.columns ?? []).map((c) => ({ accessorKey: c, header: builderColumnLabel(c) })))
+
+function formatBuilderCell(v: unknown): string | number | boolean {
+  if (v === null || v === undefined) return ""
+  if (typeof v === "boolean") return v ? "Yes" : "No"
+  if (typeof v === "string" || typeof v === "number") return v
+  return String(v)
+}
+
+function downloadBuilderCsv() {
+  if (!builderResults.value) return
+  const cols = builderResults.value.columns
+  const headers = cols.map(builderColumnLabel)
+  const rows = builderResults.value.rows.map((r) => cols.map((c) => formatBuilderCell(r[c])))
+  triggerDownload(`custom-report-${slugDate(new Date())}.csv`, toCSV(headers, rows))
+}
 </script>
 
 <template>
@@ -1543,6 +1692,11 @@ const topSuppliersBySpend = computed(() => {
         :class="activeReportTab === 'budget' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
         @click="activeReportTab = 'budget'"
       >Budget & Spend</button>
+      <button
+        class="border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+        :class="activeReportTab === 'custom' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
+        @click="activeReportTab = 'custom'"
+      >Custom Reports</button>
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════ -->
@@ -2549,6 +2703,187 @@ const topSuppliersBySpend = computed(() => {
 
       </div>
 
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- Custom Reports tab                                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <template v-else-if="activeReportTab === 'custom'">
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+
+        <!-- ── Builder panel ────────────────────────────────────── -->
+        <div class="lg:col-span-1">
+          <div class="space-y-4 rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div>
+              <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Data source</label>
+              <USelect v-model="builderSource" :items="sourceOptions" placeholder="Select a data source" class="w-full" />
+            </div>
+
+            <div v-if="selectedSourceMeta">
+              <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Fields to include</label>
+              <div class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 p-2">
+                <UCheckbox
+                  v-for="f in selectedSourceMeta.fields"
+                  :key="f.name"
+                  :model-value="builderFields.includes(f.name)"
+                  :label="f.label"
+                  @update:model-value="(v) => toggleBuilderField(f.name, !!v)"
+                />
+              </div>
+            </div>
+
+            <div v-if="selectedSourceMeta">
+              <div class="mb-1 flex items-center justify-between">
+                <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Filters</label>
+                <UButton size="xs" variant="ghost" leading-icon="i-heroicons-plus" @click="addFilterRow">Add filter</UButton>
+              </div>
+              <div v-if="builderFilters.length === 0" class="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 p-3 text-center text-xs text-slate-400 dark:text-slate-500">
+                No filters — showing all rows
+              </div>
+              <div v-for="row in builderFilters" :key="row.id" class="mb-2 space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
+                <div class="flex items-center gap-1.5">
+                  <USelect v-model="row.field" :items="filterableFieldOptions" placeholder="Field" class="flex-1" @update:model-value="onFilterFieldChange(row)" />
+                  <UButton size="xs" variant="ghost" color="neutral" icon="i-heroicons-x-mark" @click="removeFilterRow(row.id)" />
+                </div>
+
+                <template v-if="row.field && fieldMetaByName[row.field]">
+                  <!-- date range -->
+                  <div v-if="fieldMetaByName[row.field].type === 'date' || fieldMetaByName[row.field].type === 'datetime'" class="flex items-center gap-1.5">
+                    <UInput v-model="row.dateFrom" type="date" class="flex-1" />
+                    <span class="text-xs text-slate-400 dark:text-slate-500">to</span>
+                    <UInput v-model="row.dateTo" type="date" class="flex-1" />
+                  </div>
+
+                  <!-- boolean -->
+                  <USelect
+                    v-else-if="fieldMetaByName[row.field].type === 'boolean'"
+                    v-model="row.value"
+                    :items="[{ label: 'Yes', value: true }, { label: 'No', value: false }]"
+                    class="w-full"
+                  />
+
+                  <!-- enum multi-select -->
+                  <USelect
+                    v-else-if="fieldMetaByName[row.field].type === 'enum'"
+                    v-model="row.value"
+                    multiple searchable
+                    :items="(fieldMetaByName[row.field].enum_values ?? []).map((v) => ({ label: v, value: v }))"
+                    placeholder="Select value(s)"
+                    class="w-full"
+                  />
+
+                  <!-- asset multi-select -->
+                  <USelect
+                    v-else-if="row.field === 'asset_id'"
+                    v-model="row.value"
+                    multiple searchable searchable-placeholder="Type asset ID…"
+                    :items="assetSelectOptions"
+                    placeholder="Select asset(s)"
+                    class="w-full"
+                  />
+
+                  <!-- cause multi-select -->
+                  <USelect
+                    v-else-if="row.field === 'cause_id'"
+                    v-model="row.value"
+                    multiple searchable
+                    :items="causeIdOptions"
+                    placeholder="Select cause(s)"
+                    class="w-full"
+                  />
+                  <USelect
+                    v-else-if="row.field === 'cause_name'"
+                    v-model="row.value"
+                    multiple searchable
+                    :items="causeNameOptions"
+                    placeholder="Select cause(s)"
+                    class="w-full"
+                  />
+
+                  <!-- supplier multi-select -->
+                  <USelect
+                    v-else-if="row.field === 'supplier_name'"
+                    v-model="row.value"
+                    multiple searchable
+                    :items="supplierSelectOptions"
+                    placeholder="Select supplier(s)"
+                    class="w-full"
+                  />
+
+                  <!-- generic: operator + value -->
+                  <div v-else class="flex items-center gap-1.5">
+                    <USelect v-model="row.op" :items="opOptions(fieldMetaByName[row.field])" class="w-28" />
+                    <UInput
+                      v-if="row.op === 'in'"
+                      v-model="row.value"
+                      placeholder="Comma-separated values"
+                      class="flex-1"
+                    />
+                    <UInput
+                      v-else
+                      v-model="row.value"
+                      :type="['integer', 'number'].includes(fieldMetaByName[row.field].type) ? 'number' : 'text'"
+                      placeholder="Value"
+                      class="flex-1"
+                    />
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <UButton
+              block
+              :loading="builderLoading"
+              :disabled="!builderSource || builderFields.length === 0"
+              class="!bg-blue-700 hover:!bg-blue-800"
+              @click="runBuilderReport"
+            >Run report</UButton>
+          </div>
+        </div>
+
+        <!-- ── Results panel ─────────────────────────────────────── -->
+        <div class="lg:col-span-2">
+          <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+              <div>
+                <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Results</h2>
+                <p v-if="builderResults" class="text-xs text-slate-400 dark:text-slate-500">{{ builderResults.row_count }} row{{ builderResults.row_count !== 1 ? 's' : '' }}</p>
+              </div>
+              <UButton
+                size="sm" variant="outline" color="neutral" leading-icon="i-heroicons-arrow-down-tray"
+                :disabled="!builderResults || builderResults.row_count === 0"
+                @click="downloadBuilderCsv"
+              >Export CSV</UButton>
+            </div>
+
+            <div v-if="builderError" class="m-5 rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+              {{ builderError }}
+            </div>
+
+            <div v-else-if="builderLoading" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
+              Running report…
+            </div>
+
+            <div v-else-if="!builderResults" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
+              Pick a data source, fields, and filters, then run the report.
+            </div>
+
+            <div v-else-if="builderResults.row_count === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
+              No results match these filters.
+            </div>
+
+            <template v-else>
+              <div v-if="builderResults.truncated" class="mx-5 mt-4 rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
+                Showing the first {{ builderResults.row_count }} rows — narrow your filters for a complete export.
+              </div>
+              <div class="max-h-[600px] overflow-auto p-5">
+                <UTable :data="builderResults.rows" :columns="builderTableColumns" />
+              </div>
+            </template>
+          </div>
+        </div>
+
+      </div>
     </template>
 
   </div>

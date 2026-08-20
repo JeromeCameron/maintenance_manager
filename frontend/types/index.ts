@@ -365,3 +365,45 @@ export interface User {
   password: string
   active: boolean
 }
+
+// ── Custom Report Builder ──────────────────────────────────────
+export type ReportFilterOp = "eq" | "in" | "gte" | "lte" | "contains"
+
+export interface ReportFieldMeta {
+  name: string
+  label: string
+  type: "string" | "integer" | "number" | "boolean" | "date" | "datetime" | "enum"
+  allowed_ops: ReportFilterOp[]
+  enum_values?: string[] | null
+}
+
+export interface ReportSourceMeta {
+  name: string
+  label: string
+  fields: ReportFieldMeta[]
+}
+
+export interface ReportBuilderMetadata {
+  sources: ReportSourceMeta[]
+}
+
+export interface ReportFilter {
+  field: string
+  op: ReportFilterOp
+  value: unknown
+}
+
+export interface CustomReportRequest {
+  data_source: string
+  fields: string[]
+  filters: ReportFilter[]
+  limit?: number
+}
+
+export interface CustomReportResponse {
+  data_source: string
+  columns: string[]
+  rows: Record<string, unknown>[]
+  row_count: number
+  truncated: boolean
+}

@@ -44,6 +44,7 @@ export { useInventory } from '../composables/useInventory';
 export { useIssues } from '../composables/useIssues';
 export { useLocations } from '../composables/useLocations';
 export { useMaintenance } from '../composables/useMaintenance';
+export { useReportBuilder } from '../composables/useReportBuilder';
 export { useSuppliers } from '../composables/useSuppliers';
 export { useTaskReminders } from '../composables/useTaskReminders';
 export { useTasks } from '../composables/useTasks';

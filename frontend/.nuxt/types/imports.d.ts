@@ -157,6 +157,7 @@ declare global {
   const useOverlay: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useOverlay').useOverlay
   const usePortal: typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/usePortal').usePortal
   const usePreviewMode: typeof import('../../node_modules/nuxt/dist/app/composables/preview').usePreviewMode
+  const useReportBuilder: typeof import('../../composables/useReportBuilder').useReportBuilder
   const useRequestEvent: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestEvent
   const useRequestFetch: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestFetch
   const useRequestHeader: typeof import('../../node_modules/nuxt/dist/app/composables/ssr').useRequestHeader
@@ -409,6 +410,7 @@ declare module 'vue' {
     readonly useOverlay: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/useOverlay')['useOverlay']>
     readonly usePortal: UnwrapRef<typeof import('../../node_modules/@nuxt/ui/dist/runtime/composables/usePortal')['usePortal']>
     readonly usePreviewMode: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/preview')['usePreviewMode']>
+    readonly useReportBuilder: UnwrapRef<typeof import('../../composables/useReportBuilder')['useReportBuilder']>
     readonly useRequestEvent: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestEvent']>
     readonly useRequestFetch: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestFetch']>
     readonly useRequestHeader: UnwrapRef<typeof import('../../node_modules/nuxt/dist/app/composables/ssr')['useRequestHeader']>
