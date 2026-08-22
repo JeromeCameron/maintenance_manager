@@ -186,6 +186,15 @@ class TaskPriority(str, Enum):
     urgent = "urgent"
 
 
+class ActivityAction(str, Enum):
+    create = "create"
+    update = "update"
+    delete = "delete"
+    login = "login"
+    login_failed = "login_failed"
+    logout = "logout"
+
+
 # ----------------------------------------------------------------------------- #
 
 
@@ -853,3 +862,17 @@ class CommodityRate(SQLModel, table=True):
     effective_date: date = Field(index=True)
     rate_per_lb: float = Field(description="USD per pound")
     notes: Optional[str] = Field(default=None, sa_type=Text)
+
+
+# ------------- Activity Log ----------------------- #
+class ActivityLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    timestamp: datetime = Field(default_factory=now_local, index=True)
+    actor_user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    actor_username: Optional[str] = Field(default=None)
+    action: ActivityAction = Field(index=True)
+    entity_type: Optional[str] = Field(default=None, index=True)
+    entity_id: Optional[str] = Field(default=None)
+    summary: str
+    changes: Optional[str] = Field(default=None, sa_type=Text)
+    ip_address: Optional[str] = Field(default=None)

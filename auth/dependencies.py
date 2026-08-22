@@ -7,6 +7,7 @@ import crud.user as user_crud
 from auth.security import decode_token
 from schema.database import get_session
 from schema.models import User, UserRole
+from utils.activity_log import set_actor
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -14,6 +15,7 @@ _MUTATING = {"POST", "PUT", "PATCH", "DELETE"}
 
 
 async def get_current_user(
+    request: Request,
     token: str = Depends(oauth2_scheme),
     session: Session = Depends(get_session),
 ) -> User:
@@ -33,6 +35,7 @@ async def get_current_user(
     user = user_crud.get_user(session, int(user_id))
     if not user or not user.active:
         raise exc
+    set_actor(user, request.client.host if request.client else None)
     return user
 
 

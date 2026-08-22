@@ -3,8 +3,10 @@ from enum import Enum as PyEnum
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy import and_, or_
 from sqlmodel import Session, select
 
+from schema.models import User, UserRole
 from schema.report_builder_registry import SOURCES, FilterOp
 from schema.report_builder_schemas import (
     CustomReportRequest,
@@ -30,9 +32,11 @@ def _type_label(py_type: Any) -> str:
     return _TYPE_LABELS.get(py_type, "string")
 
 
-def get_report_builder_metadata() -> ReportBuilderMetadata:
+def get_report_builder_metadata(current_user: User) -> ReportBuilderMetadata:
     sources = []
     for name, source in SOURCES.items():
+        if source.admin_only and current_user.role != UserRole.admin:
+            continue
         fields = []
         for fname, fdef in source.fields.items():
             enum_values = None
@@ -70,15 +74,23 @@ def _coerce_scalar(py_type: Any, raw: Any) -> Any:
     raise ValueError("unsupported field type")
 
 
+_LIST_OPS = (FilterOp.in_, FilterOp.contains_any, FilterOp.contains_all)
+
+
 def _coerce_value(py_type: Any, op: FilterOp, raw: Any) -> Any:
     try:
-        if op == FilterOp.in_:
+        if op in _LIST_OPS:
             if not isinstance(raw, list) or not raw:
-                raise ValueError("value must be a non-empty list for the 'in' operator")
+                raise ValueError(f"value must be a non-empty list for the '{op.value}' operator")
             return [_coerce_scalar(py_type, v) for v in raw]
         return _coerce_scalar(py_type, raw)
     except (TypeError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=f"Invalid filter value: {exc}")
+
+
+def _ilike(column, term: Any):
+    escaped = str(term).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return column.ilike(f"%{escaped}%", escape="\\")
 
 
 def _apply_op(column, op: FilterOp, value):
@@ -90,16 +102,20 @@ def _apply_op(column, op: FilterOp, value):
         return column >= value
     if op == FilterOp.lte:
         return column <= value
-    if op == FilterOp.contains:
-        escaped = str(value).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        return column.ilike(f"%{escaped}%", escape="\\")
+    if op == FilterOp.contains_any:
+        return or_(*[_ilike(column, term) for term in value])
+    if op == FilterOp.contains_all:
+        return and_(*[_ilike(column, term) for term in value])
     raise HTTPException(status_code=400, detail=f"Unsupported operator '{op}'")
 
 
-def run_custom_report(session: Session, req: CustomReportRequest) -> CustomReportResponse:
+def run_custom_report(session: Session, req: CustomReportRequest, current_user: User) -> CustomReportResponse:
     source = SOURCES.get(req.data_source)
     if source is None:
         raise HTTPException(status_code=400, detail=f"Unknown data_source '{req.data_source}'")
+
+    if source.admin_only and current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin access required for this data source")
 
     unknown_fields = [f for f in req.fields if f not in source.fields]
     if unknown_fields:

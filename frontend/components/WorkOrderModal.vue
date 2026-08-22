@@ -5,7 +5,8 @@ const props = defineProps<{ workOrderId: number | null }>()
 const open = defineModel<boolean>("open", { default: false })
 const emit = defineEmits<{ saved: [] }>()
 
-const { isAdmin } = useAuth()
+const { isAdmin, token } = useAuth()
+const config = useRuntimeConfig()
 const { getOne, update, getPartsByWorkOrder, addPart, updatePart, removePart } = useWorkOrders()
 const { getAll: getAssets } = useAssets()
 const { getAll: getSuppliers } = useSuppliers()
@@ -166,6 +167,28 @@ watch([open, () => props.workOrderId], async ([isOpen, id]) => {
     if (!isStale()) loading.value = false
   }
 })
+
+// ── Print ─────────────────────────────────────────────────────
+const printing = ref(false)
+async function printWorkOrder() {
+  if (!props.workOrderId) return
+  printing.value = true
+  try {
+    const res = await fetch(`${config.public.apiBase}/work-orders/${props.workOrderId}/print`, {
+      headers: { Authorization: `Bearer ${token.value}` },
+    })
+    if (!res.ok) throw new Error(`Server error ${res.status}`)
+    const html = await res.text()
+    const blob = new Blob([html], { type: "text/html" })
+    const url = URL.createObjectURL(blob)
+    const win = window.open(url, "_blank")
+    if (win) setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  } catch (e: unknown) {
+    error.value = (e as { message?: string }).message ?? "Failed to generate print view"
+  } finally {
+    printing.value = false
+  }
+}
 
 // ── Save ──────────────────────────────────────────────────────
 async function save() {
@@ -363,6 +386,7 @@ async function save() {
 
           <!-- Footer -->
           <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 dark:border-slate-800 px-6 py-4">
+            <UButton variant="outline" color="neutral" leading-icon="i-heroicons-printer" :loading="printing" class="mr-auto" @click="printWorkOrder">Print</UButton>
             <UButton variant="ghost" color="neutral" @click="open = false">Cancel</UButton>
             <UButton v-if="modalTab !== 'parts'" :loading="saving" @click="save">Save Changes</UButton>
           </div>

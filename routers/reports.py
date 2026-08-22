@@ -7,6 +7,7 @@ from sqlmodel import Session
 from auth.dependencies import get_current_user
 from crud.report_builder import get_report_builder_metadata, run_custom_report
 from schema.database import get_session
+from schema.models import User
 from schema.report_builder_schemas import CustomReportRequest, CustomReportResponse, ReportBuilderMetadata
 from utils.weekly_report import generate_weekly_report
 from utils.weekly_report_html import generate_weekly_report_html
@@ -39,15 +40,15 @@ def view_weekly_report(
 
 @router.get("/custom/metadata", response_model=ReportBuilderMetadata)
 def get_custom_report_metadata(
-    _=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return get_report_builder_metadata()
+    return get_report_builder_metadata(current_user)
 
 
 @router.post("/custom", response_model=CustomReportResponse)
 def run_custom_report_endpoint(
     req: CustomReportRequest,
     session: Session = Depends(get_session),
-    _=Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
-    return run_custom_report(session, req)
+    return run_custom_report(session, req, current_user)

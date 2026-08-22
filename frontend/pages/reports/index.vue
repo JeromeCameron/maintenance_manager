@@ -1532,6 +1532,7 @@ const builderFilters = ref<BuilderFilterRow[]>([])
 const builderLoading = ref(false)
 const builderError = ref<string | null>(null)
 const builderResults = ref<CustomReportResponse | null>(null)
+const builderPanelCollapsed = ref(false)
 
 const sourceOptions = computed(() => (reportMetadata.value?.sources ?? []).map((s) => ({ label: s.label, value: s.name })))
 const selectedSourceMeta = computed(() => reportMetadata.value?.sources.find((s) => s.name === builderSource.value) ?? null)
@@ -1556,7 +1557,8 @@ const supplierSelectOptions = computed(() =>
     .map((s) => ({ label: s.name, value: s.name }))
 )
 
-const opLabels: Record<ReportFilterOp, string> = { eq: "is", in: "is one of", gte: "≥", lte: "≤", contains: "contains" }
+const opLabels: Record<ReportFilterOp, string> = { eq: "is", in: "is one of", gte: "≥", lte: "≤", contains_any: "contains any of", contains_all: "contains all of" }
+const LIST_VALUE_OPS: ReportFilterOp[] = ["in", "contains_any", "contains_all"]
 function opOptions(fmeta: ReportFieldMeta) {
   return fmeta.allowed_ops.map((op) => ({ label: opLabels[op], value: op }))
 }
@@ -1566,6 +1568,7 @@ watch(builderSource, () => {
   builderFilters.value = []
   builderResults.value = null
   builderError.value = null
+  builderPanelCollapsed.value = false
 })
 
 function toggleBuilderField(name: string, checked: boolean) {
@@ -1612,9 +1615,9 @@ function buildBuilderFilters(): ReportFilter[] {
       continue
     }
     if (!row.op) continue
-    if (row.op === "in") {
+    if (LIST_VALUE_OPS.includes(row.op)) {
       const arr = Array.isArray(row.value) ? row.value : (typeof row.value === "string" ? row.value.split(",").map((v) => v.trim()).filter(Boolean) : [])
-      if (arr.length) out.push({ field: row.field, op: "in", value: arr })
+      if (arr.length) out.push({ field: row.field, op: row.op, value: arr })
     } else if (row.value !== null && row.value !== "" && row.value !== undefined) {
       out.push({ field: row.field, op: row.op, value: row.value })
     }
@@ -1634,6 +1637,7 @@ async function runBuilderReport() {
       filters: buildBuilderFilters(),
       limit: 1000,
     })
+    builderPanelCollapsed.value = true
   } catch (e: any) {
     builderError.value = e?.data?.detail ?? e?.message ?? "Failed to run report"
   } finally {
@@ -2709,19 +2713,40 @@ function downloadBuilderCsv() {
     <!-- Custom Reports tab                                          -->
     <!-- ═══════════════════════════════════════════════════════════ -->
     <template v-else-if="activeReportTab === 'custom'">
-      <div class="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div class="space-y-5">
 
         <!-- ── Builder panel ────────────────────────────────────── -->
-        <div class="lg:col-span-1">
-          <div class="space-y-4 rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
-            <div>
+        <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="flex items-center justify-between gap-3" :class="builderPanelCollapsed ? '' : 'mb-4'">
+            <div class="flex flex-wrap items-center gap-1.5 text-sm">
+              <span class="font-semibold text-slate-700 dark:text-slate-300">Report builder</span>
+              <template v-if="builderPanelCollapsed && selectedSourceMeta">
+                <span class="text-slate-300 dark:text-slate-600">·</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ selectedSourceMeta.label }}</span>
+                <span class="text-slate-300 dark:text-slate-600">·</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ builderFields.length }} field{{ builderFields.length !== 1 ? 's' : '' }}</span>
+                <span class="text-slate-300 dark:text-slate-600">·</span>
+                <span class="text-slate-500 dark:text-slate-400">{{ builderFilters.length }} filter{{ builderFilters.length !== 1 ? 's' : '' }}</span>
+              </template>
+            </div>
+            <UButton
+              v-if="selectedSourceMeta"
+              size="xs" variant="ghost" color="neutral"
+              :icon="builderPanelCollapsed ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-up'"
+              @click="builderPanelCollapsed = !builderPanelCollapsed"
+            >{{ builderPanelCollapsed ? 'Edit' : 'Collapse' }}</UButton>
+          </div>
+
+          <div v-show="!builderPanelCollapsed" class="space-y-4">
+          <div class="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            <div class="lg:col-span-3">
               <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Data source</label>
               <USelect v-model="builderSource" :items="sourceOptions" placeholder="Select a data source" class="w-full" />
             </div>
 
-            <div v-if="selectedSourceMeta">
+            <div v-if="selectedSourceMeta" class="lg:col-span-4">
               <label class="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Fields to include</label>
-              <div class="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 p-2">
+              <div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 p-2">
                 <UCheckbox
                   v-for="f in selectedSourceMeta.fields"
                   :key="f.name"
@@ -2732,7 +2757,7 @@ function downloadBuilderCsv() {
               </div>
             </div>
 
-            <div v-if="selectedSourceMeta">
+            <div v-if="selectedSourceMeta" class="lg:col-span-5">
               <div class="mb-1 flex items-center justify-between">
                 <label class="block text-xs font-medium text-slate-500 dark:text-slate-400">Filters</label>
                 <UButton size="xs" variant="ghost" leading-icon="i-heroicons-plus" @click="addFilterRow">Add filter</UButton>
@@ -2740,109 +2765,112 @@ function downloadBuilderCsv() {
               <div v-if="builderFilters.length === 0" class="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 p-3 text-center text-xs text-slate-400 dark:text-slate-500">
                 No filters — showing all rows
               </div>
-              <div v-for="row in builderFilters" :key="row.id" class="mb-2 space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
-                <div class="flex items-center gap-1.5">
-                  <USelect v-model="row.field" :items="filterableFieldOptions" placeholder="Field" class="flex-1" @update:model-value="onFilterFieldChange(row)" />
-                  <UButton size="xs" variant="ghost" color="neutral" icon="i-heroicons-x-mark" @click="removeFilterRow(row.id)" />
+              <div class="max-h-64 space-y-2 overflow-y-auto">
+                <div v-for="row in builderFilters" :key="row.id" class="space-y-1.5 rounded-lg border border-slate-200 dark:border-slate-700 p-2.5">
+                  <div class="flex items-center gap-1.5">
+                    <USelect v-model="row.field" :items="filterableFieldOptions" placeholder="Field" class="flex-1" @update:model-value="onFilterFieldChange(row)" />
+                    <UButton size="xs" variant="ghost" color="neutral" icon="i-heroicons-x-mark" @click="removeFilterRow(row.id)" />
+                  </div>
+
+                  <template v-if="row.field && fieldMetaByName[row.field]">
+                    <!-- date range -->
+                    <div v-if="fieldMetaByName[row.field].type === 'date' || fieldMetaByName[row.field].type === 'datetime'" class="flex items-center gap-1.5">
+                      <UInput v-model="row.dateFrom" type="date" class="flex-1" />
+                      <span class="text-xs text-slate-400 dark:text-slate-500">to</span>
+                      <UInput v-model="row.dateTo" type="date" class="flex-1" />
+                    </div>
+
+                    <!-- boolean -->
+                    <USelect
+                      v-else-if="fieldMetaByName[row.field].type === 'boolean'"
+                      v-model="row.value"
+                      :items="[{ label: 'Yes', value: true }, { label: 'No', value: false }]"
+                      class="w-full"
+                    />
+
+                    <!-- enum multi-select -->
+                    <USelect
+                      v-else-if="fieldMetaByName[row.field].type === 'enum'"
+                      v-model="row.value"
+                      multiple searchable
+                      :items="(fieldMetaByName[row.field].enum_values ?? []).map((v) => ({ label: v, value: v }))"
+                      placeholder="Select value(s)"
+                      class="w-full"
+                    />
+
+                    <!-- asset multi-select -->
+                    <USelect
+                      v-else-if="row.field === 'asset_id'"
+                      v-model="row.value"
+                      multiple searchable searchable-placeholder="Type asset ID…"
+                      :items="assetSelectOptions"
+                      placeholder="Select asset(s)"
+                      class="w-full"
+                    />
+
+                    <!-- cause multi-select -->
+                    <USelect
+                      v-else-if="row.field === 'cause_id'"
+                      v-model="row.value"
+                      multiple searchable
+                      :items="causeIdOptions"
+                      placeholder="Select cause(s)"
+                      class="w-full"
+                    />
+                    <USelect
+                      v-else-if="row.field === 'cause_name'"
+                      v-model="row.value"
+                      multiple searchable
+                      :items="causeNameOptions"
+                      placeholder="Select cause(s)"
+                      class="w-full"
+                    />
+
+                    <!-- supplier multi-select -->
+                    <USelect
+                      v-else-if="row.field === 'supplier_name'"
+                      v-model="row.value"
+                      multiple searchable
+                      :items="supplierSelectOptions"
+                      placeholder="Select supplier(s)"
+                      class="w-full"
+                    />
+
+                    <!-- generic: operator + value -->
+                    <div v-else class="flex items-center gap-1.5">
+                      <USelect v-model="row.op" :items="opOptions(fieldMetaByName[row.field])" class="w-36" />
+                      <UInput
+                        v-if="row.op && LIST_VALUE_OPS.includes(row.op)"
+                        v-model="row.value"
+                        placeholder="Comma-separated terms"
+                        class="flex-1"
+                      />
+                      <UInput
+                        v-else
+                        v-model="row.value"
+                        :type="['integer', 'number'].includes(fieldMetaByName[row.field].type) ? 'number' : 'text'"
+                        placeholder="Value"
+                        class="flex-1"
+                      />
+                    </div>
+                  </template>
                 </div>
-
-                <template v-if="row.field && fieldMetaByName[row.field]">
-                  <!-- date range -->
-                  <div v-if="fieldMetaByName[row.field].type === 'date' || fieldMetaByName[row.field].type === 'datetime'" class="flex items-center gap-1.5">
-                    <UInput v-model="row.dateFrom" type="date" class="flex-1" />
-                    <span class="text-xs text-slate-400 dark:text-slate-500">to</span>
-                    <UInput v-model="row.dateTo" type="date" class="flex-1" />
-                  </div>
-
-                  <!-- boolean -->
-                  <USelect
-                    v-else-if="fieldMetaByName[row.field].type === 'boolean'"
-                    v-model="row.value"
-                    :items="[{ label: 'Yes', value: true }, { label: 'No', value: false }]"
-                    class="w-full"
-                  />
-
-                  <!-- enum multi-select -->
-                  <USelect
-                    v-else-if="fieldMetaByName[row.field].type === 'enum'"
-                    v-model="row.value"
-                    multiple searchable
-                    :items="(fieldMetaByName[row.field].enum_values ?? []).map((v) => ({ label: v, value: v }))"
-                    placeholder="Select value(s)"
-                    class="w-full"
-                  />
-
-                  <!-- asset multi-select -->
-                  <USelect
-                    v-else-if="row.field === 'asset_id'"
-                    v-model="row.value"
-                    multiple searchable searchable-placeholder="Type asset ID…"
-                    :items="assetSelectOptions"
-                    placeholder="Select asset(s)"
-                    class="w-full"
-                  />
-
-                  <!-- cause multi-select -->
-                  <USelect
-                    v-else-if="row.field === 'cause_id'"
-                    v-model="row.value"
-                    multiple searchable
-                    :items="causeIdOptions"
-                    placeholder="Select cause(s)"
-                    class="w-full"
-                  />
-                  <USelect
-                    v-else-if="row.field === 'cause_name'"
-                    v-model="row.value"
-                    multiple searchable
-                    :items="causeNameOptions"
-                    placeholder="Select cause(s)"
-                    class="w-full"
-                  />
-
-                  <!-- supplier multi-select -->
-                  <USelect
-                    v-else-if="row.field === 'supplier_name'"
-                    v-model="row.value"
-                    multiple searchable
-                    :items="supplierSelectOptions"
-                    placeholder="Select supplier(s)"
-                    class="w-full"
-                  />
-
-                  <!-- generic: operator + value -->
-                  <div v-else class="flex items-center gap-1.5">
-                    <USelect v-model="row.op" :items="opOptions(fieldMetaByName[row.field])" class="w-28" />
-                    <UInput
-                      v-if="row.op === 'in'"
-                      v-model="row.value"
-                      placeholder="Comma-separated values"
-                      class="flex-1"
-                    />
-                    <UInput
-                      v-else
-                      v-model="row.value"
-                      :type="['integer', 'number'].includes(fieldMetaByName[row.field].type) ? 'number' : 'text'"
-                      placeholder="Value"
-                      class="flex-1"
-                    />
-                  </div>
-                </template>
               </div>
             </div>
+          </div>
 
-            <UButton
-              block
-              :loading="builderLoading"
-              :disabled="!builderSource || builderFields.length === 0"
-              class="!bg-blue-700 hover:!bg-blue-800"
-              @click="runBuilderReport"
-            >Run report</UButton>
+          <UButton
+            block
+            :loading="builderLoading"
+            :disabled="!builderSource || builderFields.length === 0"
+            class="!bg-blue-700 hover:!bg-blue-800"
+            @click="runBuilderReport"
+          >Run report</UButton>
           </div>
         </div>
 
         <!-- ── Results panel ─────────────────────────────────────── -->
-        <div class="lg:col-span-2">
+        <div>
           <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
             <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-5 py-4">
               <div>

@@ -32,7 +32,12 @@ const filtered = computed(() =>
       const q = search.value.toLowerCase()
       return !q || (d.asset_id ?? "").toLowerCase().includes(q) || String(d.downtime_id).includes(q) || (causeMap.value[d.cause_id] ?? "").toLowerCase().includes(q)
     })
-    .sort((a, b) => new Date(b.start_date ?? "").getTime() - new Date(a.start_date ?? "").getTime())
+    .sort((a, b) => {
+      const aOngoing = isOpen(a) ? 0 : 1
+      const bOngoing = isOpen(b) ? 0 : 1
+      if (aOngoing !== bOngoing) return aOngoing - bOngoing
+      return new Date(b.start_date ?? "").getTime() - new Date(a.start_date ?? "").getTime()
+    })
 )
 
 const totalHours = computed(() => (downtimes.value ?? []).reduce((s, d) => s + (d.downtime_hours ?? 0), 0))

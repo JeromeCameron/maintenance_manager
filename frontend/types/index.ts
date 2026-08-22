@@ -367,7 +367,7 @@ export interface User {
 }
 
 // ── Custom Report Builder ──────────────────────────────────────
-export type ReportFilterOp = "eq" | "in" | "gte" | "lte" | "contains"
+export type ReportFilterOp = "eq" | "in" | "gte" | "lte" | "contains_any" | "contains_all"
 
 export interface ReportFieldMeta {
   name: string

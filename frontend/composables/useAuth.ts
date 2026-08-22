@@ -48,7 +48,17 @@ export const useAuth = () => {
     }
   }
 
-  function logout() {
+  async function logout() {
+    if (token.value) {
+      try {
+        await $fetch(`${apiBase}/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token.value}` },
+        })
+      } catch {
+        // best-effort — never block logout on this
+      }
+    }
     token.value = null
     user.value = null
     navigateTo("/login")

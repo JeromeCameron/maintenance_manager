@@ -15,16 +15,22 @@ from typing import Any, Type
 from sqlalchemy.sql.elements import ColumnElement
 
 from schema.models import (
+    ActivityAction,
+    ActivityLog,
     Asset,
     AssetCategory,
     Budget,
     CostCentre,
     Downtime,
     DowntimeCause,
+    Inspection,
+    InspectionItemResult,
+    InspectionTemplate,
     Invoice,
     InvoiceStatus,
     InvoiceType,
     Supplier,
+    User,
     WorkOrder,
     WorkOrderStatus,
 )
@@ -35,7 +41,8 @@ class FilterOp(str, Enum):
     in_ = "in"
     gte = "gte"
     lte = "lte"
-    contains = "contains"
+    contains_any = "contains_any"  # text contains ANY of the given terms (OR)
+    contains_all = "contains_all"  # text contains ALL of the given terms (AND)
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,7 @@ class SourceDef:
     fields: dict
     default_order: ColumnElement
     joins: tuple = field(default_factory=tuple)  # ordered (model, join_condition)
+    admin_only: bool = False
 
 
 SOURCES: dict = {
@@ -76,10 +84,10 @@ SOURCES: dict = {
             "repeat_failure": FieldDef(Downtime.repeat_failure, Downtime, "Repeat Failure", bool, (FilterOp.eq,)),
             "temporary_fix": FieldDef(Downtime.temporary_fix, Downtime, "Temporary Fix", bool, (FilterOp.eq,)),
             "downtime_hours": FieldDef(Downtime.downtime_hours, Downtime, "Downtime Hours", float, (FilterOp.gte, FilterOp.lte)),
-            "component_affected": FieldDef(Downtime.component_affected, Downtime, "Component Affected", str, (FilterOp.contains,)),
-            "root_cause": FieldDef(Downtime.root_cause, Downtime, "Root Cause", str, (FilterOp.contains,)),
-            "corrective_action": FieldDef(Downtime.corrective_action, Downtime, "Corrective Action", str, (FilterOp.contains,)),
-            "details": FieldDef(Downtime.details, Downtime, "Details", str, (FilterOp.contains,)),
+            "component_affected": FieldDef(Downtime.component_affected, Downtime, "Component Affected", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "root_cause": FieldDef(Downtime.root_cause, Downtime, "Root Cause", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "corrective_action": FieldDef(Downtime.corrective_action, Downtime, "Corrective Action", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "details": FieldDef(Downtime.details, Downtime, "Details", str, (FilterOp.contains_any, FilterOp.contains_all)),
             "work_order": FieldDef(Downtime.work_order, Downtime, "Work Order #", str, (FilterOp.eq,)),
             "asset_alias": FieldDef(Asset.alias, Asset, "Asset Alias", str, ()),
             "asset_manufacturer": FieldDef(Asset.manufacturer, Asset, "Asset Manufacturer", str, ()),
@@ -104,8 +112,8 @@ SOURCES: dict = {
             "typ": FieldDef(WorkOrder.typ, WorkOrder, "Type", str, (FilterOp.eq, FilterOp.in_)),
             "asset_id": FieldDef(WorkOrder.asset_id, WorkOrder, "Asset ID", str, (FilterOp.eq, FilterOp.in_)),
             "status": FieldDef(WorkOrder.status, WorkOrder, "Status", WorkOrderStatus, (FilterOp.eq, FilterOp.in_)),
-            "description": FieldDef(WorkOrder.description, WorkOrder, "Description", str, (FilterOp.contains,)),
-            "notes": FieldDef(WorkOrder.notes, WorkOrder, "Notes", str, (FilterOp.contains,)),
+            "description": FieldDef(WorkOrder.description, WorkOrder, "Description", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "notes": FieldDef(WorkOrder.notes, WorkOrder, "Notes", str, (FilterOp.contains_any, FilterOp.contains_all)),
             "planned": FieldDef(WorkOrder.planned, WorkOrder, "Planned", bool, (FilterOp.eq,)),
             "estimated_cost": FieldDef(WorkOrder.estimated_cost, WorkOrder, "Estimated Cost", float, (FilterOp.gte, FilterOp.lte)),
             "actual_cost": FieldDef(WorkOrder.actual_cost, WorkOrder, "Actual Cost", float, (FilterOp.gte, FilterOp.lte)),
@@ -114,6 +122,31 @@ SOURCES: dict = {
             "asset_alias": FieldDef(Asset.alias, Asset, "Asset Alias", str, ()),
             "asset_manufacturer": FieldDef(Asset.manufacturer, Asset, "Asset Manufacturer", str, ()),
             "supplier_name": FieldDef(Supplier.name, Supplier, "Supplier Name", str, (FilterOp.eq, FilterOp.in_)),
+        },
+    ),
+    "inspection": SourceDef(
+        label="Inspections",
+        base_model=Inspection,
+        default_order=Inspection.inspection_date,
+        joins=(
+            (Asset, Inspection.asset_id == Asset.asset_id),
+            (InspectionTemplate, Inspection.template_id == InspectionTemplate.id),
+            (User, Inspection.inspected_by == User.id),
+        ),
+        fields={
+            "id": FieldDef(Inspection.id, Inspection, "Inspection ID", int, (FilterOp.eq, FilterOp.in_)),
+            "inspection_no": FieldDef(Inspection.inspection_no, Inspection, "Inspection No", str, (FilterOp.eq, FilterOp.contains_any, FilterOp.contains_all)),
+            "asset_id": FieldDef(Inspection.asset_id, Inspection, "Asset ID", str, (FilterOp.eq, FilterOp.in_)),
+            "inspection_date": FieldDef(Inspection.inspection_date, Inspection, "Inspection Date", date, (FilterOp.gte, FilterOp.lte)),
+            "overall_result": FieldDef(Inspection.overall_result, Inspection, "Overall Result", InspectionItemResult, (FilterOp.eq, FilterOp.in_)),
+            "submitted": FieldDef(Inspection.submitted, Inspection, "Submitted", bool, (FilterOp.eq,)),
+            "submitted_date": FieldDef(Inspection.submitted_date, Inspection, "Submitted Date", datetime, (FilterOp.gte, FilterOp.lte)),
+            "notes": FieldDef(Inspection.notes, Inspection, "Notes", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "asset_alias": FieldDef(Asset.alias, Asset, "Asset Alias", str, ()),
+            "asset_manufacturer": FieldDef(Asset.manufacturer, Asset, "Asset Manufacturer", str, ()),
+            "asset_category": FieldDef(Asset.category, Asset, "Asset Category", AssetCategory, (FilterOp.eq, FilterOp.in_)),
+            "template_name": FieldDef(InspectionTemplate.name, InspectionTemplate, "Template Name", str, (FilterOp.eq, FilterOp.in_)),
+            "inspector_username": FieldDef(User.username, User, "Inspector", str, (FilterOp.eq, FilterOp.in_)),
         },
     ),
     "invoice": SourceDef(
@@ -127,12 +160,12 @@ SOURCES: dict = {
         ),
         fields={
             "id": FieldDef(Invoice.id, Invoice, "Invoice ID", int, (FilterOp.eq, FilterOp.in_)),
-            "invoice_no": FieldDef(Invoice.invoice_no, Invoice, "Invoice No", str, (FilterOp.eq, FilterOp.contains)),
+            "invoice_no": FieldDef(Invoice.invoice_no, Invoice, "Invoice No", str, (FilterOp.eq, FilterOp.contains_any, FilterOp.contains_all)),
             "invoice_date": FieldDef(Invoice.invoice_date, Invoice, "Invoice Date", date, (FilterOp.gte, FilterOp.lte)),
             "job_date": FieldDef(Invoice.job_date, Invoice, "Job Date", date, (FilterOp.gte, FilterOp.lte)),
             "rec_date": FieldDef(Invoice.rec_date, Invoice, "Received Date", date, (FilterOp.gte, FilterOp.lte)),
             "asset_id": FieldDef(Invoice.asset_id, Invoice, "Asset ID", str, (FilterOp.eq, FilterOp.in_)),
-            "description": FieldDef(Invoice.description, Invoice, "Description", str, (FilterOp.contains,)),
+            "description": FieldDef(Invoice.description, Invoice, "Description", str, (FilterOp.contains_any, FilterOp.contains_all)),
             "cost_centre_id": FieldDef(Invoice.cost_centre_id, Invoice, "GL Code", str, (FilterOp.eq, FilterOp.in_)),
             "subtotal": FieldDef(Invoice.subtotal, Invoice, "Subtotal", float, (FilterOp.gte, FilterOp.lte)),
             "status": FieldDef(Invoice.status, Invoice, "Status", InvoiceStatus, (FilterOp.eq, FilterOp.in_)),
@@ -156,8 +189,25 @@ SOURCES: dict = {
             "financial_year": FieldDef(Budget.financial_year, Budget, "Financial Year", str, (FilterOp.eq, FilterOp.in_)),
             "month": FieldDef(Budget.month, Budget, "Month", date, (FilterOp.gte, FilterOp.lte)),
             "amount": FieldDef(Budget.amount, Budget, "Amount", float, (FilterOp.gte, FilterOp.lte)),
-            "notes": FieldDef(Budget.notes, Budget, "Notes", str, (FilterOp.contains,)),
+            "notes": FieldDef(Budget.notes, Budget, "Notes", str, (FilterOp.contains_any, FilterOp.contains_all)),
             "cost_centre_description": FieldDef(CostCentre.description, CostCentre, "Cost Centre Description", str, ()),
+        },
+    ),
+    "activity_log": SourceDef(
+        label="Activity Log",
+        base_model=ActivityLog,
+        default_order=ActivityLog.timestamp,
+        admin_only=True,
+        fields={
+            "id": FieldDef(ActivityLog.id, ActivityLog, "ID", int, (FilterOp.eq, FilterOp.in_)),
+            "timestamp": FieldDef(ActivityLog.timestamp, ActivityLog, "Timestamp", datetime, (FilterOp.gte, FilterOp.lte)),
+            "actor_username": FieldDef(ActivityLog.actor_username, ActivityLog, "User", str, (FilterOp.eq, FilterOp.in_)),
+            "action": FieldDef(ActivityLog.action, ActivityLog, "Action", ActivityAction, (FilterOp.eq, FilterOp.in_)),
+            "entity_type": FieldDef(ActivityLog.entity_type, ActivityLog, "Entity Type", str, (FilterOp.eq, FilterOp.in_)),
+            "entity_id": FieldDef(ActivityLog.entity_id, ActivityLog, "Entity ID", str, (FilterOp.eq,)),
+            "summary": FieldDef(ActivityLog.summary, ActivityLog, "Summary", str, (FilterOp.contains_any, FilterOp.contains_all)),
+            "changes": FieldDef(ActivityLog.changes, ActivityLog, "Changes", str, ()),
+            "ip_address": FieldDef(ActivityLog.ip_address, ActivityLog, "IP Address", str, (FilterOp.eq,)),
         },
     ),
 }

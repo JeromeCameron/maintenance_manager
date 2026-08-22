@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse
 from sqlmodel import Session
 
 import crud.workOrders as work_orders
@@ -6,6 +7,7 @@ import crud.workOrders as work_orders
 import utils.cache as cache
 from schema.database import get_session
 from schema.models import ReactivityStats, ReactivityTrendMonth, WorkOrder, WorkOrderPart
+from utils.work_order_print import generate_work_order_print_html
 
 _WO_TTL = 300  # 5 minutes
 
@@ -74,6 +76,15 @@ async def get_work_order(work_order_id: int, session: Session = Depends(get_sess
     if not wo:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
     return wo
+
+
+@router.get("/{work_order_id}/print", response_class=HTMLResponse)
+async def print_work_order(work_order_id: int, session: Session = Depends(get_session)):
+    try:
+        html = generate_work_order_print_html(session, work_order_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
+    return HTMLResponse(content=html)
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=WorkOrder)
