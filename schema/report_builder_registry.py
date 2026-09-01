@@ -196,7 +196,7 @@ SOURCES: dict = {
     "activity_log": SourceDef(
         label="Activity Log",
         base_model=ActivityLog,
-        default_order=ActivityLog.timestamp,
+        default_order=ActivityLog.timestamp.desc(),
         admin_only=True,
         fields={
             "id": FieldDef(ActivityLog.id, ActivityLog, "ID", int, (FilterOp.eq, FilterOp.in_)),
