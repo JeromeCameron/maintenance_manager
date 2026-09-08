@@ -758,6 +758,15 @@ class PmPlans(SQLModel, table=True):
     notes: Optional[str] = Field(default=None, sa_type=Text)
 
     asset_pms: List["AssetPM"] = Relationship(back_populates="pm_plan")
+    tasks: List["PmTask"] = Relationship(back_populates="pm_plan")
+
+
+class PmTask(SQLModel, table=True):
+    id: Optional[int] = Field(primary_key=True, default=None)
+    pm_id: Optional[str] = Field(default=None, foreign_key="pmplans.pm_id")
+    task: str
+
+    pm_plan: Optional["PmPlans"] = Relationship(back_populates="tasks")
 
 
 class AssetPM(SQLModel, table=True):

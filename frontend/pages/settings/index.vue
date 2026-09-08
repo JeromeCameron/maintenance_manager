@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, CostCentre } from "~/types"
+import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, PmTask, CostCentre } from "~/types"
 import type { CommodityRate } from "~/composables/useCommodityRates"
 
 const { getAll: getHolidays, create: createHoliday, update: updateHoliday, remove: removeHoliday } = useHolidays()
@@ -7,7 +7,7 @@ const { getAll: getModels, getOne: getModel, create: createModel, update: update
 const { getCauses, createCause, updateCause, removeCause } = useDowntime()
 const { getCategories, createCategory, updateCategory, removeCategory } = useInventory()
 const { getTemplates, createTemplate, updateTemplate, removeTemplate, getItemsByTemplate, createItem, updateItem, removeItem } = useInspections()
-const { getPlans, createPlan, updatePlan, removePlan } = useMaintenance()
+const { getPlans, createPlan, updatePlan, removePlan, getTasksByPlan, createTask, removeTask } = useMaintenance()
 const { getCostCentres, createCostCentre, updateCostCentre, removeCostCentre } = useFinance()
 const { getAll: getLocations } = useLocations()
 const { getAll: getRates, create: createRate, update: updateRate, remove: removeRate } = useCommodityRates()
@@ -506,6 +506,39 @@ async function confirmDeletePmPlan() {
   }
 }
 
+// ── PM Tasks ─────────────────────────────────────────────────
+const showTasksModal = ref(false)
+const activePmPlan = ref<PmPlans | null>(null)
+const pmTasks = ref<PmTask[]>([])
+const loadingTasks = ref(false)
+const newTaskText = ref("")
+const addingTask = ref(false)
+
+async function openTasksModal(plan: PmPlans) {
+  activePmPlan.value = plan
+  loadingTasks.value = true
+  showTasksModal.value = true
+  pmTasks.value = await getTasksByPlan(plan.pm_id)
+  loadingTasks.value = false
+}
+
+async function addTask() {
+  if (!newTaskText.value.trim() || !activePmPlan.value) return
+  addingTask.value = true
+  try {
+    const created = await createTask({ pm_id: activePmPlan.value.pm_id, task: newTaskText.value.trim() })
+    pmTasks.value = [...pmTasks.value, created]
+    newTaskText.value = ""
+  } finally {
+    addingTask.value = false
+  }
+}
+
+async function deleteTask(id: number) {
+  await removeTask(id)
+  pmTasks.value = pmTasks.value.filter((t) => t.id !== id)
+}
+
 // ── Cost Centres ──────────────────────────────────────────────
 const { data: costCentres, refresh: refreshCostCentres } = await useAsyncData("settings-cost-centres", () => getCostCentres())
 const { data: locations } = await useAsyncData("settings-locations", () => getLocations())
@@ -791,6 +824,7 @@ async function confirmDeleteRate() {
               </template>
               <template #actions-cell="{ row: { original: row } }">
                 <div class="flex items-center gap-1">
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-list-bullet" @click="openTasksModal(row)" />
                   <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditPmPlan(row)" />
                   <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deletePmPlanTarget = row" />
                 </div>
@@ -1203,6 +1237,36 @@ async function confirmDeleteRate() {
             </div>
           </template>
         </UCard>
+      </template>
+    </UModal>
+
+    <!-- PM Tasks Modal -->
+    <UModal v-model:open="showTasksModal" :ui="{ content: 'max-w-lg' }">
+      <template #content>
+        <div class="w-full max-w-lg rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div>
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ activePmPlan?.pm_id }} — Tasks</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">Manage the checklist of tasks for this PM plan</p>
+            </div>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showTasksModal = false" />
+          </div>
+
+          <div class="p-6 space-y-4">
+            <div class="flex gap-2">
+              <UInput v-model="newTaskText" placeholder="New task" class="w-full" @keyup.enter="addTask" />
+              <UButton :loading="addingTask" icon="i-heroicons-plus" @click="addTask">Add</UButton>
+            </div>
+            <div v-if="loadingTasks" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Loading…</div>
+            <ul v-else class="divide-y divide-slate-100 dark:divide-slate-800">
+              <li v-for="t in pmTasks" :key="t.id" class="flex items-center justify-between py-2 text-sm">
+                <span class="text-slate-700 dark:text-slate-200">{{ t.task }}</span>
+                <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteTask(t.id!)" />
+              </li>
+            </ul>
+            <p v-if="!loadingTasks && !pmTasks.length" class="text-sm text-slate-400 dark:text-slate-500">No tasks yet.</p>
+          </div>
+        </div>
       </template>
     </UModal>
 

@@ -1022,29 +1022,39 @@ const mtbfLineOpts = computed(() => ({
 }))
 
 // ── Location Analysis ──────────────────────────────────────────
-const selectedLocationId = ref<number | null>(null)
+const selectedLocationId = ref<number | 'all' | null>('all')
 const locationMonthlyDowntimeData = ref<Record<string, number>>({})
-watch(selectedLocationId, async (id) => {
+watch(selectedLocationId, async (id: number | 'all' | null) => {
   locationMonthlyDowntimeData.value = id
-    ? await get<Record<string, number>>(`/downtimes/monthly-by-location/${id}?months=12`).catch(() => ({}))
+    ? await get<Record<string, number>>(
+        id === 'all'
+          ? `/downtimes/monthly-by-location/all?months=12`
+          : `/downtimes/monthly-by-location/${id}?months=12`,
+      ).catch(() => ({}))
     : {}
 }, { immediate: true })
+
+const allLocationsSelected = computed(() => selectedLocationId.value === 'all')
 
 const selectedLocationObj = computed(() =>
   (locations.value ?? []).find(l => l.location_id === selectedLocationId.value) ?? null
 )
 
-const locationSelectOptions = computed(() =>
-  (locations.value ?? [])
+const locationSelectOptions = computed(() => [
+  { label: 'All Locations', value: 'all' as const },
+  ...(locations.value ?? [])
+    .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(l => ({
       label: `${l.name} (${l.typ === 'depot' ? 'Depot' : 'Redemption Centre'})`,
       value: l.location_id,
-    }))
-)
+    })),
+])
 
 const locationAssets = computed(() =>
-  (allAssets.value ?? []).filter(a => a.location_id === selectedLocationId.value)
+  allLocationsSelected.value
+    ? (allAssets.value ?? [])
+    : (allAssets.value ?? []).filter(a => a.location_id === selectedLocationId.value)
 )
 
 const locationAssetIds = computed(() => new Set(locationAssets.value.map(a => a.asset_id)))
@@ -2218,7 +2228,7 @@ function downloadBuilderCsv() {
             class="w-full"
           />
         </div>
-        <p v-if="selectedLocationObj" class="text-xs text-slate-400 dark:text-slate-500">
+        <p v-if="selectedLocationObj || allLocationsSelected" class="text-xs text-slate-400 dark:text-slate-500">
           {{ locationAssets.length }} asset{{ locationAssets.length !== 1 ? 's' : '' }} ·
           {{ locationDowntimes.length }} downtime events ·
           {{ locationWorkOrders.length }} work orders
@@ -2233,7 +2243,7 @@ function downloadBuilderCsv() {
       </div>
 
       <!-- Location detail panels -->
-      <template v-else-if="selectedLocationObj">
+      <template v-else-if="selectedLocationObj || allLocationsSelected">
 
         <!-- ── Location header card ──────────────────────────────── -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
@@ -2243,20 +2253,27 @@ function downloadBuilderCsv() {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ selectedLocationObj.name }}</h2>
-                <UBadge color="neutral" variant="soft" size="sm">{{ locTypLabel(selectedLocationObj.typ) }}</UBadge>
+                <h2 class="text-lg font-bold text-slate-900 dark:text-slate-100">{{ allLocationsSelected ? 'All Locations' : selectedLocationObj.name }}</h2>
+                <UBadge v-if="selectedLocationObj" color="neutral" variant="soft" size="sm">{{ locTypLabel(selectedLocationObj.typ) }}</UBadge>
+                <UBadge v-else color="neutral" variant="soft" size="sm">{{ locations?.length ?? 0 }} locations</UBadge>
               </div>
-              <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{{ selectedLocationObj.parish }}</p>
+              <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{{ allLocationsSelected ? 'Aggregated across every depot & redemption centre' : selectedLocationObj.parish }}</p>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-x-6 gap-y-3 px-6 py-4 sm:grid-cols-4">
-            <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Supervisor</p>
-              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.supervisor }}</p>
-            </div>
-            <div>
-              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Contact</p>
-              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.contact_no }}</p>
+            <template v-if="selectedLocationObj">
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Supervisor</p>
+                <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.supervisor }}</p>
+              </div>
+              <div>
+                <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Contact</p>
+                <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ selectedLocationObj.contact_no }}</p>
+              </div>
+            </template>
+            <div v-else>
+              <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Locations</p>
+              <p class="mt-0.5 text-sm text-slate-700 dark:text-slate-300">{{ locations?.length ?? 0 }}</p>
             </div>
             <div>
               <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">Total Assets</p>
@@ -2341,7 +2358,7 @@ function downloadBuilderCsv() {
             <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
               <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Baler Performance</h3>
               <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
-                {{ locationAssets.filter(a => a.category === 'baler').length }} baler{{ locationAssets.filter(a => a.category === 'baler').length !== 1 ? 's' : '' }} at this location — lifetime bale loss
+                {{ locationAssets.filter(a => a.category === 'baler').length }} baler{{ locationAssets.filter(a => a.category === 'baler').length !== 1 ? 's' : '' }} {{ allLocationsSelected ? 'across all locations' : 'at this location' }} — lifetime bale loss
               </p>
             </div>
             <div class="space-y-4 px-5 py-5">
@@ -2381,8 +2398,8 @@ function downloadBuilderCsv() {
 
         </div>
 
-        <!-- ── Asset list at location ─────────────────────────────── -->
-        <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+        <!-- ── Asset list at location (per-location only) ─────────── -->
+        <div v-if="selectedLocationObj" class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
           <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
             <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Assets at this Location</h3>
           </div>

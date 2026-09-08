@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { AssetPM } from "~/types"
+import type { AssetPM, PmTask } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAllPMs, getPM, createPM, updatePM, removePM, getPlans } = useMaintenance()
+const { getAllPMs, getPM, createPM, updatePM, removePM, getPlans, getTasksByPlan } = useMaintenance()
 const { getAll: getAssets } = useAssets()
 
 const { data: assetPMs, refresh } = await useAsyncData("asset-pms", () => getAllPMs())
@@ -51,15 +51,36 @@ const isEditing = ref(false)
 const editId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
+const modalTab = ref<"details" | "tasks">("details")
 
 const defaultForm = (): Partial<AssetPM> => ({ active: true })
 const form = ref<Partial<AssetPM>>(defaultForm())
+
+// ── Read-only task checklist for the selected PM plan ─────────
+const pmTasks = ref<PmTask[]>([])
+const loadingTasks = ref(false)
+
+watch(() => form.value.pm_plan_id, async (planId) => {
+  if (!planId) {
+    pmTasks.value = []
+    return
+  }
+  loadingTasks.value = true
+  try {
+    pmTasks.value = await getTasksByPlan(planId)
+  } catch {
+    pmTasks.value = []
+  } finally {
+    loadingTasks.value = false
+  }
+})
 
 function openCreate() {
   form.value = defaultForm()
   isEditing.value = false
   editId.value = null
   formError.value = null
+  modalTab.value = "details"
   showModal.value = true
 }
 
@@ -68,6 +89,7 @@ async function openEdit(id: number) {
   isEditing.value = true
   editId.value = id
   formError.value = null
+  modalTab.value = "details"
   showModal.value = true
 }
 
@@ -206,7 +228,21 @@ async function confirmDelete() {
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
-          <div class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
+
+          <div class="flex gap-2 border-b border-slate-100 dark:border-slate-800 px-6">
+            <button
+              v-for="t in [{ label: 'Details', value: 'details' }, { label: `Tasks${pmTasks.length ? ` (${pmTasks.length})` : ''}`, value: 'tasks' }]"
+              :key="t.value"
+              type="button"
+              class="border-b-2 px-1 py-2.5 text-sm font-medium transition-colors"
+              :class="modalTab === t.value ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
+              @click="modalTab = t.value as 'details' | 'tasks'"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+
+          <div v-show="modalTab === 'details'" class="grid grid-cols-2 gap-x-5 gap-y-4 px-6 py-5">
             <UFormField label="Asset" required class="col-span-2">
               <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
             </UFormField>
@@ -223,6 +259,24 @@ async function confirmDelete() {
               <UCheckbox v-model="form.active" label="Schedule is active" />
             </UFormField>
           </div>
+
+          <div v-show="modalTab === 'tasks'" class="px-6 py-5">
+            <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">
+              Checklist from the selected PM plan. Edit tasks in Settings &rsaquo; PM Plans.
+            </p>
+            <div v-if="!form.pm_plan_id" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+              Select a PM plan on the Details tab to see its tasks.
+            </div>
+            <div v-else-if="loadingTasks" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">Loading…</div>
+            <ul v-else-if="pmTasks.length" class="divide-y divide-slate-100 dark:divide-slate-800">
+              <li v-for="t in pmTasks" :key="t.id" class="flex items-start gap-2 py-2 text-sm text-slate-700 dark:text-slate-200">
+                <UIcon name="i-heroicons-check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-slate-300 dark:text-slate-600" />
+                <span>{{ t.task }}</span>
+              </li>
+            </ul>
+            <p v-else class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">No tasks defined for this PM plan.</p>
+          </div>
+
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
           <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>

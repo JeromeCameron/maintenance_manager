@@ -29,7 +29,7 @@ from routers.inventory import (
 )
 from routers.invoice import router as invoice_router
 from routers.issues import router as issue_router
-from routers.maintenance import asset_pm_router, pm_plan_router
+from routers.maintenance import asset_pm_router, pm_plan_router, pm_task_router
 from routers.po import router as po_router
 from routers.supplier import router as supplier_router
 from routers.tasks import router as task_router
@@ -79,6 +79,7 @@ app.include_router(work_order_part_router, dependencies=[Depends(write_on_write)
 app.include_router(downtime_cause_router, dependencies=[Depends(write_on_write)])
 app.include_router(downtime_router, dependencies=[Depends(write_on_write)])
 app.include_router(pm_plan_router, dependencies=[Depends(write_on_write)])
+app.include_router(pm_task_router, dependencies=[Depends(write_on_write)])
 app.include_router(asset_pm_router, dependencies=[Depends(write_on_write)])
 app.include_router(inspection_template_router, dependencies=[Depends(write_on_write)])
 app.include_router(

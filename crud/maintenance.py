@@ -3,7 +3,7 @@ from typing import Optional, Sequence
 
 from sqlmodel import Session, select
 
-from schema.models import AssetPM, PmPlans
+from schema.models import AssetPM, PmPlans, PmTask
 from utils.pm_schedule import next_service_date
 from utils.utils import clean_update_payload
 
@@ -55,6 +55,30 @@ def delete_pm_plan(session: Session, pm_id: str) -> bool:
     if pm is None:
         return False
     session.delete(pm)
+    session.commit()
+    return True
+
+
+# ------------------------------------------------------------------
+# PM Tasks
+
+
+def get_tasks_by_pm(session: Session, pm_id: str) -> Sequence[PmTask]:
+    return session.exec(select(PmTask).where(PmTask.pm_id == pm_id)).all()
+
+
+def add_pm_task(session: Session, task: PmTask) -> PmTask:
+    session.add(task)
+    session.commit()
+    session.refresh(task)
+    return task
+
+
+def delete_pm_task(session: Session, task_id: int) -> bool:
+    task = session.get(PmTask, task_id)
+    if task is None:
+        return False
+    session.delete(task)
     session.commit()
     return True
 

@@ -382,12 +382,15 @@ async def get_monthly_downtime_by_asset(
     return totals
 
 
-@router.get("/monthly-by-location/{location_id}", status_code=status.HTTP_200_OK)
-async def get_monthly_downtime_by_location(
-    location_id: int,
-    months: int = Query(default=12, ge=1, le=24),
-    session: Session = Depends(get_session),
+def _monthly_downtime_map(
+    session: Session, months: int, asset_ids: set | None = None
 ) -> dict[str, float]:
+    """Trailing-``months`` map of ``{"YYYY-MM": downtime_hours}``.
+
+    ``asset_ids`` restricts the tally to those assets; ``None`` means "every
+    downtime" (used for the all-locations rollup, which also picks up rows whose
+    asset has no location).
+    """
     today = today_local()
     holidays = {h.holiday_date for h in get_holidays(session)}
 
@@ -400,14 +403,9 @@ async def get_monthly_downtime_by_location(
             y -= 1
         month_set.add(f"{y}-{m:02d}")
 
-    location_asset_ids = {
-        a.asset_id
-        for a in session.exec(sql_select(Asset).where(Asset.location_id == location_id)).all()
-    }
-
     totals: dict[str, float] = {}
     for dt in downtimes.get_downtimes(session):
-        if dt.asset_id not in location_asset_ids:
+        if asset_ids is not None and dt.asset_id not in asset_ids:
             continue
         if dt.start_date is None or dt.start_time is None:
             continue
@@ -424,6 +422,33 @@ async def get_monthly_downtime_by_location(
                 totals[key] = round(totals.get(key, 0.0) + seg["hours"], 2)
 
     return totals
+
+
+@router.get("/monthly-by-location/all", status_code=status.HTTP_200_OK)
+async def get_monthly_downtime_all_locations(
+    months: int = Query(default=12, ge=1, le=24),
+    session: Session = Depends(get_session),
+) -> dict[str, float]:
+    cache_key = f"downtime:metrics:by-loc-all:{months}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    totals = _monthly_downtime_map(session, months, None)
+    cache.set(cache_key, totals, ttl_seconds=_METRICS_TTL)
+    return totals
+
+
+@router.get("/monthly-by-location/{location_id}", status_code=status.HTTP_200_OK)
+async def get_monthly_downtime_by_location(
+    location_id: int,
+    months: int = Query(default=12, ge=1, le=24),
+    session: Session = Depends(get_session),
+) -> dict[str, float]:
+    location_asset_ids = {
+        a.asset_id
+        for a in session.exec(sql_select(Asset).where(Asset.location_id == location_id)).all()
+    }
+    return _monthly_downtime_map(session, months, location_asset_ids)
 
 
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[Downtime])

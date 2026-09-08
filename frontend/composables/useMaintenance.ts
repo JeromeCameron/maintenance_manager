@@ -1,4 +1,4 @@
-import type { AssetPM, PmPlans } from "~/types"
+import type { AssetPM, PmPlans, PmTask } from "~/types"
 
 export function useMaintenance() {
   const { get, post, put, del } = useApi()
@@ -16,5 +16,12 @@ export function useMaintenance() {
   const updatePlan = (id: string, data: PmPlans) => put<PmPlans>(`/maintenance/pm-plans/${id}`, data)
   const removePlan = (id: string) => del(`/maintenance/pm-plans/${id}`)
 
-  return { getAllPMs, getPM, getPMsByAsset, createPM, updatePM, removePM, getPlans, getPlan, createPlan, updatePlan, removePlan }
+  const getTasksByPlan = (pmId: string) => get<PmTask[]>(`/maintenance/pm-tasks/pm/${pmId}`)
+  const createTask = (data: PmTask) => post<PmTask>("/maintenance/pm-tasks", data)
+  const removeTask = (id: number) => del(`/maintenance/pm-tasks/${id}`)
+
+  return {
+    getAllPMs, getPM, getPMsByAsset, createPM, updatePM, removePM, getPlans, getPlan, createPlan, updatePlan, removePlan,
+    getTasksByPlan, createTask, removeTask,
+  }
 }

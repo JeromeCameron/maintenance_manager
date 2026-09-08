@@ -3,9 +3,10 @@ from sqlmodel import Session
 
 import crud.maintenance as maintenance
 from schema.database import get_session
-from schema.models import AssetPM, PmPlans
+from schema.models import AssetPM, PmPlans, PmTask
 
 pm_plan_router = APIRouter(prefix="/api/maintenance/pm-plans", tags=["PmPlans"])
+pm_task_router = APIRouter(prefix="/api/maintenance/pm-tasks", tags=["PmTask"])
 asset_pm_router = APIRouter(prefix="/api/maintenance/asset-pms", tags=["AssetPM"])
 
 
@@ -44,6 +45,27 @@ async def delete_pm_plan(pm_id: str, session: Session = Depends(get_session)):
     deleted = maintenance.delete_pm_plan(session, pm_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PM plan not found")
+
+
+# ------------------------------------------------------------------
+# PM Task endpoints
+
+
+@pm_task_router.get("/pm/{pm_id}", status_code=status.HTTP_200_OK, response_model=list[PmTask])
+async def get_tasks_by_pm(pm_id: str, session: Session = Depends(get_session)):
+    return maintenance.get_tasks_by_pm(session, pm_id)
+
+
+@pm_task_router.post("", status_code=status.HTTP_201_CREATED, response_model=PmTask)
+async def add_pm_task(task: PmTask, session: Session = Depends(get_session)):
+    return maintenance.add_pm_task(session, task)
+
+
+@pm_task_router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pm_task(task_id: int, session: Session = Depends(get_session)):
+    deleted = maintenance.delete_pm_task(session, task_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="PM task not found")
 
 
 # ------------------------------------------------------------------

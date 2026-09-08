@@ -273,6 +273,12 @@ export interface PmPlans {
   notes?: string
 }
 
+export interface PmTask {
+  id?: number
+  pm_id?: string
+  task: string
+}
+
 export interface AssetPM {
   id?: number
   asset_id?: string
