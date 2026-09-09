@@ -1,9 +1,44 @@
+from collections.abc import Iterator
 from datetime import date, datetime, time, timedelta
 
 from sqlmodel import Session
 
 from crud.utility import get_holidays
-from utils.utils import get_shift_overlap, is_work_day, last_day_of_month, now_local, today_local
+from utils.utils import get_shift_overlap, is_work_day, now_local
+
+
+def _iter_shift_overlaps(
+    effective_start: datetime,
+    effective_end: datetime,
+    holidays: set[date],
+    shift_asset: bool,
+) -> Iterator[tuple[date, float]]:
+    """Yield ``(day, hours)`` for every work-day shift block that overlaps
+    ``[effective_start, effective_end]``.
+
+    Each work day contributes its day shift (08:00–16:00) and, for shift assets,
+    its night shift (22:00 → 06:00 the next day) as a single block. The night
+    shift is attributed to the calendar day it *starts* on, so a block is never
+    counted twice and never split across two months.
+    """
+    # Start one day before to capture a night shift that began the prior evening.
+    curr_date = effective_start.date() - timedelta(days=1)
+    while curr_date <= effective_end.date():
+        if is_work_day(curr_date, holidays):
+            yield curr_date, get_shift_overlap(
+                datetime.combine(curr_date, time(8, 0)),
+                datetime.combine(curr_date, time(16, 0)),
+                effective_start,
+                effective_end,
+            )
+            if shift_asset:
+                yield curr_date, get_shift_overlap(
+                    datetime.combine(curr_date, time(22, 0)),
+                    datetime.combine(curr_date + timedelta(days=1), time(6, 0)),
+                    effective_start,
+                    effective_end,
+                )
+        curr_date += timedelta(days=1)
 
 
 def get_production_downtime_hours(
@@ -17,31 +52,9 @@ def get_production_downtime_hours(
     effective_start = datetime.combine(start_date, start_time)
     effective_end = datetime.combine(end_date, end_time) if end_date and end_time else now_local()
 
-    total_hours = 0.0
-    # Start one day before to capture night shifts that began the prior evening
-    curr_date = effective_start.date() - timedelta(days=1)
-
-    while curr_date <= effective_end.date():
-        if is_work_day(curr_date, holidays):
-            # Day shift: 08:00–16:00
-            total_hours += get_shift_overlap(
-                datetime.combine(curr_date, time(8, 0)),
-                datetime.combine(curr_date, time(16, 0)),
-                effective_start,
-                effective_end,
-            )
-
-            # Night shift: 22:00 to 06:00 next day as a single block
-            if shift_asset:
-                total_hours += get_shift_overlap(
-                    datetime.combine(curr_date, time(22, 0)),
-                    datetime.combine(curr_date + timedelta(days=1), time(6, 0)),
-                    effective_start,
-                    effective_end,
-                )
-
-        curr_date += timedelta(days=1)
-
+    total_hours = sum(
+        hours for _, hours in _iter_shift_overlaps(effective_start, effective_end, holidays, shift_asset)
+    )
     return round(total_hours, 2)
 
 
@@ -54,46 +67,31 @@ def split_downtime_by_month(
     shift_asset: bool = False,
     holidays: set[date] | None = None,
 ) -> list[dict]:
+    """Split an event's production downtime hours across the calendar months it
+    spans. ``sum(seg["hours"] for seg in ...)`` equals
+    ``get_production_downtime_hours`` for the whole event (both walk the same
+    shift blocks; the split just buckets each block by the month of the day it
+    starts on)."""
     if holidays is None:
         holidays = {h.holiday_date for h in get_holidays(session)}
 
+    effective_start = datetime.combine(start_date, start_time)
     if end_date is None or end_time is None:
-        effective_end_date = today_local()
-        effective_end_time = now_local().time()
+        effective_end = now_local()
     else:
-        effective_end_date = end_date
-        effective_end_time = end_time
+        effective_end = datetime.combine(end_date, end_time)
 
-    month_count = (
-        (effective_end_date.year - start_date.year) * 12
-        + effective_end_date.month - start_date.month + 1
-    )
-
-    if month_count <= 0:
+    if effective_end <= effective_start:
         return []
 
-    results = []
-    month_start = date(start_date.year, start_date.month, 1)
+    buckets: dict[tuple[int, int], float] = {}
+    for day, hours in _iter_shift_overlaps(effective_start, effective_end, holidays, shift_asset):
+        if hours <= 0:
+            continue
+        key = (day.year, day.month)
+        buckets[key] = buckets.get(key, 0.0) + hours
 
-    for i in range(1, month_count + 1):
-        month_last = last_day_of_month(month_start)
-
-        seg_start_date = start_date if i == 1 else month_start
-        seg_start_time = start_time if i == 1 else time(0, 0, 0)
-
-        seg_end_date = effective_end_date if i == month_count else month_last + timedelta(days=1)
-        seg_end_time = effective_end_time if i == month_count else time(6, 0, 0)
-
-        results.append({
-            "month": month_start.strftime("%B %Y"),
-            "hours": get_production_downtime_hours(
-                seg_start_date, seg_start_time,
-                holidays,
-                seg_end_date, seg_end_time,
-                shift_asset,
-            ),
-        })
-
-        month_start = month_last + timedelta(days=1)
-
-    return results
+    return [
+        {"month": date(y, m, 1).strftime("%B %Y"), "hours": round(hrs, 2)}
+        for (y, m), hrs in sorted(buckets.items())
+    ]

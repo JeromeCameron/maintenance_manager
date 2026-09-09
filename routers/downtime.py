@@ -382,6 +382,42 @@ async def get_monthly_downtime_by_asset(
     return totals
 
 
+@router.get("/monthly-split", status_code=status.HTTP_200_OK)
+async def get_downtime_monthly_split(session: Session = Depends(get_session)) -> list[dict]:
+    """One flat row per downtime event / calendar-month segment.
+
+    Each event that spans a month boundary is split into per-month production-hour
+    segments via ``split_downtime_by_month`` (same shift/holiday-aware logic the
+    monthly downtime endpoints use). Consumed by the bale-loss CSV reports so that
+    lost bales / weight / value land in the months the downtime actually occurred.
+    """
+    holidays = {h.holiday_date for h in get_holidays(session)}
+    out: list[dict] = []
+    for dt in downtimes.get_downtimes(session):
+        if dt.start_date is None or dt.start_time is None:
+            continue
+        for seg in split_downtime_by_month(
+            session, dt.start_date, dt.start_time, dt.end_date, dt.end_time,
+            dt.shift_asset, holidays=holidays,
+        ):
+            try:
+                month = datetime.strptime(seg["month"], "%B %Y").date().strftime("%Y-%m")
+            except ValueError:
+                continue
+            out.append({
+                "downtime_id": dt.downtime_id,
+                "asset_id": dt.asset_id,
+                "start_date": dt.start_date.isoformat(),
+                "start_time": dt.start_time.isoformat() if dt.start_time else None,
+                "end_date": dt.end_date.isoformat() if dt.end_date else None,
+                "end_time": dt.end_time.isoformat() if dt.end_time else None,
+                "planned": dt.planned,
+                "month": month,
+                "hours": seg["hours"],
+            })
+    return out
+
+
 def _monthly_downtime_map(
     session: Session, months: int, asset_ids: set | None = None
 ) -> dict[str, float]:

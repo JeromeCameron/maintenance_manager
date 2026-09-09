@@ -109,7 +109,7 @@ function rateAtDate(dateStr: string | null | undefined): number {
 }
 
 function calcBales(events: Downtime[]) {
-  let bales = 0, value = 0
+  let bales = 0, weight = 0, value = 0
   for (const d of events) {
     if (!d.asset_id || !d.downtime_hours) continue
     const modelNo = assetModelNoMap.value[d.asset_id]
@@ -117,10 +117,11 @@ function calcBales(events: Downtime[]) {
     if (!specs) continue
     const lost = d.downtime_hours * (60 / specs.bale_time)
     bales += lost
+    weight += lost * specs.bale_weight
     const rate = rateAtDate(d.start_date ?? d.log_date)
     value += lost * specs.bale_weight * rate
   }
-  return { bales: Math.round(bales), value }
+  return { bales: Math.round(bales), weight, value }
 }
 
 const balesStats   = computed(() => calcBales(filteredDowntimes.value))
@@ -327,28 +328,42 @@ async function downloadIssues() {
   const rows = (issues ?? []).filter((i) => inRange(i.reported_at, from, to)).map((i) => [i.id, i.asset_id, i.severity, i.status, i.reported_by ? (userMap[i.reported_by] ?? i.reported_by) : "", i.reported_at, i.work_order_id ?? "", i.description])
   triggerDownload(`issues-${slugDate(to)}.csv`, toCSV(["ID", "Asset", "Severity", "Status", "Reported By", "Reported At", "Work Order ID", "Description"], rows))
 }
+// One row per downtime event × calendar-month segment. Events that cross a month
+// boundary are split server-side by production hours (same logic as the monthly
+// downtime endpoints), so bale losses land in the months they actually occurred.
+interface DowntimeSplitSeg {
+  downtime_id: number
+  asset_id: string | null
+  start_date: string | null
+  start_time: string | null
+  end_date: string | null
+  end_time: string | null
+  planned: boolean | null
+  month: string          // "YYYY-MM"
+  hours: number
+}
+
 async function downloadBalesLost() {
-  const dt = await get<Downtime[]>("/downtimes")
+  const segs = await get<DowntimeSplitSeg[]>("/downtimes/monthly-split")
   const { from, to } = dateRange.value
-  const filtered = (dt ?? []).filter((d) => inRange(d.start_date ?? d.log_date, from, to))
   const monthMap = new Map<string, Downtime[]>()
-  for (const d of filtered) {
-    const key = (d.start_date ?? d.log_date ?? "").slice(0, 7)
-    if (!key) continue
-    if (!monthMap.has(key)) monthMap.set(key, [])
-    monthMap.get(key)!.push(d)
+  for (const s of segs ?? []) {
+    if (!s.month || !inRange(s.start_date, from, to)) continue
+    if (!monthMap.has(s.month)) monthMap.set(s.month, [])
+    // Pseudo-event: calcBales only reads asset_id, downtime_hours and start_date.
+    monthMap.get(s.month)!.push({ asset_id: s.asset_id, downtime_hours: s.hours, start_date: s.start_date } as Downtime)
   }
   const rows = [...monthMap.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, events]) => {
-      const { bales, value } = calcBales(events)
-      return [month, bales, value.toFixed(2)]
+      const { bales, weight, value } = calcBales(events)
+      return [month, bales, Math.round(weight), value.toFixed(2)]
     })
-  triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Value (USD)"], rows))
+  triggerDownload(`bales-lost-${slugDate(to)}.csv`, toCSV(["Month", "Bales Lost", "Bale Weight Lost (lb)", "Value (USD)"], rows))
 }
 
 async function downloadBalerDowntimeDetail() {
-  const dt = await get<Downtime[]>("/downtimes")
+  const segs = await get<DowntimeSplitSeg[]>("/downtimes/monthly-split")
   const { from, to } = dateRange.value
 
   const aliasMap: Record<string, string> = {}
@@ -360,23 +375,29 @@ async function downloadBalerDowntimeDetail() {
       .map(a => a.asset_id)
   )
 
-  const rows = (dt ?? [])
-    .filter(d => d.asset_id && balerIds.has(d.asset_id) && inRange(d.start_date ?? d.log_date, from, to))
-    .sort((a, b) => (a.asset_id ?? "").localeCompare(b.asset_id ?? "") || (a.start_date ?? "").localeCompare(b.start_date ?? ""))
-    .map(d => {
-      const specs = modelSpecMap.value[assetModelNoMap.value[d.asset_id!]] ?? null
-      const balesLost = specs && d.downtime_hours ? d.downtime_hours * (60 / specs.bale_time) : 0
-      const rate = rateAtDate(d.start_date ?? d.log_date)
-      const valueLost = balesLost * (specs?.bale_weight ?? 0) * rate
+  const rows = (segs ?? [])
+    .filter(s => s.asset_id && balerIds.has(s.asset_id) && inRange(s.start_date, from, to))
+    .sort((a, b) =>
+      (a.asset_id ?? "").localeCompare(b.asset_id ?? "")
+      || (a.start_date ?? "").localeCompare(b.start_date ?? "")
+      || a.month.localeCompare(b.month))
+    .map(s => {
+      const specs = modelSpecMap.value[assetModelNoMap.value[s.asset_id!]] ?? null
+      const balesLost = specs && s.hours ? s.hours * (60 / specs.bale_time) : 0
+      const weightLost = balesLost * (specs?.bale_weight ?? 0)
+      const rate = rateAtDate(s.start_date)
+      const valueLost = weightLost * rate
       return [
-        d.asset_id,
-        aliasMap[d.asset_id!] ?? "",
-        d.start_date ?? "",
-        d.start_time ?? "",
-        d.end_date ?? "",
-        d.end_time ?? "",
-        d.downtime_hours ?? "",
+        s.asset_id,
+        aliasMap[s.asset_id!] ?? "",
+        s.month,
+        s.start_date ?? "",
+        s.start_time ?? "",
+        s.end_date ?? "",
+        s.end_time ?? "",
+        s.hours,
         Math.round(balesLost),
+        Math.round(weightLost),
         rate.toFixed(4),
         valueLost.toFixed(2),
       ]
@@ -384,7 +405,7 @@ async function downloadBalerDowntimeDetail() {
 
   triggerDownload(
     `baler-downtime-detail-${slugDate(to)}.csv`,
-    toCSV(["Asset ID", "Alias", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Bales Lost", "Rate ($/lb)", "Value Lost ($)"], rows)
+    toCSV(["Asset ID", "Alias", "Month", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Bales Lost", "Bale Weight Lost (lb)", "Rate ($/lb)", "Value Lost ($)"], rows)
   )
 }
 
@@ -628,8 +649,8 @@ const reports: ReportDef[] = [
   { id: "work-orders",  name: "Work Orders Summary",            description: "All work orders with status, priority, cost and hours.",                      category: "Operations",  categoryColor: "info",    icon: "i-heroicons-clipboard-document-list",    dateNote: "By issue date",       download: makeDownloader("work-orders",  downloadWorkOrders) },
   { id: "downtime",     name: "Downtime Log",                   description: "Downtime events with root cause, action and hours lost.",                     category: "Operations",  categoryColor: "info",    icon: "i-heroicons-exclamation-triangle",        dateNote: "By start date",       download: makeDownloader("downtime",     downloadDowntime) },
   { id: "issues",       name: "Issues Log",                     description: "Reported issues with severity, status and resolution.",                       category: "Operations",  categoryColor: "info",    icon: "i-heroicons-flag",                        dateNote: "By reported date",    download: makeDownloader("issues",       downloadIssues) },
-  { id: "bales-lost",         name: "Bales Lost",                     description: "Monthly bales lost and estimated value using historical commodity rates.",                                              category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",         downloadBalesLost) },
-  { id: "baler-downtime-detail", name: "Baler Downtime Detail",          description: "Per-event downtime log for balers with start/end dates, hours lost, bales lost and commodity rate at time of event.", category: "Operations",  categoryColor: "info",    icon: "i-heroicons-circle-stack",                dateNote: "By start date",       download: makeDownloader("baler-downtime-detail", downloadBalerDowntimeDetail) },
+  { id: "bales-lost",         name: "Bales Lost",                     description: "Monthly bales lost, bale weight lost and estimated value using historical commodity rates. Downtime spanning a month boundary is split across months by production hours.", category: "Operations",  categoryColor: "info",    icon: "i-heroicons-cube",                        dateNote: "Monthly aggregation", download: makeDownloader("bales-lost",         downloadBalesLost) },
+  { id: "baler-downtime-detail", name: "Baler Downtime Detail",          description: "Downtime log for balers, one row per baler per month: hours lost, bales lost, bale weight lost and commodity rate at time of event. Events spanning a month boundary are split across months by production hours.", category: "Operations",  categoryColor: "info",    icon: "i-heroicons-circle-stack",                dateNote: "By month, split across boundaries", download: makeDownloader("baler-downtime-detail", downloadBalerDowntimeDetail) },
   { id: "reliability",  name: "Reliability Summary (MTTR/MTBF)", description: "Monthly MTTR and MTBF breakdown over the selected period.",                  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-chart-bar",                   dateNote: "Monthly aggregation", download: makeDownloader("reliability",  downloadReliability) },
   { id: "assets",       name: "Asset Inventory",                description: "Full asset register with status, ownership and location.",                    category: "Assets",      categoryColor: "success", icon: "i-heroicons-cube",           dateNote: "Current state",       download: makeDownloader("assets",       downloadAssets) },
   { id: "pm-schedule",  name: "PM Schedule",                    description: "Preventative maintenance schedules with last and next service.",              category: "Maintenance", categoryColor: "neutral", icon: "i-heroicons-calendar-days",               dateNote: "By service dates",    download: makeDownloader("pm-schedule",  downloadPMSchedule) },
