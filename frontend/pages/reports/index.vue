@@ -388,6 +388,7 @@ async function downloadBalerDowntimeDetail() {
       const rate = rateAtDate(s.start_date)
       const valueLost = weightLost * rate
       return [
+        s.downtime_id,
         s.asset_id,
         aliasMap[s.asset_id!] ?? "",
         s.month,
@@ -405,7 +406,7 @@ async function downloadBalerDowntimeDetail() {
 
   triggerDownload(
     `baler-downtime-detail-${slugDate(to)}.csv`,
-    toCSV(["Asset ID", "Alias", "Month", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Bales Lost", "Bale Weight Lost (lb)", "Rate ($/lb)", "Value Lost ($)"], rows)
+    toCSV(["Downtime ID", "Asset ID", "Alias", "Month", "Start Date", "Start Time", "End Date", "End Time", "Downtime Hours", "Bales Lost", "Bale Weight Lost (lb)", "Rate ($/lb)", "Value Lost ($)"], rows)
   )
 }
 
