@@ -104,11 +104,14 @@ const search = ref("")
 const statusFilter = ref<TaskStatus | null>(null)
 const priorityFilter = ref<TaskPriority | null>(null)
 const assignedToMeOnly = ref(false)
+// Completed tasks clutter the list once a backlog builds up, so keep them tucked
+// away by default; a toggle lets you bring them back into view.
+const showCompleted = ref(false)
 
 const statusFilterOptions = [{ label: "All statuses", value: null }, ...taskStatusOptions]
 const priorityFilterOptions = [{ label: "All priorities", value: null }, ...taskPriorityOptions]
 
-const filtered = computed(() =>
+const filteredBase = computed(() =>
   (tasksData.value ?? []).filter((t) => {
     const q = search.value.toLowerCase()
     const matchSearch = !q || t.title.toLowerCase().includes(q) || (t.description ?? "").toLowerCase().includes(q)
@@ -119,10 +122,19 @@ const filtered = computed(() =>
   })
 )
 
+// How many completed tasks the toggle is currently hiding (respects the other filters above).
+const completedCount = computed(() => filteredBase.value.filter((t) => t.status === "completed").length)
+
+// Explicitly filtering the status dropdown to "Completed" always shows them, regardless of the toggle.
+const filtered = computed(() =>
+  filteredBase.value.filter((t) => showCompleted.value || statusFilter.value === "completed" || t.status !== "completed")
+)
+
 // Backend already sorts by due_date ascending (nulls last); filtering here preserves that order.
 const groups = computed(() =>
   STATUS_ORDER
     .filter((s) => !statusFilter.value || s === statusFilter.value)
+    .filter((s) => s !== "completed" || showCompleted.value || statusFilter.value === "completed")
     .map((s) => ({
       status: s,
       label: statusLabels[s],
@@ -286,6 +298,15 @@ async function confirmDelete() {
               @click="assignedToMeOnly = !assignedToMeOnly"
             >
               Assigned to me
+            </UButton>
+            <UButton
+              :variant="showCompleted ? 'solid' : 'outline'"
+              size="sm"
+              color="neutral"
+              :icon="showCompleted ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
+              @click="showCompleted = !showCompleted"
+            >
+              {{ showCompleted ? "Hide" : "Show" }} Completed<span v-if="!showCompleted && completedCount"> ({{ completedCount }})</span>
             </UButton>
           </div>
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Task</UButton>

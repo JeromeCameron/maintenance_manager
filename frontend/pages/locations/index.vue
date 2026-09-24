@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import type { Location, Asset, AssetModel, AssetCategory } from "~/types"
+import type { Location, Asset, AssetModel, AssetCategory, AssetScores } from "~/types"
 
 const { isAdmin } = useAuth()
 const { getAll, getOne, create, update, remove } = useLocations()
-const { getByLocation } = useAssets()
+const { getByLocation, getAllScores } = useAssets()
 const { getAll: getAllModels } = useAssetModels()
 
 const { data: locations, refresh } = await useAsyncData("locations", () => getAll())
+const { data: assetScores } = await useAsyncData("all-asset-scores", () => getAllScores())
 
 const search = ref("")
 const filtered = computed(() =>
@@ -108,9 +109,50 @@ const balerInfo = computed(() => {
 })
 
 function fmtWeight(lbs: number): string {
-  const tonnes = lbs / 2204.62
-  return tonnes >= 1 ? `${tonnes.toFixed(1)} t` : `${lbs.toLocaleString()} lbs`
+  return `${Math.round(lbs).toLocaleString()} lb`
 }
+
+// Asset criticality summary (same scoring model as the Assets page: safety +
+// operational + backup + repair + usage, max 12).
+const scoresMap = computed(() => {
+  const m: Record<string, AssetScores> = {}
+  for (const s of assetScores.value ?? []) { if (s.asset_id) m[s.asset_id] = s }
+  return m
+})
+
+function criticalityTotal(s: AssetScores): number {
+  return (s.safety_score ?? 0) + (s.operational_score ?? 0) + (s.backup_score ?? 0) + (s.repair_score ?? 0) + (s.usage_score ?? 0)
+}
+
+function getCriticalityTier(total: number): { label: string; color: string; dot: string } {
+  if (total >= 10) return { label: "Critical", color: "text-red-600 dark:text-red-400",     dot: "bg-red-500" }
+  if (total >= 7)  return { label: "High",     color: "text-orange-500 dark:text-orange-400", dot: "bg-orange-400" }
+  if (total >= 4)  return { label: "Medium",   color: "text-amber-500 dark:text-amber-400",   dot: "bg-amber-400" }
+  return              { label: "Low",      color: "text-green-600 dark:text-green-400",    dot: "bg-green-400" }
+}
+
+const criticalityInfo = computed(() => {
+  const totals = locationAssets.value
+    .map(a => scoresMap.value[a.asset_id])
+    .filter((s): s is AssetScores => !!s)
+    .map(criticalityTotal)
+
+  const avg = totals.length ? totals.reduce((s, t) => s + t, 0) / totals.length : null
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 }
+  for (const total of totals) {
+    if (total >= 10) counts.critical++
+    else if (total >= 7) counts.high++
+    else if (total >= 4) counts.medium++
+    else counts.low++
+  }
+  return {
+    scoredCount: totals.length,
+    unscoredCount: locationAssets.value.length - totals.length,
+    avg,
+    avgTier: avg != null ? getCriticalityTier(Math.round(avg)) : null,
+    counts,
+  }
+})
 
 function openCreate() {
   form.value = defaultForm()
@@ -373,6 +415,45 @@ async function confirmDelete() {
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <!-- Asset Criticality summary -->
+                  <div>
+                    <div class="mb-3 flex items-center justify-between">
+                      <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Asset Criticality</h4>
+                      <p v-if="criticalityInfo.avg != null" class="text-xs font-medium" :class="criticalityInfo.avgTier?.color">
+                        Avg {{ criticalityInfo.avg.toFixed(1) }}/12 · {{ criticalityInfo.avgTier?.label }}
+                      </p>
+                    </div>
+
+                    <div v-if="!criticalityInfo.scoredCount" class="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 px-5 py-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                      No criticality scores recorded for equipment at this location yet
+                    </div>
+
+                    <template v-else>
+                      <div class="grid grid-cols-4 gap-3">
+                        <div class="rounded-xl border border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10 p-3 text-center">
+                          <p class="text-xl font-bold text-red-600 dark:text-red-400">{{ criticalityInfo.counts.critical }}</p>
+                          <p class="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-red-500 dark:text-red-400">Critical</p>
+                        </div>
+                        <div class="rounded-xl border border-orange-200 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/10 p-3 text-center">
+                          <p class="text-xl font-bold text-orange-600 dark:text-orange-400">{{ criticalityInfo.counts.high }}</p>
+                          <p class="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-orange-500 dark:text-orange-400">High</p>
+                        </div>
+                        <div class="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-3 text-center">
+                          <p class="text-xl font-bold text-amber-600 dark:text-amber-400">{{ criticalityInfo.counts.medium }}</p>
+                          <p class="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-500 dark:text-amber-400">Medium</p>
+                        </div>
+                        <div class="rounded-xl border border-green-200 dark:border-green-500/20 bg-green-50 dark:bg-green-500/10 p-3 text-center">
+                          <p class="text-xl font-bold text-green-600 dark:text-green-400">{{ criticalityInfo.counts.low }}</p>
+                          <p class="mt-0.5 text-[11px] font-medium uppercase tracking-wide text-green-500 dark:text-green-400">Low</p>
+                        </div>
+                      </div>
+
+                      <p v-if="criticalityInfo.unscoredCount" class="mt-2 text-xs text-slate-400 dark:text-slate-500">
+                        {{ criticalityInfo.unscoredCount }} asset{{ criticalityInfo.unscoredCount !== 1 ? "s" : "" }} not yet scored
+                      </p>
+                    </template>
                   </div>
 
                   <!-- Baling Potential (only if balers exist) -->

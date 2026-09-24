@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import type { Downtime } from "~/types"
+import type { Downtime, DowntimeFactor } from "~/types"
 
 const { isAdmin } = useAuth()
-const { getAll, getOne, create, update, remove, getCauses } = useDowntime()
+const {
+  getAll, getOne, create, update, remove, getCauses,
+  getFactorTypes, getFactors, getFactorsByDowntime, createFactor, updateFactor, removeFactor,
+} = useDowntime()
 const { getAll: getAssets } = useAssets()
 const { getAll: getWorkOrders } = useWorkOrders()
 
@@ -10,6 +13,29 @@ const { data: downtimes, refresh } = await useAsyncData("downtimes", () => getAl
 const { data: causes } = await useAsyncData("downtime-causes", () => getCauses())
 const { data: assets } = await useAsyncData("assets-select", () => getAssets())
 const { data: workOrders } = await useAsyncData("downtime-work-orders", () => getWorkOrders())
+const { data: factorTypes } = await useAsyncData("downtime-factor-types", () => getFactorTypes())
+const { data: allFactors, refresh: refreshFactors } = await useAsyncData("downtime-all-factors", () => getFactors())
+
+const factorTypeMap = computed(() => {
+  const m: Record<number, string> = {}
+  for (const t of factorTypes.value ?? []) { if (t.factor_type_id != null) m[t.factor_type_id] = t.name }
+  return m
+})
+const factorTypeOptions = computed(() =>
+  (factorTypes.value ?? []).filter((t) => t.active).map((t) => ({ label: t.name, value: t.factor_type_id }))
+)
+
+// Per-downtime rollup for the list badges: how many factors and how many delay hours.
+const factorStats = computed(() => {
+  const m: Record<number, { count: number; hours: number }> = {}
+  for (const f of allFactors.value ?? []) {
+    if (f.downtime_id == null) continue
+    const rec = (m[f.downtime_id] ??= { count: 0, hours: 0 })
+    rec.count++
+    rec.hours += f.delay_hours ?? 0
+  }
+  return m
+})
 
 const causeMap = computed(() => {
   const m: Record<number, string> = {}
@@ -62,15 +88,77 @@ const isEditing = ref(false)
 const editId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
+const modalTab = ref<"details" | "factors">("details")
 
 const defaultForm = (): Partial<Downtime> => ({ planned: false, shift_asset: false })
 const form = ref<Partial<Downtime>>(defaultForm())
+
+// ── Exacerbating factors (only editable once the downtime is saved) ──
+const factors = ref<DowntimeFactor[]>([])
+const emptyFactor = (): Partial<DowntimeFactor> => ({ resolved: false })
+const factorDraft = ref<Partial<DowntimeFactor>>(emptyFactor())
+const editingFactorId = ref<number | null>(null)
+const savingFactor = ref(false)
+const factorError = ref<string | null>(null)
+
+// The backend derives delay_hours (shift/holiday aware) whenever a start date + time are set.
+const factorAutoCalc = computed(() => !!(factorDraft.value.start_date && factorDraft.value.start_time))
+
+const factorDelayHours = computed(() => factors.value.reduce((s, f) => s + (f.delay_hours ?? 0), 0))
+const effectiveRepairHours = computed(() => {
+  const total = form.value.downtime_hours
+  if (total == null) return null
+  return Math.max(0, total - factorDelayHours.value)
+})
+
+function resetFactorDraft() {
+  factorDraft.value = emptyFactor()
+  editingFactorId.value = null
+  factorError.value = null
+}
+
+function startEditFactor(f: DowntimeFactor) {
+  editingFactorId.value = f.id ?? null
+  factorDraft.value = { ...f }
+  factorError.value = null
+}
+
+async function submitFactor() {
+  if (!editId.value) return
+  savingFactor.value = true
+  factorError.value = null
+  try {
+    if (editingFactorId.value) {
+      const updated = await updateFactor(editingFactorId.value, { ...factorDraft.value, downtime_id: editId.value } as DowntimeFactor)
+      factors.value = factors.value.map((f) => (f.id === updated.id ? updated : f))
+    } else {
+      const created = await createFactor({ ...factorDraft.value, downtime_id: editId.value } as DowntimeFactor)
+      factors.value = [...factors.value, created]
+    }
+    resetFactorDraft()
+    await refreshFactors()
+  } catch (e: unknown) {
+    factorError.value = (e as { message?: string }).message ?? "Failed to save factor"
+  } finally {
+    savingFactor.value = false
+  }
+}
+
+async function deleteFactor(id: number) {
+  await removeFactor(id)
+  factors.value = factors.value.filter((f) => f.id !== id)
+  if (editingFactorId.value === id) resetFactorDraft()
+  await refreshFactors()
+}
 
 function openCreate() {
   form.value = defaultForm()
   isEditing.value = false
   editId.value = null
   formError.value = null
+  modalTab.value = "details"
+  factors.value = []
+  resetFactorDraft()
   showModal.value = true
 }
 
@@ -79,7 +167,15 @@ async function openEdit(id: number) {
   isEditing.value = true
   editId.value = id
   formError.value = null
+  modalTab.value = "details"
+  factors.value = []
+  resetFactorDraft()
   showModal.value = true
+  try {
+    factors.value = await getFactorsByDowntime(id)
+  } catch {
+    factors.value = []
+  }
 }
 
 async function save() {
@@ -187,6 +283,14 @@ async function confirmDelete() {
               >{{ d.planned ? 'Planned' : 'Unplanned' }}</span>
               <span v-if="d.repeat_failure" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/30">Repeat</span>
               <span v-if="d.temporary_fix" class="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-purple-50 text-purple-600 ring-1 ring-purple-200 dark:bg-purple-500/10 dark:text-purple-400 dark:ring-purple-500/30">Temp fix</span>
+              <span
+                v-if="factorStats[d.downtime_id]"
+                class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium bg-orange-50 text-orange-600 ring-1 ring-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/30"
+                :title="`${factorStats[d.downtime_id].count} exacerbating factor(s), ${factorStats[d.downtime_id].hours.toFixed(1)}h attributable delay`"
+              >
+                <UIcon name="i-heroicons-clock" class="h-3 w-3" />
+                {{ factorStats[d.downtime_id].hours > 0 ? factorStats[d.downtime_id].hours.toFixed(1) + 'h delay' : factorStats[d.downtime_id].count + ' factor' + (factorStats[d.downtime_id].count > 1 ? 's' : '') }}
+              </span>
             </div>
 
             <!-- Start date -->
@@ -233,10 +337,29 @@ async function confirmDelete() {
             <div class="flex-1">
               <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ isEditing ? "Edit Downtime Record" : "Log Downtime" }}</h3>
               <p class="text-sm text-slate-500 dark:text-slate-400">{{ isEditing ? "Update downtime details" : "Record an equipment downtime event" }}</p>
+              <div v-if="isEditing" class="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+                <span>Total <strong class="text-slate-700 dark:text-slate-200">{{ form.downtime_hours != null ? form.downtime_hours.toFixed(1) : '—' }}h</strong></span>
+                <span>Attributable delay <strong class="text-orange-600 dark:text-orange-400">{{ factorDelayHours.toFixed(1) }}h</strong></span>
+                <span v-if="effectiveRepairHours != null">Effective repair <strong class="text-slate-700 dark:text-slate-200">{{ effectiveRepairHours.toFixed(1) }}h</strong></span>
+              </div>
             </div>
             <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showModal = false" />
           </div>
-          <div class="flex-1 overflow-y-auto px-6 py-5">
+
+          <div class="flex shrink-0 gap-2 border-b border-slate-100 dark:border-slate-800 px-6">
+            <button
+              v-for="t in [{ label: 'Details', value: 'details' }, { label: `Factors${factors.length ? ` (${factors.length})` : ''}`, value: 'factors' }]"
+              :key="t.value"
+              type="button"
+              class="border-b-2 px-1 py-2.5 text-sm font-medium transition-colors"
+              :class="modalTab === t.value ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
+              @click="modalTab = t.value as 'details' | 'factors'"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+
+          <div v-show="modalTab === 'details'" class="flex-1 overflow-y-auto px-6 py-5">
             <div class="grid grid-cols-2 gap-x-5 gap-y-4">
               <UFormField label="Asset">
                 <USelect v-model="form.asset_id" :items="assetOptions" placeholder="Select asset" class="w-full" />
@@ -287,8 +410,94 @@ async function confirmDelete() {
                 <UTextarea v-model="form.corrective_action" :rows="2" class="w-full" />
               </UFormField>
             </div>
+
             <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mt-4" />
           </div>
+
+          <!-- Exacerbating factors ─ needs the downtime's id, so only once it exists -->
+          <div v-show="modalTab === 'factors'" class="flex-1 overflow-y-auto px-6 py-5">
+            <div v-if="!isEditing" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
+              Save this downtime record first to add exacerbating factors.
+            </div>
+            <div v-else class="rounded-lg border border-slate-200 dark:border-slate-700">
+              <div class="border-b border-slate-100 dark:border-slate-800 px-4 py-3">
+                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Exacerbating Factors</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Delays outside hands-on repair time — parts, supplier holds, approvals.</p>
+              </div>
+
+              <ul v-if="factors.length" class="divide-y divide-slate-100 dark:divide-slate-800">
+                <li v-for="f in factors" :key="f.id" class="flex items-start gap-3 px-4 py-2.5 text-sm">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="font-medium text-slate-800 dark:text-slate-100">{{ factorTypeMap[f.factor_type_id] ?? 'Uncategorised' }}</span>
+                      <span v-if="f.delay_hours != null" class="text-xs font-semibold text-orange-600 dark:text-orange-400">+{{ f.delay_hours.toFixed(1) }}h</span>
+                      <span v-if="f.resolved" class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-50 text-green-600 ring-1 ring-green-200 dark:bg-green-500/10 dark:text-green-400 dark:ring-green-500/30">Resolved</span>
+                      <span v-else class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-600 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/30">Ongoing</span>
+                    </div>
+                    <p v-if="f.start_date || f.end_date" class="text-[11px] text-slate-400 dark:text-slate-500">
+                      {{ formatDate(f.start_date) }}{{ f.start_time ? ' ' + f.start_time.slice(0, 5) : '' }}
+                      →
+                      {{ f.end_date ? formatDate(f.end_date) + (f.end_time ? ' ' + f.end_time.slice(0, 5) : '') : 'ongoing' }}
+                    </p>
+                    <p v-if="f.notes" class="text-xs text-slate-500 dark:text-slate-400">{{ f.notes }}</p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-1">
+                    <UButton variant="ghost" size="xs" icon="i-heroicons-pencil-square" color="neutral" @click="startEditFactor(f)" />
+                    <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteFactor(f.id!)" />
+                  </div>
+                </li>
+              </ul>
+              <p v-else class="px-4 py-3 text-xs text-slate-400 dark:text-slate-500">No exacerbating factors recorded.</p>
+
+              <!-- Add / edit factor form -->
+              <div class="border-t border-slate-100 dark:border-slate-800 px-4 py-3">
+                <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <UFormField label="Factor" class="col-span-2">
+                    <USelect v-model="factorDraft.factor_type_id" :items="factorTypeOptions" placeholder="Select factor" class="w-full" />
+                  </UFormField>
+                  <UFormField label="Start Date">
+                    <UInput v-model="factorDraft.start_date" type="date" class="w-full" />
+                  </UFormField>
+                  <UFormField label="Start Time">
+                    <UInput v-model="factorDraft.start_time" type="time" class="w-full" />
+                  </UFormField>
+                  <UFormField label="End Date">
+                    <UInput v-model="factorDraft.end_date" type="date" class="w-full" />
+                  </UFormField>
+                  <UFormField label="End Time">
+                    <UInput v-model="factorDraft.end_time" type="time" class="w-full" />
+                  </UFormField>
+                  <UFormField label="Delay Hours" :hint="factorAutoCalc ? 'Auto-calculated' : 'Manual'">
+                    <UInput
+                      v-model.number="factorDraft.delay_hours"
+                      type="number"
+                      step="0.25"
+                      :disabled="factorAutoCalc"
+                      :placeholder="factorAutoCalc ? 'From window on save' : 'e.g. 24'"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField label="Resolved">
+                    <UCheckbox v-model="factorDraft.resolved" label="Factor resolved" />
+                  </UFormField>
+                  <UFormField label="Notes" class="col-span-2">
+                    <UTextarea v-model="factorDraft.notes" :rows="2" placeholder="e.g. bearing on 3-week back-order from OEM; supplier account on stop-credit" class="w-full" />
+                  </UFormField>
+                </div>
+                <p class="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                  Enter a start date &amp; time (and end, or leave open) to calculate delay hours across production shifts and holidays. Without a start time, type the hours manually.
+                </p>
+                <UAlert v-if="factorError" color="error" variant="soft" :description="factorError" class="mt-3" />
+                <div class="mt-3 flex justify-end gap-2">
+                  <UButton v-if="editingFactorId" variant="ghost" size="xs" color="neutral" @click="resetFactorDraft">Cancel edit</UButton>
+                  <UButton size="xs" :loading="savingFactor" :disabled="!factorDraft.factor_type_id" @click="submitFactor">
+                    {{ editingFactorId ? "Update Factor" : "Add Factor" }}
+                  </UButton>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
             <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
             <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Log Downtime" }}</UButton>

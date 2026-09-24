@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -10,7 +13,11 @@ from routers.asset import router as asset_router
 from routers.auth import router as auth_router
 from routers.commodity_rates import router as commodity_rate_router
 from routers.depot import router as depot_router
-from routers.downtime import downtime_cause_router
+from routers.downtime import (
+    downtime_cause_router,
+    downtime_factor_router,
+    downtime_factor_type_router,
+)
 from routers.downtime import router as downtime_router
 from routers.expense import budget_router, cost_centre_router
 from routers.inspection import (
@@ -38,8 +45,21 @@ from routers.utility import router as utility_router
 from routers.reports import router as reports_router
 from routers.workOrders import router as work_order_router
 from routers.workOrders import work_order_part_router
+from utils.downtime_scheduler import downtime_recompute_loop
 
-app = FastAPI(title="Maintenance Manager API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(downtime_recompute_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="Maintenance Manager API", version="1.0.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -77,6 +97,8 @@ app.include_router(work_order_router, dependencies=[Depends(write_on_write)])
 app.include_router(issue_router, dependencies=[Depends(write_on_write)])
 app.include_router(work_order_part_router, dependencies=[Depends(write_on_write)])
 app.include_router(downtime_cause_router, dependencies=[Depends(write_on_write)])
+app.include_router(downtime_factor_type_router, dependencies=[Depends(write_on_write)])
+app.include_router(downtime_factor_router, dependencies=[Depends(write_on_write)])
 app.include_router(downtime_router, dependencies=[Depends(write_on_write)])
 app.include_router(pm_plan_router, dependencies=[Depends(write_on_write)])
 app.include_router(pm_task_router, dependencies=[Depends(write_on_write)])

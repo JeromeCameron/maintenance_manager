@@ -249,6 +249,9 @@ declare global {
   // @ts-ignore
   export type { CommodityRate } from '../../composables/useCommodityRates'
   import('../../composables/useCommodityRates')
+  // @ts-ignore
+  export type { DowntimeFactorSummaryRow } from '../../composables/useDowntime'
+  import('../../composables/useDowntime')
 }
 // for vue template auto import
 import { UnwrapRef } from 'vue'

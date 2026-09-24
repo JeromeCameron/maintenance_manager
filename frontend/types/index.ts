@@ -114,6 +114,27 @@ export interface DowntimeCause {
   active: boolean
 }
 
+export interface DowntimeFactorType {
+  factor_type_id?: number
+  name: string
+  description?: string
+  active: boolean
+}
+
+export interface DowntimeFactor {
+  id?: number
+  downtime_id: number
+  factor_type_id?: number
+  /** Auto-derived (shift/holiday aware) from the window below when start_date + start_time are set; manual otherwise. */
+  delay_hours?: number
+  start_date?: string
+  start_time?: string
+  end_date?: string
+  end_time?: string
+  resolved?: boolean
+  notes?: string
+}
+
 export interface WorkOrder {
   work_order_id?: number
   issue_date?: string

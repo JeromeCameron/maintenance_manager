@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { Holiday, AssetModel, DowntimeCause, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, PmTask, CostCentre } from "~/types"
+import type { Holiday, AssetModel, DowntimeCause, DowntimeFactorType, PartCategory, InspectionTemplate, InspectionTemplateItem, PmPlans, PmTask, CostCentre } from "~/types"
 import type { CommodityRate } from "~/composables/useCommodityRates"
 
 const { getAll: getHolidays, create: createHoliday, update: updateHoliday, remove: removeHoliday } = useHolidays()
 const { getAll: getModels, getOne: getModel, create: createModel, update: updateModel, remove: removeModel } = useAssetModels()
-const { getCauses, createCause, updateCause, removeCause } = useDowntime()
+const { getCauses, createCause, updateCause, removeCause, getFactorTypes, createFactorType, updateFactorType, removeFactorType } = useDowntime()
 const { getCategories, createCategory, updateCategory, removeCategory } = useInventory()
 const { getTemplates, createTemplate, updateTemplate, removeTemplate, getItemsByTemplate, createItem, updateItem, removeItem } = useInspections()
 const { getPlans, createPlan, updatePlan, removePlan, getTasksByPlan, createTask, removeTask } = useMaintenance()
@@ -17,6 +17,7 @@ const tabs = [
   { value: "holidays", slot: "holidays", label: "Holidays", icon: "i-heroicons-calendar-days" },
   { value: "asset-models", slot: "asset-models", label: "Asset Models", icon: "i-heroicons-cube" },
   { value: "downtime-causes", slot: "downtime-causes", label: "Downtime Causes", icon: "i-heroicons-exclamation-triangle" },
+  { value: "downtime-factors", slot: "downtime-factors", label: "Downtime Factors", icon: "i-heroicons-clock" },
   { value: "part-categories", slot: "part-categories", label: "Part Categories", icon: "i-heroicons-tag" },
   { value: "inspection-templates", slot: "inspection-templates", label: "Inspection Templates", icon: "i-heroicons-clipboard-document-check" },
   { value: "pm-plans", slot: "pm-plans", label: "PM Plans", icon: "i-heroicons-wrench-screwdriver" },
@@ -226,6 +227,73 @@ async function confirmDeleteCause() {
     deleteCauseTarget.value = null
   } finally {
     deletingCause.value = false
+  }
+}
+
+// ── Downtime Factor Types ────────────────────────────────────
+const { data: factorTypes, refresh: refreshFactorTypes } = await useAsyncData("settings-factor-types", () => getFactorTypes())
+
+const factorTypeColumns = [
+  { accessorKey: "name", header: "Name" },
+  { accessorKey: "description", header: "Description" },
+  { accessorKey: "active", header: "Active" },
+  { id: "actions", header: "" },
+]
+
+const showFactorTypeModal = ref(false)
+const factorTypeEditing = ref<DowntimeFactorType | null>(null)
+const factorTypeForm = ref<Partial<DowntimeFactorType>>({ active: true })
+const savingFactorType = ref(false)
+const factorTypeError = ref<string | null>(null)
+
+function openCreateFactorType() {
+  factorTypeEditing.value = null
+  factorTypeForm.value = { active: true }
+  factorTypeError.value = null
+  showFactorTypeModal.value = true
+}
+
+function openEditFactorType(row: DowntimeFactorType) {
+  factorTypeEditing.value = row
+  factorTypeForm.value = { ...row }
+  factorTypeError.value = null
+  showFactorTypeModal.value = true
+}
+
+async function saveFactorType() {
+  savingFactorType.value = true
+  factorTypeError.value = null
+  try {
+    if (factorTypeEditing.value?.factor_type_id) {
+      await updateFactorType(factorTypeEditing.value.factor_type_id, factorTypeForm.value as DowntimeFactorType)
+    } else {
+      await createFactorType(factorTypeForm.value as DowntimeFactorType)
+    }
+    await refreshFactorTypes()
+    showFactorTypeModal.value = false
+  } catch (e: unknown) {
+    factorTypeError.value = (e as { message?: string }).message ?? "Save failed"
+  } finally {
+    savingFactorType.value = false
+  }
+}
+
+const deleteFactorTypeTarget = ref<DowntimeFactorType | null>(null)
+const deletingFactorType = ref(false)
+const showDeleteFactorTypeModal = computed({
+  get: () => !!deleteFactorTypeTarget.value,
+  set: (v) => { if (!v) deleteFactorTypeTarget.value = null },
+})
+
+async function confirmDeleteFactorType() {
+  if (!deleteFactorTypeTarget.value?.factor_type_id) return
+  deletingFactorType.value = true
+  try {
+    await removeFactorType(deleteFactorTypeTarget.value.factor_type_id)
+    await refreshFactorTypes()
+    deleteFactorTypeTarget.value = null
+  } finally {
+    deletingFactorType.value = false
   }
 }
 
@@ -753,6 +821,35 @@ async function confirmDeleteRate() {
           </UCard>
         </div>
       </template>
+
+      <!-- ── Downtime Factors ── -->
+      <template #downtime-factors>
+        <div class="mt-4 space-y-4">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-xs text-slate-500 dark:text-slate-400">Reasons a downtime ran longer than hands-on repair time — parts on back-order, supplier account holds, awaiting approvals. Recorded per downtime on the Downtime page.</p>
+            <UButton leading-icon="i-heroicons-plus" @click="openCreateFactorType">Add Factor</UButton>
+          </div>
+          <UCard>
+            <UTable :data="factorTypes ?? []" :columns="factorTypeColumns">
+              <template #active-cell="{ row: { original: row } }">
+                <UBadge :color="row.active ? 'success' : 'neutral'" variant="soft" size="xs">
+                  {{ row.active ? "Active" : "Inactive" }}
+                </UBadge>
+              </template>
+              <template #description-cell="{ row: { original: row } }">
+                <span class="text-slate-500 dark:text-slate-400">{{ row.description ?? "—" }}</span>
+              </template>
+              <template #actions-cell="{ row: { original: row } }">
+                <div class="flex items-center gap-1">
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-pencil" @click="openEditFactorType(row)" />
+                  <UButton variant="ghost" size="xs" icon="i-heroicons-trash" color="error" @click="deleteFactorTypeTarget = row" />
+                </div>
+              </template>
+            </UTable>
+          </UCard>
+        </div>
+      </template>
+
       <!-- ── Part Categories ── -->
       <template #part-categories>
         <div class="mt-4 space-y-4">
@@ -1031,6 +1128,50 @@ async function confirmDeleteRate() {
             <div class="flex justify-end gap-2">
               <UButton variant="ghost" @click="deleteCauseTarget = null">Cancel</UButton>
               <UButton color="error" :loading="deletingCause" @click="confirmDeleteCause">Delete</UButton>
+            </div>
+          </template>
+        </UCard>
+      </template>
+    </UModal>
+
+    <!-- Downtime Factor Type Modal -->
+    <UModal v-model:open="showFactorTypeModal">
+      <template #content>
+        <div class="w-full rounded-xl bg-white dark:bg-slate-900 shadow-xl">
+          <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ factorTypeEditing ? "Edit Downtime Factor" : "Add Downtime Factor" }}</h3>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showFactorTypeModal = false" />
+          </div>
+          <div class="space-y-4 px-6 py-5">
+            <UFormField label="Name" required>
+              <UInput v-model="factorTypeForm.name" placeholder="e.g. Parts unavailable / on back-order" class="w-full" />
+            </UFormField>
+            <UFormField label="Description">
+              <UTextarea v-model="factorTypeForm.description" :rows="3" class="w-full" />
+            </UFormField>
+            <UFormField label="Active">
+              <UToggle v-model="factorTypeForm.active" />
+            </UFormField>
+          </div>
+          <UAlert v-if="factorTypeError" color="error" variant="soft" :description="factorTypeError" class="mx-6 mb-4" />
+          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showFactorTypeModal = false">Cancel</UButton>
+            <UButton :loading="savingFactorType" @click="saveFactorType">Save</UButton>
+          </div>
+        </div>
+      </template>
+    </UModal>
+
+    <!-- Downtime Factor Type Delete Modal -->
+    <UModal v-model:open="showDeleteFactorTypeModal">
+      <template #content>
+        <UCard>
+          <template #header><h3 class="font-semibold">Delete Downtime Factor</h3></template>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Delete <strong>{{ deleteFactorTypeTarget?.name }}</strong>? This cannot be undone.</p>
+          <template #footer>
+            <div class="flex justify-end gap-2">
+              <UButton variant="ghost" @click="deleteFactorTypeTarget = null">Cancel</UButton>
+              <UButton color="error" :loading="deletingFactorType" @click="confirmDeleteFactorType">Delete</UButton>
             </div>
           </template>
         </UCard>

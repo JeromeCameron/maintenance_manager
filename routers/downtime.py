@@ -9,14 +9,28 @@ import crud.downtime as downtimes
 import utils.cache as cache
 from crud.utility import get_holidays
 from schema.database import get_session
-from schema.models import Asset, Downtime, DowntimeCause, Location
+from schema.models import (
+    Asset,
+    Downtime,
+    DowntimeCause,
+    DowntimeFactor,
+    DowntimeFactorType,
+    Location,
+)
 from utils.down_hours import get_production_downtime_hours, split_downtime_by_month
+from utils.downtime_scheduler import run_recompute_once
 from utils.prod_metrics import availability as calc_availability
 from utils.prod_metrics import mtbf as calc_mtbf
 from utils.prod_metrics import mttr as calc_mttr
 from utils.utils import is_work_day, today_local
 
 downtime_cause_router = APIRouter(prefix="/api/downtime-causes", tags=["DowntimeCause"])
+downtime_factor_type_router = APIRouter(
+    prefix="/api/downtime-factor-types", tags=["DowntimeFactorType"]
+)
+downtime_factor_router = APIRouter(
+    prefix="/api/downtime-factors", tags=["DowntimeFactor"]
+)
 router = APIRouter(prefix="/api/downtimes", tags=["Downtime"])
 
 _METRICS_TTL = 300  # 5 minutes
@@ -64,6 +78,93 @@ async def delete_downtime_cause(cause_id: int, session: Session = Depends(get_se
     deleted = downtimes.delete_downtime_cause(session, cause_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime cause not found")
+
+
+# ------------------------------------------------------------------
+# Downtime Factor Type endpoints (managed lookup list)
+
+
+@downtime_factor_type_router.get("", status_code=status.HTTP_200_OK, response_model=list[DowntimeFactorType])
+async def get_downtime_factor_types(session: Session = Depends(get_session)):
+    return downtimes.get_downtime_factor_types(session)
+
+
+@downtime_factor_type_router.get("/{factor_type_id}", status_code=status.HTTP_200_OK, response_model=DowntimeFactorType)
+async def get_downtime_factor_type(factor_type_id: int, session: Session = Depends(get_session)):
+    factor_type = downtimes.get_downtime_factor_type(session, factor_type_id)
+    if not factor_type:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor type not found")
+    return factor_type
+
+
+@downtime_factor_type_router.post("", status_code=status.HTTP_201_CREATED, response_model=DowntimeFactorType)
+async def add_downtime_factor_type(factor_type: DowntimeFactorType, session: Session = Depends(get_session)):
+    return downtimes.add_downtime_factor_type(session, factor_type)
+
+
+@downtime_factor_type_router.put("/{factor_type_id}", status_code=status.HTTP_200_OK, response_model=DowntimeFactorType)
+async def update_downtime_factor_type(
+    factor_type_id: int, data: DowntimeFactorType, session: Session = Depends(get_session)
+):
+    factor_type = downtimes.update_downtime_factor_type(session, factor_type_id, data)
+    if factor_type is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor type not found")
+    return factor_type
+
+
+@downtime_factor_type_router.delete("/{factor_type_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_downtime_factor_type(factor_type_id: int, session: Session = Depends(get_session)):
+    deleted = downtimes.delete_downtime_factor_type(session, factor_type_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor type not found")
+
+
+# ------------------------------------------------------------------
+# Downtime Factor endpoints (rows against a specific downtime)
+
+
+@downtime_factor_router.get("", status_code=status.HTTP_200_OK, response_model=list[DowntimeFactor])
+async def get_downtime_factors(session: Session = Depends(get_session)):
+    return downtimes.get_downtime_factors(session)
+
+
+@downtime_factor_router.get("/downtime/{downtime_id}", status_code=status.HTTP_200_OK, response_model=list[DowntimeFactor])
+async def get_downtime_factors_by_downtime(downtime_id: int, session: Session = Depends(get_session)):
+    return downtimes.get_downtime_factors_by_downtime(session, downtime_id)
+
+
+@downtime_factor_router.get("/{factor_id}", status_code=status.HTTP_200_OK, response_model=DowntimeFactor)
+async def get_downtime_factor(factor_id: int, session: Session = Depends(get_session)):
+    factor = downtimes.get_downtime_factor(session, factor_id)
+    if not factor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor not found")
+    return factor
+
+
+@downtime_factor_router.post("", status_code=status.HTTP_201_CREATED, response_model=DowntimeFactor)
+async def add_downtime_factor(factor: DowntimeFactor, session: Session = Depends(get_session)):
+    result = downtimes.add_downtime_factor(session, factor)
+    _bust_metrics_cache()
+    return result
+
+
+@downtime_factor_router.put("/{factor_id}", status_code=status.HTTP_200_OK, response_model=DowntimeFactor)
+async def update_downtime_factor(
+    factor_id: int, data: DowntimeFactor, session: Session = Depends(get_session)
+):
+    factor = downtimes.update_downtime_factor(session, factor_id, data)
+    if factor is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor not found")
+    _bust_metrics_cache()
+    return factor
+
+
+@downtime_factor_router.delete("/{factor_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_downtime_factor(factor_id: int, session: Session = Depends(get_session)):
+    deleted = downtimes.delete_downtime_factor(session, factor_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Downtime factor not found")
+    _bust_metrics_cache()
 
 
 # ------------------------------------------------------------------
@@ -485,6 +586,74 @@ async def get_monthly_downtime_by_location(
         for a in session.exec(sql_select(Asset).where(Asset.location_id == location_id)).all()
     }
     return _monthly_downtime_map(session, months, location_asset_ids)
+
+
+@router.get("/factor-summary", status_code=status.HTTP_200_OK)
+async def get_downtime_factor_summary(
+    months: int = Query(default=12, ge=1, le=36),
+    session: Session = Depends(get_session),
+) -> list[dict]:
+    """Exacerbating-factor delay hours and event counts, bucketed by calendar
+    month and factor type. A factor is attributed to its own ``start_date``, or
+    the parent downtime's ``start_date`` when it has none. Used to justify
+    downtime lost to causes outside hands-on repair (parts, supplier holds...)."""
+    cache_key = f"downtime:metrics:factor-summary:{months}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    today = today_local()
+    month_set: set[str] = set()
+    for i in range(months):
+        m = today.month - i
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        month_set.add(f"{y}-{m:02d}")
+
+    type_names = {
+        t.factor_type_id: t.name
+        for t in downtimes.get_downtime_factor_types(session)
+    }
+    downtime_start = {
+        d.downtime_id: d.start_date for d in downtimes.get_downtimes(session)
+    }
+
+    agg: dict[tuple[str, str], dict] = {}
+    for f in downtimes.get_downtime_factors(session):
+        ref_date = f.start_date or downtime_start.get(f.downtime_id)
+        if ref_date is None:
+            continue
+        key = f"{ref_date.year}-{ref_date.month:02d}"
+        if key not in month_set:
+            continue
+        name = type_names.get(f.factor_type_id, "Uncategorised")
+        rec = agg.setdefault((key, name), {"delay_hours": 0.0, "events": 0})
+        rec["delay_hours"] = round(rec["delay_hours"] + (f.delay_hours or 0.0), 2)
+        rec["events"] += 1
+
+    results = [
+        {
+            "month": month,
+            "factor_type": name,
+            "delay_hours": v["delay_hours"],
+            "events": v["events"],
+        }
+        for (month, name), v in sorted(agg.items())
+    ]
+
+    cache.set(cache_key, results, ttl_seconds=_METRICS_TTL)
+    return results
+
+
+@router.post("/recompute-open", status_code=status.HTTP_200_OK)
+async def recompute_open_downtimes_now():
+    """Manually trigger the same refresh the hourly background job runs, for
+    still-open downtimes/factors — useful to verify immediately rather than
+    waiting for the next scheduled run."""
+    dt_count, factor_count = run_recompute_once()
+    return {"downtimes_updated": dt_count, "factors_updated": factor_count}
 
 
 @router.get("", status_code=status.HTTP_200_OK, response_model=list[Downtime])

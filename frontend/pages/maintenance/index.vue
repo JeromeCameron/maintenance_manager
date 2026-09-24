@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import type { AssetPM, PmTask } from "~/types"
+import type { AssetPM, PmTask, WorkOrder } from "~/types"
 
 const { isAdmin } = useAuth()
 const { getAllPMs, getPM, createPM, updatePM, removePM, getPlans, getTasksByPlan } = useMaintenance()
 const { getAll: getAssets } = useAssets()
+const { create: createWorkOrder } = useWorkOrders()
 
 const { data: assetPMs, refresh } = await useAsyncData("asset-pms", () => getAllPMs())
 const { data: plans } = await useAsyncData("pm-plans", () => getPlans())
@@ -25,6 +26,9 @@ const pmsDueSoon = computed(() =>
 
 const assetOptions = computed(() => [...(assets.value ?? [])].sort((a, b) => a.asset_id.localeCompare(b.asset_id)).map((a) => ({ label: `${a.asset_id} — ${a.manufacturer}`, value: a.asset_id })))
 const planOptions = computed(() => (plans.value ?? []).map((p) => ({ label: `${p.pm_id} — ${p.description ?? p.frequency}`, value: p.pm_id })))
+
+const planDescription = (planId?: string) =>
+  (plans.value ?? []).find((p) => p.pm_id === planId)?.description ?? ""
 
 const activeTab = ref("all")
 const tabs = [
@@ -108,6 +112,46 @@ async function save() {
     formError.value = (e as { message?: string }).message ?? "Save failed"
   } finally {
     saving.value = false
+  }
+}
+
+// ── Create Work Order from PM ────────────────────────────────
+const showWoModal = ref(false)
+const woForm = ref<Partial<WorkOrder>>({})
+const savingWo = ref(false)
+const woError = ref<string | null>(null)
+const woTypeOptions = ["corrective", "predictive", "preventative", "inspection", "project"]
+const woPriorityOptions = ["Low", "Medium", "High"]
+
+function openCreateWorkOrder() {
+  woForm.value = {
+    asset_id: form.value.asset_id,
+    asset_pm_id: editId.value ?? undefined,
+    typ: "preventative",
+    planned: true,
+    priority: "Medium",
+    status: "requested",
+    issue_date: new Date().toISOString().slice(0, 10),
+    expected_date: form.value.next_service,
+    description: planDescription(form.value.pm_plan_id),
+    notes: `From PM schedule ${form.value.pm_plan_id ?? ""}`.trim(),
+  }
+  woError.value = null
+  showModal.value = false // close PM modal, matches work-orders/index.vue onCreateOpen
+  showWoModal.value = true
+}
+
+async function submitCreateWorkOrder() {
+  savingWo.value = true
+  woError.value = null
+  try {
+    await createWorkOrder(woForm.value as WorkOrder)
+    showWoModal.value = false
+    await navigateTo("/work-orders") // no toast system in app; land on the new WO's list
+  } catch (e: unknown) {
+    woError.value = (e as { message?: string }).message ?? "Failed to create work order"
+  } finally {
+    savingWo.value = false
   }
 }
 
@@ -278,9 +322,17 @@ async function confirmDelete() {
           </div>
 
           <UAlert v-if="formError" color="error" variant="soft" :description="formError" class="mx-6 mb-4" />
-          <div class="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
-            <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
-            <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Create Schedule" }}</UButton>
+          <div class="flex justify-between gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
+            <UButton
+              v-if="isEditing && form.asset_id"
+              variant="outline"
+              leading-icon="i-heroicons-clipboard-document-list"
+              @click="openCreateWorkOrder"
+            >Create Work Order</UButton>
+            <div class="flex gap-3 ml-auto">
+              <UButton variant="ghost" color="neutral" @click="showModal = false">Cancel</UButton>
+              <UButton :loading="saving" @click="save">{{ isEditing ? "Save Changes" : "Create Schedule" }}</UButton>
+            </div>
           </div>
         </div>
       </template>
@@ -299,6 +351,62 @@ async function confirmDelete() {
             </div>
           </template>
         </UCard>
+      </template>
+    </UModal>
+
+    <!-- Create Work Order Modal -->
+    <UModal v-model:open="showWoModal" :ui="{ content: 'max-w-2xl' }">
+      <template #content>
+        <div class="flex max-h-[90vh] w-full flex-col rounded-xl bg-white shadow-xl dark:bg-slate-900">
+          <div class="flex shrink-0 items-start gap-4 border-b border-slate-100 dark:border-slate-800 px-6 py-5">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-500/10">
+              <UIcon name="i-heroicons-clipboard-document-list" class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div class="flex-1">
+              <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Create Work Order</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400">PM {{ woForm.asset_pm_id }} — {{ woForm.asset_id }}</p>
+            </div>
+            <UButton variant="ghost" size="xs" icon="i-heroicons-x-mark" color="neutral" @click="showWoModal = false" />
+          </div>
+          <div class="flex-1 overflow-y-auto px-6 py-5">
+            <div class="grid grid-cols-2 gap-x-5 gap-y-4">
+              <UFormField label="Asset">
+                <UInput :model-value="woForm.asset_id" readonly class="w-full" />
+              </UFormField>
+              <UFormField label="Priority">
+                <USelect v-model="woForm.priority" :items="woPriorityOptions" class="w-full" />
+              </UFormField>
+              <UFormField label="Type">
+                <USelect v-model="woForm.typ" :items="woTypeOptions" class="w-full" />
+              </UFormField>
+              <UFormField label="Planned">
+                <USelect v-model="woForm.planned" :items="[{ label: 'Planned', value: true }, { label: 'Unplanned', value: false }]" class="w-full" />
+              </UFormField>
+              <UFormField label="Issue Date">
+                <UInput v-model="woForm.issue_date" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="Expected Date">
+                <UInput v-model="woForm.expected_date" type="date" class="w-full" />
+              </UFormField>
+              <UFormField label="Estimated Hours">
+                <UInput v-model.number="woForm.estimated_hours" type="number" step="0.5" class="w-full" />
+              </UFormField>
+              <UFormField label="Description" class="col-span-2">
+                <UTextarea v-model="woForm.description" :rows="3" class="w-full" />
+              </UFormField>
+              <UFormField label="Notes" class="col-span-2">
+                <UTextarea v-model="woForm.notes" :rows="2" class="w-full" />
+              </UFormField>
+            </div>
+            <UAlert v-if="woError" color="error" variant="soft" :description="woError" class="mt-4" />
+          </div>
+          <div class="flex shrink-0 justify-end gap-3 border-t border-slate-100 dark:border-slate-800 px-6 py-4">
+            <UButton variant="ghost" color="neutral" @click="showWoModal = false">Cancel</UButton>
+            <UButton :loading="savingWo" leading-icon="i-heroicons-check" @click="submitCreateWorkOrder">
+              Create Work Order
+            </UButton>
+          </div>
+        </div>
       </template>
     </UModal>
   </div>

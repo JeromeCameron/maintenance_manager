@@ -424,6 +424,54 @@ class Downtime(SQLModel, table=True):
 
     asset: Optional["Asset"] = Relationship(back_populates="downtimes")
     cause: Optional["DowntimeCause"] = Relationship(back_populates="downtimes")
+    factors: List["DowntimeFactor"] = Relationship(
+        back_populates="downtime",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
+
+
+class DowntimeFactorType(SQLModel, table=True):
+    """A category of exacerbating factor that can prolong a downtime (parts on
+    back-order, supplier account on hold, awaiting an external contractor, etc.).
+    Managed as a lookup list, like ``DowntimeCause``."""
+
+    factor_type_id: Optional[int] = Field(primary_key=True, default=None)
+    name: str = Field(unique=True)
+    description: Optional[str] = Field(default=None)
+    active: bool = Field(default=True)
+
+    factors: List["DowntimeFactor"] = Relationship(back_populates="factor_type")
+
+
+class DowntimeFactor(SQLModel, table=True):
+    """An exacerbating factor recorded against a specific downtime, used to
+    justify time lost beyond hands-on repair work (e.g. a part was unavailable,
+    or a supplier refused to attend until outstanding invoices were paid).
+
+    ``delay_hours`` is the production time attributable to this factor; the sum
+    of a downtime's factor delays is subtracted from ``downtime_hours`` to show
+    an effective repair time."""
+
+    id: Optional[int] = Field(primary_key=True, default=None)
+    downtime_id: int = Field(foreign_key="downtime.downtime_id")
+    factor_type_id: Optional[int] = Field(
+        default=None, foreign_key="downtimefactortype.factor_type_id"
+    )
+    # ``delay_hours`` is auto-derived (shift/holiday aware, using the parent
+    # downtime's ``shift_asset``) from the window below whenever ``start_date``
+    # and ``start_time`` are set; otherwise it is taken as manually entered.
+    delay_hours: Optional[float] = Field(default=None)
+    start_date: Optional[date] = Field(default=None)
+    start_time: Optional[time] = Field(default=None)
+    end_date: Optional[date] = Field(default=None)
+    end_time: Optional[time] = Field(default=None)
+    resolved: Optional[bool] = Field(default=None)
+    notes: Optional[str] = Field(default=None, sa_type=Text)
+
+    downtime: Optional["Downtime"] = Relationship(back_populates="factors")
+    factor_type: Optional["DowntimeFactorType"] = Relationship(
+        back_populates="factors"
+    )
 
 
 # ------------- Work Orders ----------------------- #

@@ -517,6 +517,29 @@ async function downloadFailureDrivers() {
   triggerDownload(`failure-drivers-${slugDate(to)}.csv`, toCSV(["Cause", "Events", "Downtime Hours", "% of Total Downtime"], rows))
 }
 
+async function downloadDelayFactors() {
+  const summary = await get<{ month: string; factor_type: string; delay_hours: number; events: number }[]>("/downtimes/factor-summary?months=36")
+  const { from, to } = dateRange.value
+  const map: Record<string, { hours: number; events: number }> = {}
+  for (const r of summary ?? []) {
+    if (!inRange(r.month + "-01", from, to)) continue
+    if (!map[r.factor_type]) map[r.factor_type] = { hours: 0, events: 0 }
+    map[r.factor_type].hours += r.delay_hours
+    map[r.factor_type].events += r.events
+  }
+  const totalHours = Object.values(map).reduce((s, v) => s + v.hours, 0)
+  const rows = Object.entries(map)
+    .sort(([, a], [, b]) => b.hours - a.hours)
+    .map(([factor, { hours, events }]) => [
+      factor,
+      events,
+      hours.toFixed(1),
+      events > 0 ? (hours / events).toFixed(1) : "0.0",
+      totalHours > 0 ? ((hours / totalHours) * 100).toFixed(1) + "%" : "0%",
+    ])
+  triggerDownload(`delay-factors-${slugDate(to)}.csv`, toCSV(["Exacerbating Factor", "Occurrences", "Attributable Delay Hours", "Avg Hours / Occurrence", "% of Total Delay"], rows))
+}
+
 async function downloadPurchaseOrders() {
   const [pos, poSuppliers, poLocs, poCCs] = await Promise.all([
     getPOs(),
@@ -658,6 +681,7 @@ const reports: ReportDef[] = [
   { id: "avail-by-cat", name: "Availability by Equipment Category", description: "Monthly availability % and downtime hours per equipment category (baler, forklift, etc.), plus a fleet-wide total that reconciles with the dashboard.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-table-cells", dateNote: "Monthly aggregation", download: makeDownloader("avail-by-cat", downloadAvailabilityByCategory) },
   { id: "dt-by-cat",    name: "Downtime by Equipment Category", description: "Unplanned downtime hours and failure events aggregated by equipment category per month.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-squares-2x2",                 dateNote: "Monthly aggregation", download: makeDownloader("dt-by-cat",    downloadDowntimeByCategory) },
   { id: "failure-drv",  name: "Failure Drivers",                description: "Downtime events and hours grouped by root cause, sorted by highest impact.",  category: "Reliability", categoryColor: "warning", icon: "i-heroicons-exclamation-circle",           dateNote: "By start date",       download: makeDownloader("failure-drv",  downloadFailureDrivers) },
+  { id: "delay-factors", name: "Downtime Delay Factors",         description: "Exacerbating factors that prolonged downtime beyond repair time (parts, supplier holds, approvals) with attributable delay hours and share of total delay.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-clock",                       dateNote: "By factor / downtime start month", download: makeDownloader("delay-factors", downloadDelayFactors) },
   { id: "purchase-orders", name: "Purchase Orders",             description: "All purchase orders with supplier, cost centre and subtotal.",                category: "Finance",     categoryColor: "primary", icon: "i-heroicons-document-text",               dateNote: "By PO date",          download: makeDownloader("purchase-orders", downloadPurchaseOrders) },
   { id: "po-balances",  name: "PO Balances",                    description: "Purchase order value, amount invoiced to date and remaining balance.",         category: "Finance",     categoryColor: "primary", icon: "i-heroicons-scale",                       dateNote: "By PO date",          download: makeDownloader("po-balances", downloadPOBalances) },
   { id: "invoices",     name: "Invoices",                       description: "All invoices with supplier, PO/work order links, type and status.",           category: "Finance",     categoryColor: "primary", icon: "i-heroicons-banknotes",                    dateNote: "By received date",    download: makeDownloader("invoices", downloadInvoices) },
