@@ -652,7 +652,7 @@ function fmtDateShort(v?: string | null) {
                   <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div class="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 dark:border-blue-500/20 dark:bg-blue-500/10">
                       <p class="text-xs font-medium text-blue-400">Bale Weight</p>
-                      <p class="mt-1 text-xl font-bold text-blue-700 dark:text-blue-400">{{ modelData.bale_weight ?? "—" }}<span v-if="modelData.bale_weight" class="ml-1 text-sm font-medium text-blue-400">kg</span></p>
+                      <p class="mt-1 text-xl font-bold text-blue-700 dark:text-blue-400">{{ modelData.bale_weight ?? "—" }}<span v-if="modelData.bale_weight" class="ml-1 text-sm font-medium text-blue-400">lb</span></p>
                     </div>
                     <div class="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 dark:border-violet-500/20 dark:bg-violet-500/10">
                       <p class="text-xs font-medium text-violet-400">Bale Time</p>

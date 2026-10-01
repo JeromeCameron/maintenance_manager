@@ -154,7 +154,7 @@ async function confirmDelete() {
                 <UFormField label="Baler Size">
                   <USelect v-model="form.baler_size" :items="balerSizeOptions" placeholder="Select size" class="w-full" />
                 </UFormField>
-                <UFormField label="Bale Weight (kg)">
+                <UFormField label="Bale Weight (lb)">
                   <UInput v-model.number="form.bale_weight" type="number" class="w-full" />
                 </UFormField>
                 <UFormField label="Bale Time (min)">

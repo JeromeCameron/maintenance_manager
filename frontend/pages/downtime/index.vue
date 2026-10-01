@@ -105,6 +105,9 @@ const factorError = ref<string | null>(null)
 const factorAutoCalc = computed(() => !!(factorDraft.value.start_date && factorDraft.value.start_time))
 
 const factorDelayHours = computed(() => factors.value.reduce((s, f) => s + (f.delay_hours ?? 0), 0))
+const factorSortKey = (f: DowntimeFactor) =>
+  f.start_date ? new Date(`${f.start_date}T${f.start_time ?? "00:00:00"}`).getTime() : -Infinity
+const sortedFactors = computed(() => [...factors.value].sort((a, b) => factorSortKey(b) - factorSortKey(a)))
 const effectiveRepairHours = computed(() => {
   const total = form.value.downtime_hours
   if (total == null) return null
@@ -426,7 +429,7 @@ async function confirmDelete() {
               </div>
 
               <ul v-if="factors.length" class="divide-y divide-slate-100 dark:divide-slate-800">
-                <li v-for="f in factors" :key="f.id" class="flex items-start gap-3 px-4 py-2.5 text-sm">
+                <li v-for="f in sortedFactors" :key="f.id" class="flex items-start gap-3 px-4 py-2.5 text-sm">
                   <div class="min-w-0 flex-1">
                     <div class="flex flex-wrap items-center gap-2">
                       <span class="font-medium text-slate-800 dark:text-slate-100">{{ factorTypeMap[f.factor_type_id] ?? 'Uncategorised' }}</span>

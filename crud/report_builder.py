@@ -78,6 +78,8 @@ _LIST_OPS = (FilterOp.in_, FilterOp.contains_any, FilterOp.contains_all)
 
 
 def _coerce_value(py_type: Any, op: FilterOp, raw: Any) -> Any:
+    if op in (FilterOp.is_null, FilterOp.is_not_null):
+        return None
     try:
         if op in _LIST_OPS:
             if not isinstance(raw, list) or not raw:
@@ -106,6 +108,10 @@ def _apply_op(column, op: FilterOp, value):
         return or_(*[_ilike(column, term) for term in value])
     if op == FilterOp.contains_all:
         return and_(*[_ilike(column, term) for term in value])
+    if op == FilterOp.is_null:
+        return column.is_(None)
+    if op == FilterOp.is_not_null:
+        return column.is_not(None)
     raise HTTPException(status_code=400, detail=f"Unsupported operator '{op}'")
 
 

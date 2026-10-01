@@ -1580,6 +1580,7 @@ interface BuilderFilterRow {
   value: any
   dateFrom: string
   dateTo: string
+  nullOp: "is_null" | "is_not_null" | null
 }
 
 const builderSource = ref<string | null>(null)
@@ -1613,10 +1614,20 @@ const supplierSelectOptions = computed(() =>
     .map((s) => ({ label: s.name, value: s.name }))
 )
 
-const opLabels: Record<ReportFilterOp, string> = { eq: "is", in: "is one of", gte: "≥", lte: "≤", contains_any: "contains any of", contains_all: "contains all of" }
+const opLabels: Record<ReportFilterOp, string> = { eq: "is", in: "is one of", gte: "≥", lte: "≤", contains_any: "contains any of", contains_all: "contains all of", is_null: "is null", is_not_null: "is not null" }
 const LIST_VALUE_OPS: ReportFilterOp[] = ["in", "contains_any", "contains_all"]
+const NO_VALUE_OPS: ReportFilterOp[] = ["is_null", "is_not_null"]
+const nullOpItems: { label: string, value: "is_null" | "is_not_null" | null }[] = [
+  { label: "Has a value", value: null },
+  { label: "Is null", value: "is_null" },
+  { label: "Is not null", value: "is_not_null" },
+]
 function opOptions(fmeta: ReportFieldMeta) {
-  return fmeta.allowed_ops.map((op) => ({ label: opLabels[op], value: op }))
+  return fmeta.allowed_ops.filter((op) => !NO_VALUE_OPS.includes(op)).map((op) => ({ label: opLabels[op], value: op }))
+}
+function fieldSupportsNullCheck(fieldName: string | null) {
+  if (!fieldName) return false
+  return fieldMetaByName.value[fieldName]?.allowed_ops.includes("is_null") ?? false
 }
 
 watch(builderSource, () => {
@@ -1636,7 +1647,7 @@ function toggleBuilderField(name: string, checked: boolean) {
 }
 
 function addFilterRow() {
-  builderFilters.value.push({ id: Date.now() + Math.random(), field: null, op: null, value: null, dateFrom: "", dateTo: "" })
+  builderFilters.value.push({ id: Date.now() + Math.random(), field: null, op: null, value: null, dateFrom: "", dateTo: "", nullOp: null })
 }
 function removeFilterRow(id: number) {
   builderFilters.value = builderFilters.value.filter((r) => r.id !== id)
@@ -1646,6 +1657,7 @@ function onFilterFieldChange(row: BuilderFilterRow) {
   row.value = null
   row.dateFrom = ""
   row.dateTo = ""
+  row.nullOp = null
   const fmeta = row.field ? fieldMetaByName.value[row.field] : null
   if (!fmeta) { row.op = null; return }
   if (fmeta.type === "date" || fmeta.type === "datetime") { row.op = null; return }
@@ -1665,6 +1677,10 @@ function buildBuilderFilters(): ReportFilter[] {
     if (!row.field) continue
     const fmeta = fieldMetaByName.value[row.field]
     if (!fmeta) continue
+    if (row.nullOp) {
+      out.push({ field: row.field, op: row.nullOp, value: null })
+      continue
+    }
     if (fmeta.type === "date" || fmeta.type === "datetime") {
       if (row.dateFrom) out.push({ field: row.field, op: "gte", value: row.dateFrom })
       if (row.dateTo) out.push({ field: row.field, op: "lte", value: row.dateTo })
@@ -2836,6 +2852,15 @@ function downloadBuilderCsv() {
                   </div>
 
                   <template v-if="row.field && fieldMetaByName[row.field]">
+                    <!-- null check toggle -->
+                    <USelect
+                      v-if="fieldSupportsNullCheck(row.field)"
+                      v-model="row.nullOp"
+                      :items="nullOpItems"
+                      class="w-full"
+                    />
+
+                    <template v-if="!row.nullOp">
                     <!-- date range -->
                     <div v-if="fieldMetaByName[row.field].type === 'date' || fieldMetaByName[row.field].type === 'datetime'" class="flex items-center gap-1.5">
                       <UInput v-model="row.dateFrom" type="date" class="flex-1" />
@@ -2916,6 +2941,7 @@ function downloadBuilderCsv() {
                         class="flex-1"
                       />
                     </div>
+                    </template>
                   </template>
                 </div>
               </div>

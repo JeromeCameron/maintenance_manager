@@ -394,7 +394,7 @@ export interface User {
 }
 
 // ── Custom Report Builder ──────────────────────────────────────
-export type ReportFilterOp = "eq" | "in" | "gte" | "lte" | "contains_any" | "contains_all"
+export type ReportFilterOp = "eq" | "in" | "gte" | "lte" | "contains_any" | "contains_all" | "is_null" | "is_not_null"
 
 export interface ReportFieldMeta {
   name: string

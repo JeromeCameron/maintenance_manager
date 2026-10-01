@@ -224,7 +224,7 @@ const availabilityMTD = computed(() => avail30dData.value?.availability ?? 100)
           <div v-if="modelData" class="space-y-2 text-sm">
             <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Type</span><span class="capitalize">{{ modelData.baler_type ?? "—" }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Size</span><span class="capitalize">{{ modelData.baler_size ?? "—" }}</span></div>
-            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Weight</span><span>{{ modelData.bale_weight != null ? `${modelData.bale_weight} kg` : "—" }}</span></div>
+            <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Weight</span><span>{{ modelData.bale_weight != null ? `${modelData.bale_weight} lb` : "—" }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Time</span><span>{{ modelData.bale_time != null ? `${modelData.bale_time} min` : "—" }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Ram Force</span><span>{{ modelData.ram_force != null ? `${modelData.ram_force} kN` : "—" }}</span></div>
             <div class="flex justify-between"><span class="text-slate-500 dark:text-slate-400">Bale Size</span><span>{{ modelData.bale_size ?? "—" }}</span></div>
