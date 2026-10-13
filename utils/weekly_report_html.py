@@ -12,6 +12,8 @@ from utils.html_report_helpers import fmt_money as _fmt_money
 from utils.html_report_helpers import print_page_shell
 from utils.html_report_helpers import table as _table
 from utils.html_report_helpers import val as _val
+from utils.prod_metrics import availability as calc_availability
+from utils.prod_metrics import mtbf as calc_mtbf
 from utils.weekly_report import _gather, _to_date, WeekRange
 
 
@@ -335,24 +337,27 @@ def _sec_reliability(d: dict) -> str:
     assets = d["assets"]
     m_s    = d["m_s"]
     curr_by_asset     = d["curr_by_asset"]   # properly attributed hours per asset, MTD
+    planned_by_asset: dict[str, float] = d.get("planned_by_asset", {})
     scheduled_by_asset: dict[str, float] = d.get("scheduled_by_asset", {})
 
-    # Count failure events per asset (events that started in the current month)
+    # Count failure events per asset (events that started in the current month).
+    # Planned downtime isn't a failure; its hours come out of scheduled time.
     month_dts = d["month_dts"]
     failures_by_asset: dict[str, int] = defaultdict(int)
     for dt in month_dts:
-        if dt.asset_id:
+        if dt.asset_id and not dt.planned:
             failures_by_asset[dt.asset_id] += 1
 
     rows = []
     avail_data = []
     for a in sorted(assets, key=lambda x: x.asset_id or ""):
         n       = failures_by_asset.get(a.asset_id, 0)
-        dt_hrs  = curr_by_asset.get(a.asset_id, 0.0)
+        planned = planned_by_asset.get(a.asset_id, 0.0)
+        dt_hrs  = curr_by_asset.get(a.asset_id, 0.0) - planned
         sched   = scheduled_by_asset.get(a.asset_id, 0) or 0
-        avail = max(0.0, (sched - dt_hrs) / sched * 100) if sched > 0 else 100.0
+        avail = calc_availability(sched, dt_hrs, planned) if sched > 0 else 100.0
         mttr  = dt_hrs / n if n else None
-        mtbf  = (sched - dt_hrs) / n if n else None
+        mtbf  = calc_mtbf(sched, dt_hrs, n, planned) if n else None
         avail_col = "#16a34a" if avail >= 90 else "#b45309" if avail >= 75 else "#dc2626"
         rows.append([
             f'<strong>{a.asset_id or "—"}</strong>',

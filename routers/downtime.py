@@ -261,17 +261,18 @@ async def get_monthly_metrics(
         scheduled[(y, m)] = float(work_days * total_hours_per_workday)
 
     downtime_hrs: dict[tuple[int, int], float] = {k: 0.0 for k in month_list}
+    planned_hrs: dict[tuple[int, int], float] = {k: 0.0 for k in month_list}
     failures: dict[tuple[int, int], int] = {k: 0 for k in month_list}
 
+    # Planned downtime isn't a failure; its hours come out of scheduled time instead.
     for dt in all_dts:
-        if dt.planned:
-            continue
         if dt.start_date is None:
             continue
 
         start_key = (dt.start_date.year, dt.start_date.month)
-        if start_key in failures:
+        if not dt.planned and start_key in failures:
             failures[start_key] += 1
+        bucket = planned_hrs if dt.planned else downtime_hrs
 
         if dt.start_time is None:
             continue
@@ -285,18 +286,19 @@ async def get_monthly_metrics(
             except ValueError:
                 continue
             seg_key = (seg_date.year, seg_date.month)
-            if seg_key in downtime_hrs:
-                downtime_hrs[seg_key] = round(downtime_hrs[seg_key] + seg["hours"], 2)
+            if seg_key in bucket:
+                bucket[seg_key] = round(bucket[seg_key] + seg["hours"], 2)
 
     results = [
         {
             "month": f"{y}-{m:02d}",
             "scheduled_hours": scheduled[(y, m)],
             "downtime_hours": downtime_hrs[(y, m)],
+            "planned_hours": planned_hrs[(y, m)],
             "num_failures": failures[(y, m)],
             "mttr": round(calc_mttr(downtime_hrs[(y, m)], failures[(y, m)]), 2) if failures[(y, m)] > 0 else None,
-            "mtbf": round(calc_mtbf(scheduled[(y, m)], downtime_hrs[(y, m)], failures[(y, m)]), 2) if failures[(y, m)] > 0 else None,
-            "availability": round(calc_availability(scheduled[(y, m)], downtime_hrs[(y, m)]), 2),
+            "mtbf": round(calc_mtbf(scheduled[(y, m)], downtime_hrs[(y, m)], failures[(y, m)], planned_hrs[(y, m)]), 2) if failures[(y, m)] > 0 else None,
+            "availability": round(calc_availability(scheduled[(y, m)], downtime_hrs[(y, m)], planned_hrs[(y, m)]), 2),
         }
         for (y, m) in month_list
     ]
@@ -335,17 +337,19 @@ async def get_monthly_metrics_by_category(
     all_dts = downtimes.get_downtimes(session)
 
     downtime_hrs: dict[tuple[tuple[int, int], str], float] = {}
+    planned_hrs: dict[tuple[tuple[int, int], str], float] = {}
     failures: dict[tuple[tuple[int, int], str], int] = {}
 
     for dt in all_dts:
-        if dt.planned or dt.asset_id is None or dt.start_date is None:
+        if dt.asset_id is None or dt.start_date is None:
             continue
         category = asset_category.get(dt.asset_id)
         if not category:
             continue
+        bucket = planned_hrs if dt.planned else downtime_hrs
 
         start_key = (dt.start_date.year, dt.start_date.month)
-        if start_key in month_set:
+        if not dt.planned and start_key in month_set:
             pair = (start_key, category)
             failures[pair] = failures.get(pair, 0) + 1
 
@@ -364,13 +368,14 @@ async def get_monthly_metrics_by_category(
             if seg_key not in month_set:
                 continue
             pair = (seg_key, category)
-            downtime_hrs[pair] = round(downtime_hrs.get(pair, 0.0) + seg["hours"], 2)
+            bucket[pair] = round(bucket.get(pair, 0.0) + seg["hours"], 2)
 
     results = [
         {
             "month": f"{y}-{m:02d}",
             "category": category,
             "downtime_hours": downtime_hrs.get(((y, m), category), 0.0),
+            "planned_hours": planned_hrs.get(((y, m), category), 0.0),
             "failures": failures.get(((y, m), category), 0),
         }
         for (y, m) in month_list
@@ -420,6 +425,7 @@ async def get_availability_30d(
     window_end_dt = datetime.combine(today, time(23, 59, 59))
 
     total_downtime = 0.0
+    total_planned = 0.0
     for dt in downtimes.get_downtimes_by_asset(session, asset_id):
         if dt.start_date is None or dt.start_time is None:
             continue
@@ -429,19 +435,25 @@ async def get_availability_30d(
             continue
         clipped_start = max(dt_start, window_start_dt)
         clipped_end = min(dt_end, window_end_dt)
-        total_downtime += get_production_downtime_hours(
+        hours = get_production_downtime_hours(
             clipped_start.date(), clipped_start.time(),
             holidays,
             clipped_end.date(), clipped_end.time(),
             dt.shift_asset,
         )
+        if dt.planned:
+            total_planned += hours
+        else:
+            total_downtime += hours
 
-    total_downtime = min(total_downtime, scheduled_hours)
-    avail = round(max(0.0, ((scheduled_hours - total_downtime) / scheduled_hours) * 100), 1) if scheduled_hours > 0 else 100.0
+    total_planned = min(total_planned, scheduled_hours)
+    total_downtime = min(total_downtime, scheduled_hours - total_planned)
+    avail = round(calc_availability(scheduled_hours, total_downtime, total_planned), 1) if scheduled_hours > 0 else 100.0
 
     return {
         "availability": avail,
         "downtime_hours": round(total_downtime, 2),
+        "planned_hours": round(total_planned, 2),
         "scheduled_hours": round(scheduled_hours, 2),
     }
 
@@ -451,7 +463,7 @@ async def get_monthly_downtime_by_asset(
     asset_id: str,
     months: int = Query(default=12, ge=1, le=24),
     session: Session = Depends(get_session),
-) -> dict[str, float]:
+) -> dict[str, dict[str, float]]:
     today = today_local()
     holidays = {h.holiday_date for h in get_holidays(session)}
 
@@ -464,7 +476,7 @@ async def get_monthly_downtime_by_asset(
             y -= 1
         month_set.add(f"{y}-{m:02d}")
 
-    totals: dict[str, float] = {}
+    totals: dict[str, dict[str, float]] = {}
     for dt in downtimes.get_downtimes_by_asset(session, asset_id):
         if dt.start_date is None or dt.start_time is None:
             continue
@@ -478,7 +490,9 @@ async def get_monthly_downtime_by_asset(
                 continue
             key = seg_date.strftime("%Y-%m")
             if key in month_set:
-                totals[key] = round(totals.get(key, 0.0) + seg["hours"], 2)
+                month = totals.setdefault(key, {"unplanned": 0.0, "planned": 0.0})
+                kind = "planned" if dt.planned else "unplanned"
+                month[kind] = round(month[kind] + seg["hours"], 2)
 
     return totals
 
@@ -521,8 +535,8 @@ async def get_downtime_monthly_split(session: Session = Depends(get_session)) ->
 
 def _monthly_downtime_map(
     session: Session, months: int, asset_ids: set | None = None
-) -> dict[str, float]:
-    """Trailing-``months`` map of ``{"YYYY-MM": downtime_hours}``.
+) -> dict[str, dict[str, float]]:
+    """Trailing-``months`` map of ``{"YYYY-MM": {"unplanned": h, "planned": h}}``.
 
     ``asset_ids`` restricts the tally to those assets; ``None`` means "every
     downtime" (used for the all-locations rollup, which also picks up rows whose
@@ -540,7 +554,7 @@ def _monthly_downtime_map(
             y -= 1
         month_set.add(f"{y}-{m:02d}")
 
-    totals: dict[str, float] = {}
+    totals: dict[str, dict[str, float]] = {}
     for dt in downtimes.get_downtimes(session):
         if asset_ids is not None and dt.asset_id not in asset_ids:
             continue
@@ -556,7 +570,9 @@ def _monthly_downtime_map(
                 continue
             key = seg_date.strftime("%Y-%m")
             if key in month_set:
-                totals[key] = round(totals.get(key, 0.0) + seg["hours"], 2)
+                month = totals.setdefault(key, {"unplanned": 0.0, "planned": 0.0})
+                kind = "planned" if dt.planned else "unplanned"
+                month[kind] = round(month[kind] + seg["hours"], 2)
 
     return totals
 
@@ -565,7 +581,7 @@ def _monthly_downtime_map(
 async def get_monthly_downtime_all_locations(
     months: int = Query(default=12, ge=1, le=24),
     session: Session = Depends(get_session),
-) -> dict[str, float]:
+) -> dict[str, dict[str, float]]:
     cache_key = f"downtime:metrics:by-loc-all:{months}"
     cached = cache.get(cache_key)
     if cached is not None:
@@ -580,7 +596,7 @@ async def get_monthly_downtime_by_location(
     location_id: int,
     months: int = Query(default=12, ge=1, le=24),
     session: Session = Depends(get_session),
-) -> dict[str, float]:
+) -> dict[str, dict[str, float]]:
     location_asset_ids = {
         a.asset_id
         for a in session.exec(sql_select(Asset).where(Asset.location_id == location_id)).all()

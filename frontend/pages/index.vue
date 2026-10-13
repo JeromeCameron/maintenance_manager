@@ -23,6 +23,7 @@ interface MonthlyMetrics {
   mttr: number | null
   mtbf: number | null
   availability: number
+  planned_hours?: number
 }
 const { data: monthlyMetrics } = await useAsyncData("downtime-metrics", () => get<MonthlyMetrics[]>("/downtimes/monthly-metrics?months=6"))
 const { data: assetPMs } = await useAsyncData("asset-pms", () => get<AssetPM[]>("/maintenance/asset-pms"))

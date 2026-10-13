@@ -44,6 +44,8 @@ from schema.models import (
     WorkOrderStatus,
 )
 from utils.down_hours import get_production_downtime_hours
+from utils.prod_metrics import availability as calc_availability
+from utils.prod_metrics import mtbf as calc_mtbf
 from utils.production_hours import get_production_hours
 from utils.utils import now_local, today_local
 
@@ -376,12 +378,16 @@ def _gather(session: Session) -> dict:
     # Per-asset breakdown for the comparison chart
     curr_by_asset: dict[str, float] = defaultdict(float)
     prev_like_by_asset: dict[str, float] = defaultdict(float)
+    planned_by_asset: dict[str, float] = defaultdict(float)  # MTD, subset of curr_by_asset
     for dt in downtimes:
         if not dt.asset_id or dt.start_date is None or dt.start_time is None:
             continue
         event_end = dt.end_date or today
         if not (dt.start_date > today or event_end < m_s):
-            curr_by_asset[dt.asset_id] += _hours_in_range([dt], holidays, m_s, today)
+            hrs = _hours_in_range([dt], holidays, m_s, today)
+            curr_by_asset[dt.asset_id] += hrs
+            if dt.planned:
+                planned_by_asset[dt.asset_id] += hrs
         if not (dt.start_date > prev_like_end or event_end < p_s):
             prev_like_by_asset[dt.asset_id] += _hours_in_range([dt], holidays, p_s, prev_like_end)
 
@@ -398,6 +404,7 @@ def _gather(session: Session) -> dict:
         prev_like_end=prev_like_end,
         curr_by_asset=dict(curr_by_asset),
         prev_like_by_asset=dict(prev_like_by_asset),
+        planned_by_asset=dict(planned_by_asset),
         scheduled_by_asset=scheduled_by_asset,
         week_bales=calc_bales(week.start, week.end),
         month_bales=calc_bales(m_s, today),
@@ -728,11 +735,13 @@ def _sec_reliability(d, S, W):
     m_s, p_s = d["m_s"], d["p_s"]
     prev_dts = d["prev_dts"]
     scheduled_by_asset: dict[str, float] = d.get("scheduled_by_asset", {})
+    planned_by_asset: dict[str, float] = d.get("planned_by_asset", {})
 
     def metrics(dts):
+        # Planned downtime isn't a failure; its hours come out of scheduled time.
         by_asset: dict[str, list[float]] = defaultdict(list)
         for dt in dts:
-            if dt.asset_id and dt.downtime_hours:
+            if dt.asset_id and dt.downtime_hours and not dt.planned:
                 by_asset[dt.asset_id].append(dt.downtime_hours)
         result = {}
         for a in assets:
@@ -740,13 +749,14 @@ def _sec_reliability(d, S, W):
             n = len(events)
             dt_hrs = sum(events)
             sched = scheduled_by_asset.get(a.asset_id, 0) or 0
+            planned = planned_by_asset.get(a.asset_id, 0.0)
             result[a.asset_id] = {
                 "alias": a.alias or "",
                 "n": n,
                 "dt_hrs": dt_hrs,
-                "avail": max(0, (sched - dt_hrs) / sched * 100) if sched > 0 else 100.0,
+                "avail": calc_availability(sched, dt_hrs, planned) if sched > 0 else 100.0,
                 "mttr": dt_hrs / n if n else None,
-                "mtbf": (sched - dt_hrs) / n if n else None,
+                "mtbf": calc_mtbf(sched, dt_hrs, n, planned) if n else None,
             }
         return result
 

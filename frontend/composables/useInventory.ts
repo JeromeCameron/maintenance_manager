@@ -17,6 +17,7 @@ export function useInventory() {
   const removeCategory = (id: number) => del(`/inventory/part-categories/${id}`)
 
   // Equipment Parts
+  const getEquipmentParts = () => get<EquipmentPart[]>("/inventory/equipment-parts")
   const getEquipmentPartsByPart = (partNo: string) => get<EquipmentPart[]>(`/inventory/equipment-parts/part/${partNo}`)
   const createEquipmentPart = (data: EquipmentPart) => post<EquipmentPart>("/inventory/equipment-parts", data)
   const updateEquipmentPart = (id: number, data: EquipmentPart) => put<EquipmentPart>(`/inventory/equipment-parts/${id}`, data)
@@ -43,7 +44,7 @@ export function useInventory() {
   return {
     getParts, getPart, createPart, updatePart, removePart,
     getCategories, createCategory, updateCategory, removeCategory,
-    getEquipmentPartsByPart, createEquipmentPart, updateEquipmentPart, removeEquipmentPart,
+    getEquipmentParts, getEquipmentPartsByPart, createEquipmentPart, updateEquipmentPart, removeEquipmentPart,
     getPartSuppliersByPart, createPartSupplier, updatePartSupplier, removePartSupplier,
     getStockLevels, createStockLevel, updateStockLevel, removeStockLevel,
     getTransactions, createTransaction, updateTransaction, removeTransaction,

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Downtime, DowntimeFactor } from "~/types"
+import type { AssetModel, CommodityRate, Downtime, DowntimeFactor } from "~/types"
 
 const { isAdmin } = useAuth()
 const {
@@ -15,6 +15,10 @@ const { data: assets } = await useAsyncData("assets-select", () => getAssets())
 const { data: workOrders } = await useAsyncData("downtime-work-orders", () => getWorkOrders())
 const { data: factorTypes } = await useAsyncData("downtime-factor-types", () => getFactorTypes())
 const { data: allFactors, refresh: refreshFactors } = await useAsyncData("downtime-all-factors", () => getFactors())
+const { get } = useApi()
+const { getAll: getCommodityRates } = useCommodityRates()
+const { data: assetModels } = useAsyncData("downtime-asset-models", () => get<AssetModel[]>("/asset-models"))
+const { data: commodityRates } = useAsyncData("downtime-commodity-rates", () => getCommodityRates())
 
 const factorTypeMap = computed(() => {
   const m: Record<number, string> = {}
@@ -88,7 +92,8 @@ const isEditing = ref(false)
 const editId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref<string | null>(null)
-const modalTab = ref<"details" | "factors">("details")
+type ModalTab = "details" | "factors" | "impact"
+const modalTab = ref<ModalTab>("details")
 
 const defaultForm = (): Partial<Downtime> => ({ planned: false, shift_asset: false })
 const form = ref<Partial<Downtime>>(defaultForm())
@@ -112,6 +117,38 @@ const effectiveRepairHours = computed(() => {
   const total = form.value.downtime_hours
   if (total == null) return null
   return Math.max(0, total - factorDelayHours.value)
+})
+
+// Same formula as the Reports page: bales lost = hours × 60 / bale_time; value at the commodity rate in effect on the start date.
+const balingImpact = computed(() => {
+  const asset = (assets.value ?? []).find((a) => a.asset_id === form.value.asset_id)
+  if (asset?.category !== "baler") return null
+  const model = (assetModels.value ?? []).find((m) => m.model_no === asset.model_no)
+  if (!model?.bale_time || !model?.bale_weight) return { missingSpecs: true as const }
+  const hours = form.value.downtime_hours ?? 0
+  const dateStr = form.value.start_date ?? new Date().toISOString().slice(0, 10)
+  // rates are sorted DESC by effective_date from the API
+  const rate: CommodityRate | undefined = (commodityRates.value ?? []).find((r) => r.effective_date <= dateStr)
+  const bales = hours * (60 / model.bale_time)
+  const weight = bales * model.bale_weight
+  return {
+    missingSpecs: false as const,
+    hours,
+    bales,
+    weight,
+    rate: rate?.rate_per_lb ?? null,
+    value: rate ? weight * rate.rate_per_lb : null,
+  }
+})
+
+const modalTabs = computed(() => [
+  { label: "Details", value: "details" as ModalTab },
+  { label: `Factors${factors.value.length ? ` (${factors.value.length})` : ""}`, value: "factors" as ModalTab },
+  ...(balingImpact.value ? [{ label: "Baling Impact", value: "impact" as ModalTab }] : []),
+])
+
+watch(balingImpact, (impact) => {
+  if (!impact && modalTab.value === "impact") modalTab.value = "details"
 })
 
 function resetFactorDraft() {
@@ -351,12 +388,12 @@ async function confirmDelete() {
 
           <div class="flex shrink-0 gap-2 border-b border-slate-100 dark:border-slate-800 px-6">
             <button
-              v-for="t in [{ label: 'Details', value: 'details' }, { label: `Factors${factors.length ? ` (${factors.length})` : ''}`, value: 'factors' }]"
+              v-for="t in modalTabs"
               :key="t.value"
               type="button"
               class="border-b-2 px-1 py-2.5 text-sm font-medium transition-colors"
               :class="modalTab === t.value ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'"
-              @click="modalTab = t.value as 'details' | 'factors'"
+              @click="modalTab = t.value"
             >
               {{ t.label }}
             </button>
@@ -418,6 +455,38 @@ async function confirmDelete() {
           </div>
 
           <!-- Exacerbating factors ─ needs the downtime's id, so only once it exists -->
+          <div v-if="modalTab === 'impact' && balingImpact" class="flex-1 overflow-y-auto px-6 py-5">
+            <div class="mb-4">
+              <h4 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Baling impact</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Production lost while this baler was down.</p>
+            </div>
+            <div v-if="balingImpact.missingSpecs" class="rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-6 text-center text-sm text-amber-700 dark:text-amber-400">
+              Set bale time and bale weight on this baler's asset model to see lost production.
+            </div>
+            <template v-else>
+              <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-4">
+                  <p class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">Bales lost</p>
+                  <p class="mt-1 text-2xl font-bold text-amber-900 dark:text-amber-300">{{ balingImpact.bales.toFixed(1) }}</p>
+                </div>
+                <div class="rounded-lg bg-amber-50 dark:bg-amber-500/10 px-4 py-4">
+                  <p class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">Weight lost</p>
+                  <p class="mt-1 text-2xl font-bold text-amber-900 dark:text-amber-300">{{ Math.round(balingImpact.weight).toLocaleString() }} <span class="text-sm font-semibold">lb</span></p>
+                </div>
+                <div class="rounded-lg bg-red-50 dark:bg-red-500/10 px-4 py-4">
+                  <p class="text-xs font-medium uppercase tracking-wide text-red-700 dark:text-red-400">Value lost</p>
+                  <p class="mt-1 text-2xl font-bold text-red-900 dark:text-red-300">
+                    <template v-if="balingImpact.value != null">${{ balingImpact.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }} <span class="text-sm font-semibold">USD</span></template>
+                    <template v-else>—</template>
+                  </p>
+                </div>
+              </div>
+              <p class="mt-3 text-xs text-slate-400 dark:text-slate-500">
+                Based on {{ balingImpact.hours.toFixed(2) }} downtime hours<template v-if="balingImpact.rate != null"> at ${{ balingImpact.rate.toFixed(2) }}/lb (commodity rate on the start date)</template><template v-else> · no commodity rate on file for this date</template>.
+              </p>
+            </template>
+          </div>
+
           <div v-show="modalTab === 'factors'" class="flex-1 overflow-y-auto px-6 py-5">
             <div v-if="!isEditing" class="py-8 text-center text-sm text-slate-400 dark:text-slate-500">
               Save this downtime record first to add exacerbating factors.

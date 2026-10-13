@@ -23,7 +23,7 @@ export function useAssets() {
   const updateScore = (scoreId: number, data: AssetScores) => put<AssetScores>(`/asset-scores/${scoreId}`, data)
   const removeScore = (scoreId: number) => del(`/asset-scores/${scoreId}`)
 
-  interface Availability30d { availability: number; downtime_hours: number; scheduled_hours: number }
+  interface Availability30d { availability: number; downtime_hours: number; planned_hours: number; scheduled_hours: number }
   const getAvailability30d = (assetId: string) => get<Availability30d>(`/downtimes/availability-30d/${assetId}`)
 
   // Asset Shift History

@@ -5,7 +5,7 @@ const { isAdmin, user } = useAuth()
 const {
   getParts, getPart, createPart, updatePart, removePart,
   getCategories, getStockLevels,
-  getEquipmentPartsByPart, createEquipmentPart, updateEquipmentPart, removeEquipmentPart,
+  getEquipmentParts, getEquipmentPartsByPart, createEquipmentPart, updateEquipmentPart, removeEquipmentPart,
   getPartSuppliersByPart, createPartSupplier, updatePartSupplier, removePartSupplier,
   getTransactions, createTransaction, removeTransaction,
 } = useInventory()
@@ -20,6 +20,7 @@ const { data: categories } = await useAsyncData("part-cats", () => getCategories
 const { data: allStockLevels, refresh: refreshStock } = await useAsyncData("stock-levels", () => getStockLevels())
 const { data: suppliers } = await useAsyncData("all-suppliers", () => getSuppliers())
 const { data: assetModels } = await useAsyncData("all-asset-models", () => getAssetModels())
+const { data: allEquipmentParts, refresh: refreshEquipmentParts } = await useAsyncData("all-equipment-parts", () => getEquipmentParts())
 const { data: locations } = await useAsyncData("locations", () => getLocations())
 const { data: purchaseOrders } = await useAsyncData("pos", () => getPOs())
 const { data: workOrders } = await useAsyncData("work-orders", () => apiGet<WorkOrder[]>("/work-orders"))
@@ -43,6 +44,18 @@ const locationMap = computed(() => {
 })
 
 const categoryOptions = computed(() => (categories.value ?? []).map(c => ({ label: c.name, value: c.id })))
+const categoryFilterOptions = computed(() => [{ label: "All categories", value: null }, ...categoryOptions.value])
+// Only models that have at least one part linked
+const modelFilterOptions = computed(() => {
+  const linked = new Set((allEquipmentParts.value ?? []).map(e => e.model_no))
+  return [
+    { label: "All equipment models", value: null },
+    ...(assetModels.value ?? [])
+      .filter(m => linked.has(m.model_no))
+      .sort((a, b) => a.model_no.localeCompare(b.model_no))
+      .map(m => ({ label: `${m.model_no} — ${m.manufacturer}`, value: m.model_no as string | null })),
+  ]
+})
 const supplierOptions = computed(() => (suppliers.value ?? []).map(s => ({ label: s.name, value: s.supplier_id })))
 const modelOptions = computed(() => (assetModels.value ?? []).map(m => ({ label: `${m.model_no} — ${m.manufacturer}`, value: m.model_no })))
 const locationOptions = computed(() => [
@@ -64,10 +77,18 @@ const workOrderOptions = computed(() => [
 const uomOptions = ["unit", "pieces", "gallons", "drums", "boxes", "pairs", "quart", "liter", "meter", "bag"]
 
 const search = ref("")
+const categoryFilter = ref<number | null>(null)
+const modelFilter = ref<string | null>(null)
+const partsForModel = computed(() =>
+  modelFilter.value == null ? null
+    : new Set((allEquipmentParts.value ?? []).filter(e => e.model_no === modelFilter.value).map(e => e.part_no)))
 const filtered = computed(() =>
   (parts.value ?? []).filter(p => {
     const q = search.value.toLowerCase()
-    return !q || p.part_no.toLowerCase().includes(q) || p.part_name.toLowerCase().includes(q)
+    const matchSearch = !q || p.part_no.toLowerCase().includes(q) || p.part_name.toLowerCase().includes(q)
+    const matchCategory = categoryFilter.value == null || p.category_id === categoryFilter.value
+    const matchModel = !partsForModel.value || partsForModel.value.has(p.part_no)
+    return matchSearch && matchCategory && matchModel
   })
 )
 const lowStock = computed(() => (parts.value ?? []).filter(p => (stockMap.value[p.part_no] ?? 0) <= p.reorder_level))
@@ -257,6 +278,7 @@ async function saveEp() {
       const created = await createEquipmentPart(epForm.value as EquipmentPart)
       partEquipment.value = [...partEquipment.value, created]
     }
+    refreshEquipmentParts()
     showEpModal.value = false
   } catch (e: unknown) {
     epError.value = (e as { message?: string }).message ?? "Save failed"
@@ -271,6 +293,7 @@ async function deleteEp(id: number) {
     action: async () => {
       await removeEquipmentPart(id)
       partEquipment.value = partEquipment.value.filter(e => e.id !== id)
+      refreshEquipmentParts()
     },
   }
 }
@@ -359,8 +382,12 @@ function deletePart(part: Part) {
 
     <UCard :ui="{ root: 'flex flex-col flex-1 min-h-0', body: 'flex flex-col flex-1 min-h-0 p-0' }">
       <template #header>
-        <div class="flex items-center justify-between gap-3">
-          <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <UInput v-model="search" placeholder="Search by part no or name..." leading-icon="i-heroicons-magnifying-glass" class="max-w-sm" />
+            <USelect v-model="categoryFilter" :items="categoryFilterOptions" class="w-48" />
+            <USelect v-model="modelFilter" :items="modelFilterOptions" class="w-64" />
+          </div>
           <UButton leading-icon="i-heroicons-plus" @click="openCreate" class="!bg-blue-700 hover:!bg-blue-800">New Part</UButton>
         </div>
       </template>

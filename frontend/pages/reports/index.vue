@@ -10,6 +10,17 @@ interface MonthlyMetrics {
   mttr: number | null
   mtbf: number | null
   availability: number
+  planned_hours?: number
+}
+
+// Mirrors utils/prod_metrics.availability: planned downtime comes out of scheduled
+// hours (it's neither a failure nor available time); dt is unplanned hours only.
+type MonthlyDowntimeSplit = Record<string, { unplanned: number; planned: number }>
+function availabilityPct(scheduled: number, dt: number, planned = 0): number {
+  if (!scheduled) return 100
+  const net = scheduled - planned
+  if (net <= 0) return 100
+  return Math.max(0, ((net - dt) / net) * 100)
 }
 
 const { get } = useApi()
@@ -68,6 +79,9 @@ function inRange(dateStr: string | undefined | null, from: Date | null, to: Date
   return d <= to
 }
 
+// Older invoices predate the invoice_date column, so fall back to received/job date.
+const invoiceDate = (i: Invoice) => i.invoice_date ?? i.rec_date ?? i.job_date
+
 // ── Filtered data ──────────────────────────────────────────────
 const filteredDowntimes = computed(() => {
   const { from, to } = dateRange.value
@@ -83,7 +97,7 @@ const filteredBudgets  = computed(() => {
 })
 const filteredInvoices = computed(() => {
   const { from, to } = dateRange.value
-  return (invoices.value ?? []).filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+  return (invoices.value ?? []).filter((i) => inRange(invoiceDate(i), from, to))
 })
 
 // ── Baler lookup: downtime.asset_id → asset.model_no → model specs ──
@@ -173,7 +187,7 @@ function monthlyMaintCost() {
 function monthlyBudgetUtil() {
   return last6.map(({ year, month }) => {
     const bud = (budgets.value ?? []).filter((b) => { const d = new Date(b.month); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, b) => s + b.amount, 0)
-    const act = (invoices.value ?? []).filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
+    const act = (invoices.value ?? []).filter((i) => { const ds = invoiceDate(i); if (!ds) return false; const d = new Date(ds); return d.getFullYear() === year && d.getMonth() === month }).reduce((s, i) => s + i.subtotal, 0)
     return bud ? +Math.min((act / bud) * 100, 200).toFixed(1) : 0
   })
 }
@@ -413,7 +427,7 @@ async function downloadBalerDowntimeDetail() {
 async function downloadAvailabilityByCategory() {
   const { from, to } = dateRange.value
   const [catMetrics, assets, hols, dt] = await Promise.all([
-    get<{ month: string; category: string; downtime_hours: number; failures: number }[]>("/downtimes/monthly-metrics-by-category?months=24"),
+    get<{ month: string; category: string; downtime_hours: number; planned_hours?: number; failures: number }[]>("/downtimes/monthly-metrics-by-category?months=24"),
     get<Asset[]>("/assets"),
     get<{ holiday_date: string }[]>("/holidays"),
     get<Downtime[]>("/downtimes"),
@@ -448,7 +462,11 @@ async function downloadAvailabilityByCategory() {
 
   const filtered = (catMetrics ?? []).filter(r => inRange(r.month + "-01", from, to))
   const dtMap: Record<string, number> = {}
-  for (const r of filtered) dtMap[`${r.month}|${r.category}`] = r.downtime_hours
+  const plannedMap: Record<string, number> = {}
+  for (const r of filtered) {
+    dtMap[`${r.month}|${r.category}`] = r.downtime_hours
+    plannedMap[`${r.month}|${r.category}`] = r.planned_hours ?? 0
+  }
 
   const months = [...new Set(filtered.map(r => r.month))].sort()
   const categories = Object.keys(categoryHoursPerDay).sort()
@@ -461,6 +479,7 @@ async function downloadAvailabilityByCategory() {
     "Month",
     "Fleet Total availability %", ...categories.map(c => `${c} availability %`),
     "Fleet Total downtime hrs", ...categories.map(c => `${c} downtime hrs`),
+    "Fleet Total planned hrs", ...categories.map(c => `${c} planned hrs`),
   ]
   const rows = months.map(month => {
     const [y, m] = month.split("-").map(Number)
@@ -469,19 +488,24 @@ async function downloadAvailabilityByCategory() {
 
     let totalScheduled = 0
     let totalDtHrs = 0
+    let totalPlanned = 0
     const availCols: string[] = []
     for (const cat of categories) {
       const dtHrs = dtMap[`${month}|${cat}`] ?? 0
+      const planned = plannedMap[`${month}|${cat}`] ?? 0
       const scheduled = (categoryHoursPerDay[cat] ?? 0) * wdays
       totalScheduled += scheduled
       totalDtHrs += dtHrs
-      availCols.push(scheduled > 0 ? (((scheduled - dtHrs) / scheduled) * 100).toFixed(1) + "%" : "100%")
+      totalPlanned += planned
+      availCols.push(availabilityPct(scheduled, dtHrs, planned).toFixed(1) + "%")
     }
-    row.push(totalScheduled > 0 ? (((totalScheduled - totalDtHrs) / totalScheduled) * 100).toFixed(1) + "%" : "100%")
+    row.push(availabilityPct(totalScheduled, totalDtHrs, totalPlanned).toFixed(1) + "%")
     row.push(...availCols)
 
     row.push(totalDtHrs.toFixed(1))
     for (const cat of categories) row.push((dtMap[`${month}|${cat}`] ?? 0).toFixed(1))
+    row.push(totalPlanned.toFixed(1))
+    for (const cat of categories) row.push((plannedMap[`${month}|${cat}`] ?? 0).toFixed(1))
     return row
   })
   triggerDownload(`availability-by-category-${slugDate(to)}.csv`, toCSV(headers, rows))
@@ -603,7 +627,7 @@ async function downloadInvoices() {
   const ccMap: Record<string, string> = {}; for (const c of invCCs ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? c.gl_code
   const { from, to } = dateRange.value
   const rows = (invs ?? [])
-    .filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
+    .filter((i) => inRange(invoiceDate(i), from, to))
     .sort((a, b) => (b.invoice_date ?? "").localeCompare(a.invoice_date ?? ""))
     .map((i) => [
       i.invoice_no, i.invoice_date ?? "", i.job_date ?? "", i.rec_date ?? "",
@@ -629,6 +653,11 @@ async function downloadBudgets() {
       b.financial_year, b.month, b.amount.toFixed(2), b.notes ?? "",
     ])
   triggerDownload(`budgets-${slugDate(to)}.csv`, toCSV(["GL Code", "Cost Centre", "Financial Year", "Month", "Amount", "Notes"], rows))
+}
+
+async function downloadBudgetVsActual() {
+  const { from, to } = dateRange.value
+  triggerDownload(`budget-vs-actual-${slugDate(to)}.csv`, toCSV(budgetVsActualHeaders, buildBudgetVsActualRows(from, to, null)))
 }
 
 // ── Weekly HTML report ────────────────────────────────────────
@@ -684,8 +713,9 @@ const reports: ReportDef[] = [
   { id: "delay-factors", name: "Downtime Delay Factors",         description: "Exacerbating factors that prolonged downtime beyond repair time (parts, supplier holds, approvals) with attributable delay hours and share of total delay.", category: "Reliability", categoryColor: "warning", icon: "i-heroicons-clock",                       dateNote: "By factor / downtime start month", download: makeDownloader("delay-factors", downloadDelayFactors) },
   { id: "purchase-orders", name: "Purchase Orders",             description: "All purchase orders with supplier, cost centre and subtotal.",                category: "Finance",     categoryColor: "primary", icon: "i-heroicons-document-text",               dateNote: "By PO date",          download: makeDownloader("purchase-orders", downloadPurchaseOrders) },
   { id: "po-balances",  name: "PO Balances",                    description: "Purchase order value, amount invoiced to date and remaining balance.",         category: "Finance",     categoryColor: "primary", icon: "i-heroicons-scale",                       dateNote: "By PO date",          download: makeDownloader("po-balances", downloadPOBalances) },
-  { id: "invoices",     name: "Invoices",                       description: "All invoices with supplier, PO/work order links, type and status.",           category: "Finance",     categoryColor: "primary", icon: "i-heroicons-banknotes",                    dateNote: "By received date",    download: makeDownloader("invoices", downloadInvoices) },
+  { id: "invoices",     name: "Invoices",                       description: "All invoices with supplier, PO/work order links, type and status.",           category: "Finance",     categoryColor: "primary", icon: "i-heroicons-banknotes",                    dateNote: "By invoice date",     download: makeDownloader("invoices", downloadInvoices) },
   { id: "budgets",      name: "Budgets",                        description: "Budget entries by GL code, financial year and month.",                        category: "Finance",     categoryColor: "primary", icon: "i-heroicons-chart-pie",                    dateNote: "By budget month",     download: makeDownloader("budgets", downloadBudgets) },
+  { id: "budget-vs-actual", name: "Budget vs Actual by Cost Centre", description: "Budget, spend and variance for each GL line by month, with a total per line. Shared (-OPS) lines are labelled.", category: "Finance", categoryColor: "primary", icon: "i-heroicons-calculator", dateNote: "Monthly, by invoice date", download: makeDownloader("budget-vs-actual", downloadBudgetVsActual) },
 ]
 
 const filteredReports = computed(() =>
@@ -717,13 +747,13 @@ const activeReportTab = ref<'reports' | 'asset' | 'location' | 'downtime' | 'bud
 const selectedAssetId = ref<string | null>(null)
 
 const assetShiftHistory = ref<AssetShiftHistory[]>([])
-const assetMonthlyDowntimeData = ref<Record<string, number>>({})
+const assetMonthlyDowntimeData = ref<MonthlyDowntimeSplit>({})
 const assetAvailability30dValue = ref<number>(100)
 watch(selectedAssetId, async (id) => {
   if (id) {
     const [history, monthlyDt, avail30d] = await Promise.all([
       get<AssetShiftHistory[]>(`/assets/${id}/shift-history`).catch(() => []),
-      get<Record<string, number>>(`/downtimes/monthly-by-asset/${id}?months=12`).catch(() => ({})),
+      get<MonthlyDowntimeSplit>(`/downtimes/monthly-by-asset/${id}?months=12`).catch(() => ({})),
       get<{ availability: number }>(`/downtimes/availability-30d/${id}`).catch(() => null),
     ])
     assetShiftHistory.value = history
@@ -834,8 +864,11 @@ const assetShiftHours = computed(() => {
 
 const assetMonthlyDowntime = computed(() =>
   analysisMonths.value.map(({ key }) =>
-    +(assetMonthlyDowntimeData.value[key] ?? 0).toFixed(1)
+    +(assetMonthlyDowntimeData.value[key]?.unplanned ?? 0).toFixed(1)
   )
+)
+const assetMonthlyPlanned = computed(() =>
+  analysisMonths.value.map(({ key }) => assetMonthlyDowntimeData.value[key]?.planned ?? 0)
 )
 
 function scheduledHoursForMonth(year: number, month: number): number {
@@ -857,9 +890,7 @@ function scheduledHoursForMonth(year: number, month: number): number {
 const assetMonthlyAvailability = computed(() =>
   analysisMonths.value.map(({ year, month }, idx) => {
     const scheduled = scheduledHoursForMonth(year, month)
-    if (!scheduled) return 100
-    const dt = assetMonthlyDowntime.value[idx]
-    return +Math.max(0, ((scheduled - dt) / scheduled) * 100).toFixed(1)
+    return +availabilityPct(scheduled, assetMonthlyDowntime.value[idx], assetMonthlyPlanned.value[idx]).toFixed(1)
   })
 )
 
@@ -929,6 +960,61 @@ const assetMonthlyBaleValue = computed(() => {
     })
     return +calcBales(events).value.toFixed(2)
   })
+})
+
+const monthsInServiceMask = computed(() => {
+  const inService = selectedAssetObj.value?.date_in_service?.slice(0, 10)
+  return analysisMonths.value.map(({ year, month }) => {
+    if (!inService) return true
+    const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(new Date(year, month + 1, 0).getDate()).padStart(2, '0')}`
+    return monthEnd >= inService
+  })
+})
+
+function balerRateForMonth(year: number, month: number): number {
+  const now = new Date()
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth()
+  const day = isCurrentMonth ? now.getDate() : new Date(year, month + 1, 0).getDate()
+  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const rate = rateAtDate(dateStr)
+  if (rate) return rate
+  // No rate effective yet for this month — use the oldest on file rather than $0
+  const rates = commodityRates.value ?? []
+  return rates.length ? rates[rates.length - 1].rate_per_lb : 0
+}
+
+const assetCostVsEarnings = computed(() => {
+  const model = selectedAssetModel.value
+  if (!isBaler.value || !model?.bale_time || !model?.bale_weight) return null
+  const lbPerHour = (60 / model.bale_time) * model.bale_weight
+  let cost = 0, earnFull = 0, earnNet = 0, balesFull = 0, balesNet = 0
+  analysisMonths.value.forEach(({ year, month }, idx) => {
+    if (!monthsInServiceMask.value[idx]) return
+    cost += assetWorkOrders.value
+      .filter(w => {
+        if (!w.date_completed) return false
+        const d = new Date(`${w.date_completed.slice(0, 10)}T00:00:00`)
+        return d.getFullYear() === year && d.getMonth() === month
+      })
+      .reduce((s, w) => s + (w.actual_cost ?? 0), 0)
+    const schedHrs = scheduledHoursForMonth(year, month)
+    // Planned or not, downtime is lost production
+    const prodHrs = Math.max(0, schedHrs - (assetMonthlyDowntime.value[idx] ?? 0) - assetMonthlyPlanned.value[idx])
+    const rate = balerRateForMonth(year, month)
+    balesFull += schedHrs * 60 / model.bale_time
+    balesNet += prodHrs * 60 / model.bale_time
+    earnFull += schedHrs * lbPerHour * rate
+    earnNet += prodHrs * lbPerHour * rate
+  })
+  const n = Math.max(1, monthsInServiceMask.value.filter(Boolean).length)
+  return {
+    monthsInService: n,
+    avgCost: cost / n,
+    avgEarnFull: earnFull / n,
+    avgEarnNet: earnNet / n,
+    avgBalesFull: Math.round(balesFull / n),
+    avgBalesNet: Math.round(balesNet / n),
+  }
 })
 
 const avg12mAvailability = computed(() => {
@@ -1023,7 +1109,7 @@ const assetMonthlyMTBF = computed(() =>
       return dt.getFullYear() === year && dt.getMonth() === month && !d.planned
     })
     if (!events.length) return null
-    const scheduled = scheduledHoursForMonth(year, month)
+    const scheduled = scheduledHoursForMonth(year, month) - assetMonthlyPlanned.value[idx]
     const downtime = assetMonthlyDowntime.value[idx]
     return +Math.max(0, (scheduled - downtime) / events.length).toFixed(2)
   })
@@ -1069,10 +1155,10 @@ const mtbfLineOpts = computed(() => ({
 
 // ── Location Analysis ──────────────────────────────────────────
 const selectedLocationId = ref<number | 'all' | null>('all')
-const locationMonthlyDowntimeData = ref<Record<string, number>>({})
+const locationMonthlyDowntimeData = ref<MonthlyDowntimeSplit>({})
 watch(selectedLocationId, async (id: number | 'all' | null) => {
   locationMonthlyDowntimeData.value = id
-    ? await get<Record<string, number>>(
+    ? await get<MonthlyDowntimeSplit>(
         id === 'all'
           ? `/downtimes/monthly-by-location/all?months=12`
           : `/downtimes/monthly-by-location/${id}?months=12`,
@@ -1132,16 +1218,15 @@ const locationScheduledHoursPerDay = computed(() =>
 
 const locationMonthlyDowntime = computed(() =>
   analysisMonths.value.map(({ key }) =>
-    +(locationMonthlyDowntimeData.value[key] ?? 0).toFixed(1)
+    +(locationMonthlyDowntimeData.value[key]?.unplanned ?? 0).toFixed(1)
   )
 )
 
 const locationMonthlyAvailability = computed(() =>
   analysisMonths.value.map(({ year, month }, idx) => {
     const scheduled = workingDaysInMonth(year, month) * locationScheduledHoursPerDay.value
-    if (!scheduled) return 100
-    const dt = locationMonthlyDowntime.value[idx]
-    return +Math.max(0, ((scheduled - dt) / scheduled) * 100).toFixed(1)
+    const planned = locationMonthlyDowntimeData.value[analysisMonths.value[idx].key]?.planned ?? 0
+    return +availabilityPct(scheduled, locationMonthlyDowntime.value[idx], planned).toFixed(1)
   })
 )
 
@@ -1398,7 +1483,8 @@ function dateToFY(dateStr: string): string {
 }
 function fyToRange(fy: string): { from: Date; to: Date } {
   const endYear = 2000 + Number(fy.replace("FY", ""))
-  return { from: new Date(endYear - 1, 3, 1), to: new Date(endYear, 2, 31, 23, 59, 59) }
+  // UTC to match date-only strings ("2026-04-01" parses as UTC midnight)
+  return { from: new Date(Date.UTC(endYear - 1, 3, 1)), to: new Date(Date.UTC(endYear, 2, 31, 23, 59, 59)) }
 }
 
 const currentFY = dateToFY(new Date().toISOString())
@@ -1407,7 +1493,7 @@ const selectedFY = ref(currentFY)
 const fyOptions = computed(() => {
   const set = new Set<string>([currentFY])
   for (const b of budgets.value ?? []) if (b.financial_year) set.add(b.financial_year)
-  for (const i of invoices.value ?? []) { const ds = i.rec_date ?? i.job_date; if (ds) set.add(dateToFY(ds)) }
+  for (const i of invoices.value ?? []) { const ds = invoiceDate(i); if (ds) set.add(dateToFY(ds)) }
   for (const p of purchaseOrders.value ?? []) if (p.po_date) set.add(dateToFY(p.po_date))
   return [...set].sort().reverse()
 })
@@ -1430,18 +1516,33 @@ const glCodeLocationMap = computed(() => {
   return m
 })
 
-const fyFilteredPOs = computed(() => {
+// With a location selected, the KPI cards and chart count only spend booked to that
+// location's own GL codes. Spend the location booked to shared (-OPS) lines is
+// reported separately as a note.
+const isLocationGL = (gl: string | null | undefined) =>
+  selectedSpendLocationId.value == null || (gl != null && glCodeLocationMap.value[gl] === selectedSpendLocationId.value)
+
+const fyPOs = computed(() => {
   const { from, to } = selectedFYRange.value
-  return (purchaseOrders.value ?? [])
-    .filter((p) => inRange(p.po_date, from, to))
-    .filter((p) => selectedSpendLocationId.value == null || p.location_id === selectedSpendLocationId.value)
+  return (purchaseOrders.value ?? []).filter((p) => inRange(p.po_date, from, to))
 })
-const fyFilteredInvoices = computed(() => {
+const fyFilteredPOs = computed(() => fyPOs.value.filter((p) => isLocationGL(p.cost_centre_id)))
+const fySharedPOs = computed(() =>
+  selectedSpendLocationId.value == null ? [] :
+  fyPOs.value.filter((p) => p.location_id === selectedSpendLocationId.value && p.cost_centre_id != null && sharedGLs.value.has(p.cost_centre_id)))
+
+const fyInvoices = computed(() => {
   const { from, to } = selectedFYRange.value
-  return (invoices.value ?? [])
-    .filter((i) => inRange(i.rec_date ?? i.job_date, from, to))
-    .filter((i) => selectedSpendLocationId.value == null || i.location_id === selectedSpendLocationId.value)
+  return (invoices.value ?? []).filter((i) => inRange(invoiceDate(i), from, to))
 })
+// By the invoice's own location — feeds the cost-centre panel and top suppliers
+const fyFilteredInvoices = computed(() =>
+  fyInvoices.value.filter((i) => selectedSpendLocationId.value == null || i.location_id === selectedSpendLocationId.value))
+// By the location's GL codes — feeds the KPI cards and chart
+const fyLocationGLInvoices = computed(() => fyInvoices.value.filter((i) => isLocationGL(invoiceGL(i))))
+const fySharedInvoices = computed(() =>
+  selectedSpendLocationId.value == null ? [] :
+  fyFilteredInvoices.value.filter((i) => { const gl = invoiceGL(i); return gl != null && sharedGLs.value.has(gl) }))
 const fyFilteredBudgets = computed(() => {
   const { from, to } = selectedFYRange.value
   return (budgets.value ?? [])
@@ -1450,7 +1551,9 @@ const fyFilteredBudgets = computed(() => {
 })
 
 const periodPOValue      = computed(() => fyFilteredPOs.value.reduce((s, p) => s + p.subtotal, 0))
-const periodInvoiceValue = computed(() => fyFilteredInvoices.value.reduce((s, i) => s + i.subtotal, 0))
+const periodInvoiceValue = computed(() => fyLocationGLInvoices.value.reduce((s, i) => s + i.subtotal, 0))
+const sharedPOValue      = computed(() => fySharedPOs.value.reduce((s, p) => s + p.subtotal, 0))
+const sharedInvoiceValue = computed(() => fySharedInvoices.value.reduce((s, i) => s + i.subtotal, 0))
 const periodBudgetTotal  = computed(() => fyFilteredBudgets.value.reduce((s, b) => s + b.amount, 0))
 const periodVariance     = computed(() => periodBudgetTotal.value - periodInvoiceValue.value)
 const periodUtilizationPct = computed(() => periodBudgetTotal.value ? (periodInvoiceValue.value / periodBudgetTotal.value) * 100 : null)
@@ -1459,7 +1562,7 @@ const periodUtilizationPct = computed(() => periodBudgetTotal.value ? (periodInv
 const spendChartMonths = computed(() => {
   const { from } = selectedFYRange.value
   return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(from.getFullYear(), from.getMonth() + i, 1)
+    const d = new Date(from.getUTCFullYear(), from.getUTCMonth() + i, 1)
     return { year: d.getFullYear(), month: d.getMonth(), label: d.toLocaleString("default", { month: "short", year: "2-digit" }) }
   })
 })
@@ -1478,8 +1581,8 @@ const spendSeries = computed(() => [
     name: "Actual Spend",
     data: spendChartMonths.value.map(({ year, month }) =>
       (invoices.value ?? [])
-        .filter((i) => selectedSpendLocationId.value == null || i.location_id === selectedSpendLocationId.value)
-        .filter((i) => { const ds = i.rec_date ?? i.job_date; if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month })
+        .filter((i) => isLocationGL(invoiceGL(i)))
+        .filter((i) => { const ds = invoiceDate(i); if (!ds) return false; const d = new Date(ds); return d.getUTCFullYear() === year && d.getUTCMonth() === month })
         .reduce((s, i) => s + i.subtotal, 0)
     ),
   },
@@ -1507,17 +1610,25 @@ const poCostCentreMap = computed(() => {
   for (const p of purchaseOrders.value ?? []) if (p.cost_centre_id) m[p.po_no] = p.cost_centre_id
   return m
 })
+const invoiceGL = (i: Invoice) => i.cost_centre_id ?? (i.po_no ? poCostCentreMap.value[i.po_no] : undefined)
+
+// GL codes with no location (the "-OPS" lines) are shared across locations, so a
+// location filter keeps their full budget rather than dropping it.
+const sharedGLs = computed(() => new Set((costCentres.value ?? []).filter((c) => c.gl_code && c.location_id == null).map((c) => c.gl_code!)))
+const budgetMatchesLocation = (b: Budget, locationId: number | null) =>
+  locationId == null || (b.gl_code != null && (glCodeLocationMap.value[b.gl_code] === locationId || sharedGLs.value.has(b.gl_code)))
 
 const costCentreBreakdown = computed(() => {
+  const { from, to } = selectedFYRange.value
   const budgetByGL: Record<string, number> = {}
-  for (const b of fyFilteredBudgets.value) {
-    if (!b.gl_code) continue
+  for (const b of budgets.value ?? []) {
+    if (!b.gl_code || !inRange(b.month, from, to) || !budgetMatchesLocation(b, selectedSpendLocationId.value)) continue
     budgetByGL[b.gl_code] = (budgetByGL[b.gl_code] ?? 0) + b.amount
   }
 
   const actualByGL: Record<string, number> = {}
   for (const i of fyFilteredInvoices.value) {
-    const gl = i.cost_centre_id ?? (i.po_no ? poCostCentreMap.value[i.po_no] : undefined)
+    const gl = invoiceGL(i)
     if (!gl) continue
     actualByGL[gl] = (actualByGL[gl] ?? 0) + i.subtotal
   }
@@ -1533,6 +1644,7 @@ const costCentreBreakdown = computed(() => {
       return {
         gl_code: gl,
         description: ccMap[gl] ?? gl,
+        shared: sharedGLs.value.has(gl),
         budget,
         actual,
         variance: budget - actual,
@@ -1541,6 +1653,61 @@ const costCentreBreakdown = computed(() => {
     })
     .sort((a, b) => b.actual - a.actual)
 })
+
+// Budget vs actual per GL line per month, with a Total row after each line and a
+// "(No GL code)" row so the grand total reconciles with invoice spend.
+function buildBudgetVsActualRows(from: Date | null, to: Date, locationId: number | null) {
+  const locName: Record<number, string> = {}
+  for (const l of locations.value ?? []) if (l.location_id != null) locName[l.location_id] = l.name
+  const ccMap: Record<string, string> = {}
+  for (const c of costCentres.value ?? []) if (c.gl_code) ccMap[c.gl_code] = c.description ?? ""
+
+  type Cell = { budget: number; actual: number; count: number }
+  const byGL: Record<string, Record<string, Cell>> = {}
+  const cell = (gl: string, month: string) => ((byGL[gl] ??= {})[month] ??= { budget: 0, actual: 0, count: 0 })
+
+  for (const b of budgets.value ?? []) {
+    if (!b.gl_code || !b.month || (from && !inRange(b.month, from, to)) || !budgetMatchesLocation(b, locationId)) continue
+    cell(b.gl_code, b.month.slice(0, 7)).budget += b.amount
+  }
+  for (const i of invoices.value ?? []) {
+    const ds = invoiceDate(i)
+    if (!ds || !inRange(ds, from, to) || (locationId != null && i.location_id !== locationId)) continue
+    const c = cell(invoiceGL(i) ?? "", ds.slice(0, 7))
+    c.actual += i.subtotal
+    c.count++
+  }
+
+  const line = (month: string, gl: string, c: Cell) => {
+    const lineLoc = !gl ? "" : sharedGLs.value.has(gl) ? "Shared" : (locName[glCodeLocationMap.value[gl]] ?? "")
+    return [
+      month, gl || "(No GL code)", gl ? (ccMap[gl] ?? "") : "", lineLoc,
+      c.budget.toFixed(2), c.actual.toFixed(2), (c.budget - c.actual).toFixed(2),
+      c.budget ? ((c.actual / c.budget) * 100).toFixed(1) + "%" : "—", c.count,
+    ]
+  }
+
+  const rows: (string | number)[][] = []
+  const glCodes = Object.keys(byGL).sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)))
+  for (const gl of glCodes) {
+    const total: Cell = { budget: 0, actual: 0, count: 0 }
+    for (const month of Object.keys(byGL[gl]).sort()) {
+      const c = byGL[gl][month]
+      rows.push(line(month, gl, c))
+      total.budget += c.budget; total.actual += c.actual; total.count += c.count
+    }
+    rows.push(line("Total", gl, total))
+  }
+  return rows
+}
+const budgetVsActualHeaders = ["Month", "GL Code", "Cost Centre", "Line Location", "Budget", "Actual", "Variance", "% Used", "Invoices"]
+
+function downloadBudgetVsActualFY() {
+  const { from, to } = selectedFYRange.value
+  const loc = selectedSpendLocationId.value
+  const suffix = loc != null ? `-${(locations.value ?? []).find((l) => l.location_id === loc)?.name ?? loc}` : ""
+  triggerDownload(`budget-vs-actual-${selectedFY.value}${suffix}.csv`, toCSV(budgetVsActualHeaders, buildBudgetVsActualRows(from, to, loc)))
+}
 
 // Top suppliers by invoice spend (selected FY)
 const supplierMap = computed(() => {
@@ -2271,6 +2438,43 @@ function downloadBuilderCsv() {
 
         </div>
 
+        <!-- ── Cost vs expected earnings (balers only) ─────────────── -->
+        <div v-if="isBaler" class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
+          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-slate-100">Cost vs Expected Earnings</h3>
+            <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+              Monthly average over last {{ assetCostVsEarnings?.monthsInService ?? 12 }} month{{ assetCostVsEarnings?.monthsInService === 1 ? '' : 's' }} · work order actual cost vs bale production value
+            </p>
+          </div>
+
+          <div v-if="!assetCostVsEarnings" class="flex flex-col items-center gap-2 py-10 text-slate-400 dark:text-slate-500">
+            <UIcon name="i-heroicons-exclamation-circle" class="h-7 w-7" />
+            <p class="text-sm">Set bale time and bale weight on this asset's model to see expected earnings.</p>
+          </div>
+
+          <div v-else class="space-y-4 px-5 py-5">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div class="rounded-lg bg-slate-50 dark:bg-slate-800/60 px-4 py-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Avg Monthly Maintenance Cost</p>
+                <p class="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtCurrency(assetCostVsEarnings.avgCost) }}<span class="ml-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">JMD</span></p>
+                <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Work order actual cost, by date completed</p>
+              </div>
+              <div class="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 px-4 py-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-400">Expected Earnings – Full Schedule</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-900 dark:text-emerald-300">{{ fmtCurrency(assetCostVsEarnings.avgEarnFull) }}<span class="ml-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">USD</span></p>
+                <p class="mt-0.5 text-xs text-emerald-600 dark:text-emerald-400">~{{ assetCostVsEarnings.avgBalesFull.toLocaleString() }} bales / month</p>
+              </div>
+              <div class="rounded-lg bg-blue-50 dark:bg-blue-500/10 px-4 py-4">
+                <p class="text-xs font-medium uppercase tracking-wide text-blue-700 dark:text-blue-400">Expected Earnings – Schedule − Downtime</p>
+                <p class="mt-1 text-2xl font-bold text-blue-900 dark:text-blue-300">{{ fmtCurrency(assetCostVsEarnings.avgEarnNet) }}<span class="ml-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400">USD</span></p>
+                <p class="mt-0.5 text-xs text-blue-600 dark:text-blue-400">~{{ assetCostVsEarnings.avgBalesNet.toLocaleString() }} bales / month</p>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-400 dark:text-slate-500">Maintenance cost is in Jamaican dollars (JMD); earnings are in US dollars (USD) — not directly comparable. Rates use the commodity rate in effect at each month's end; current month is to date.</p>
+          </div>
+        </div>
+
       </template>
     </template>
 
@@ -2669,11 +2873,13 @@ function downloadBuilderCsv() {
           <p class="text-xs font-medium text-slate-500 dark:text-slate-400">PO Value</p>
           <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtMoney(periodPOValue) }}</p>
           <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fyFilteredPOs.length }} purchase order{{ fyFilteredPOs.length !== 1 ? 's' : '' }}</p>
+          <p v-if="fySharedPOs.length" class="mt-1 text-[11px] leading-snug text-slate-400 dark:text-slate-500">+ {{ fmtMoney(sharedPOValue) }} on shared lines ({{ fySharedPOs.length }} PO{{ fySharedPOs.length !== 1 ? 's' : '' }})</p>
         </div>
         <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
           <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Invoice Value</p>
           <p class="mt-1.5 text-2xl font-bold text-slate-900 dark:text-slate-100">{{ fmtMoney(periodInvoiceValue) }}</p>
-          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fyFilteredInvoices.length }} invoice{{ fyFilteredInvoices.length !== 1 ? 's' : '' }}</p>
+          <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fyLocationGLInvoices.length }} invoice{{ fyLocationGLInvoices.length !== 1 ? 's' : '' }}</p>
+          <p v-if="fySharedInvoices.length" class="mt-1 text-[11px] leading-snug text-slate-400 dark:text-slate-500">+ {{ fmtMoney(sharedInvoiceValue) }} on shared lines ({{ fySharedInvoices.length }} invoice{{ fySharedInvoices.length !== 1 ? 's' : '' }})</p>
         </div>
         <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
           <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Budget Utilisation</p>
@@ -2681,6 +2887,7 @@ function downloadBuilderCsv() {
             {{ periodUtilizationPct !== null ? periodUtilizationPct.toFixed(1) + '%' : '—' }}
           </p>
           <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">{{ fmtMoney(periodInvoiceValue) }} of {{ fmtMoney(periodBudgetTotal) }} budget</p>
+          <p v-if="selectedSpendLocationId != null" class="mt-1 text-[11px] leading-snug text-slate-400 dark:text-slate-500">Location GL codes only; shared lines excluded</p>
         </div>
         <div class="rounded-xl bg-white dark:bg-slate-900 p-5 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700">
           <p class="text-xs font-medium text-slate-500 dark:text-slate-400">Variance</p>
@@ -2718,9 +2925,12 @@ function downloadBuilderCsv() {
 
         <!-- Cost centre budget vs actual (2/3 width) -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-slate-900 shadow-sm ring-1 ring-slate-200 dark:ring-slate-700 lg:col-span-2">
-          <div class="border-b border-slate-100 dark:border-slate-800 px-5 py-4">
-            <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Budget vs Actual by Cost Centre</h2>
-            <p class="text-xs text-slate-400 dark:text-slate-500">{{ selectedFY }} · actual resolved via invoice → PO → GL code</p>
+          <div class="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-5 py-4">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-700 dark:text-slate-300">Budget vs Actual by Cost Centre</h2>
+              <p class="text-xs text-slate-400 dark:text-slate-500">{{ selectedFY }} · actual resolved via invoice → PO → GL code<template v-if="selectedSpendLocationId != null"> · shared lines show full budget</template></p>
+            </div>
+            <UButton size="xs" color="neutral" variant="ghost" leading-icon="i-heroicons-arrow-down-tray" @click="downloadBudgetVsActualFY">CSV</UButton>
           </div>
           <div v-if="costCentreBreakdown.length === 0" class="flex h-48 items-center justify-center text-sm text-slate-400 dark:text-slate-500">
             No budget or cost-centre-linked spend recorded in {{ selectedFY }}.
@@ -2729,7 +2939,7 @@ function downloadBuilderCsv() {
             <div v-for="cc in costCentreBreakdown" :key="cc.gl_code" class="px-5 py-3">
               <div class="flex items-center justify-between gap-4">
                 <div class="min-w-0">
-                  <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{{ cc.gl_code }}</p>
+                  <p class="flex items-center gap-1.5 text-sm font-medium text-slate-800 dark:text-slate-100">{{ cc.gl_code }}<UBadge v-if="cc.shared" color="neutral" variant="soft" size="xs">Shared</UBadge></p>
                   <p class="truncate text-xs text-slate-400 dark:text-slate-500">{{ cc.description }}</p>
                 </div>
                 <div class="shrink-0 text-right">

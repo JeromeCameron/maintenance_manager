@@ -29,6 +29,7 @@ from schema.models import (
     Invoice,
     InvoiceStatus,
     InvoiceType,
+    Location,
     Supplier,
     User,
     WorkOrder,
@@ -159,6 +160,7 @@ SOURCES: dict = {
             (Asset, Invoice.asset_id == Asset.asset_id),
             (Supplier, Invoice.supplier_id == Supplier.supplier_id),
             (CostCentre, Invoice.cost_centre_id == CostCentre.gl_code),
+            (Location, Invoice.location_id == Location.location_id),
         ),
         fields={
             "id": FieldDef(Invoice.id, Invoice, "Invoice ID", int, (FilterOp.eq, FilterOp.in_)),
@@ -167,6 +169,7 @@ SOURCES: dict = {
             "job_date": FieldDef(Invoice.job_date, Invoice, "Job Date", date, (FilterOp.gte, FilterOp.lte, FilterOp.is_null, FilterOp.is_not_null)),
             "rec_date": FieldDef(Invoice.rec_date, Invoice, "Received Date", date, (FilterOp.gte, FilterOp.lte, FilterOp.is_null, FilterOp.is_not_null)),
             "asset_id": FieldDef(Invoice.asset_id, Invoice, "Asset ID", str, (FilterOp.eq, FilterOp.in_, FilterOp.is_null, FilterOp.is_not_null)),
+            "location_id": FieldDef(Invoice.location_id, Invoice, "Location ID", int, (FilterOp.eq, FilterOp.in_, FilterOp.is_null, FilterOp.is_not_null)),
             "description": FieldDef(Invoice.description, Invoice, "Description", str, (FilterOp.contains_any, FilterOp.contains_all, FilterOp.is_null, FilterOp.is_not_null)),
             "cost_centre_id": FieldDef(Invoice.cost_centre_id, Invoice, "GL Code", str, (FilterOp.eq, FilterOp.in_, FilterOp.is_null, FilterOp.is_not_null)),
             "subtotal": FieldDef(Invoice.subtotal, Invoice, "Subtotal", float, (FilterOp.gte, FilterOp.lte)),
@@ -176,6 +179,7 @@ SOURCES: dict = {
             "asset_alias": FieldDef(Asset.alias, Asset, "Asset Alias", str, ()),
             "supplier_name": FieldDef(Supplier.name, Supplier, "Supplier Name", str, (FilterOp.eq, FilterOp.in_)),
             "cost_centre_description": FieldDef(CostCentre.description, CostCentre, "Cost Centre Description", str, ()),
+            "location_name": FieldDef(Location.name, Location, "Location", str, (FilterOp.eq, FilterOp.in_)),
         },
     ),
     "budget": SourceDef(
